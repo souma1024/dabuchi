@@ -4,6 +4,16 @@
 
 2026年08月04日 14時47分45秒 JST
 
+## PR分割日時
+
+2026年08月04日 15時11分06秒 JST
+
+## PR分割方針
+
+- PR #5: domain、usecase、MySQL repository、DB設定とfactory-based test
+- Stacked PR: HTTP router、cursor codec、error handler、Expressへの組み込み、HTTP test、API文書
+- PR #5のマージ後、Stacked PRのbaseを`main`へ変更する
+
 ## 作業対象
 
 PR #2の送金金額入力画面へ遷移する前に利用する、送る相手候補一覧バックエンド。

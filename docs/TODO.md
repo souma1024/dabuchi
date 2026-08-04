@@ -2,7 +2,8 @@
 
 ## 進行中
 
-- [進行中] 送る相手候補一覧APIをPull Requestでレビューする
+- [進行中] PR #5で送る相手候補の取得基盤をレビューする
+- [進行中] PR #5をbaseにしたStacked PRでHTTP endpointとAPI仕様をレビューする
 
 ## 未着手
 
