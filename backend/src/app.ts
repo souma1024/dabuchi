@@ -17,7 +17,7 @@ export function createApp(
   transferRepository: TransferRepository = new MysqlTransferRepository(
     createMysqlPool(),
   ),
-  dependencies: AppDependencies
+  dependencies: AppDependencies,
 ) {
   const app = express();
 

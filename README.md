@@ -161,6 +161,7 @@ npm run db:test
 自分以外の送る相手候補を、作成日時順に20件ずつ返します。次ページはレスポンスの`pageInfo.nextCursor`を`cursor` queryへ渡して取得します。
 
 詳細なrequest / response / status codeは[送る相手候補一覧API](docs/api/user-recipients.md)を参照してください。
+
 ### `POST /api/transfers`
 
 送信者と受取人の内部UUID、および金額（円単位の正の整数）を保存します。

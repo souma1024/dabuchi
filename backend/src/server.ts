@@ -19,7 +19,7 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
     const server = createApp(undefined, { listUserRecipients }).listen(
       port,
       () => {
-      console.info(`Backend is listening on port ${port}.`);
+        console.info(`Backend is listening on port ${port}.`);
       },
     );
 
