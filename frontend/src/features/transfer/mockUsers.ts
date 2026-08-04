@@ -1,4 +1,4 @@
-import type { User } from './types';
+import type { TransferRecipient, User } from './types';
 
 // sample-app/src/db.json のユーザーデータを流用したモック。
 export const currentUser: User = {
@@ -8,10 +8,11 @@ export const currentUser: User = {
   zandaka: 80000,
 };
 
-export const recipients: User[] = [
-  { id: '2', name: '佐藤次郎', kozaBango: '2000000', zandaka: 50000 },
-  { id: '3', name: '佐藤三郎', kozaBango: '3000000', zandaka: 33000 },
-  { id: '4', name: '佐々木花子', kozaBango: '4000000', zandaka: 80000 },
-  { id: '5', name: '高橋洋子', kozaBango: '5000000', zandaka: 80000 },
-  { id: '6', name: '村上真子', kozaBango: '6000000', zandaka: 80000 },
+// profileUrlはdatabase/seeds/development.sqlのprofile_url（/assets/profiles/human1〜6.png）の命名規則に合わせている。
+export const recipients: TransferRecipient[] = [
+  { id: '2', name: '佐藤次郎', profileUrl: '/assets/profiles/human2.png' },
+  { id: '3', name: '佐藤三郎', profileUrl: '/assets/profiles/human3.png' },
+  { id: '4', name: '佐々木花子', profileUrl: '/assets/profiles/human4.png' },
+  { id: '5', name: '高橋洋子', profileUrl: '/assets/profiles/human5.png' },
+  { id: '6', name: '村上真子', profileUrl: '/assets/profiles/human6.png' },
 ];

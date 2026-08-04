@@ -1,12 +1,22 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import { sendTransfer } from '../api/transferClient';
 import { UserAvatar } from '../components/UserAvatar';
 import { currentUser, recipients } from '../mockUsers';
-import type { User } from '../types';
+import type { TransferRecipient } from '../types';
 
 interface TransferLocationState {
-  recipient: User;
+  recipient: TransferRecipient;
+}
+
+function isTransferRecipient(value: unknown): value is TransferRecipient {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { id?: unknown }).id === 'string' &&
+    typeof (value as { name?: unknown }).name === 'string'
+  );
 }
 
 function isTransferLocationState(
@@ -16,12 +26,12 @@ function isTransferLocationState(
     typeof state === 'object' &&
     state !== null &&
     'recipient' in state &&
-    typeof (state as { recipient?: unknown }).recipient === 'object'
+    isTransferRecipient((state as { recipient?: unknown }).recipient)
   );
 }
 
 // 送金相手の選択画面は別担当が実装するため、遷移元から渡されなかった場合はモックの相手にフォールバックする。
-const defaultRecipient: User = recipients[0] ?? currentUser;
+const defaultRecipient: TransferRecipient = recipients[0] ?? currentUser;
 
 export function TransferAmountPage() {
   const navigate = useNavigate();
@@ -29,6 +39,8 @@ export function TransferAmountPage() {
   const [amount, setAmount] = useState('');
   const [message, setMessage] = useState('');
   const [isSent, setIsSent] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const recipient = isTransferLocationState(location.state)
     ? location.state.recipient
@@ -44,6 +56,19 @@ export function TransferAmountPage() {
     const value = event.target.value;
     if (value === '' || /^[0-9]+$/.test(value)) {
       setAmount(value);
+    }
+  };
+
+  const handleSubmit = async () => {
+    setSubmitError('');
+    setIsSubmitting(true);
+    try {
+      await sendTransfer({ userId: recipient.id, amount: numericAmount });
+      setIsSent(true);
+    } catch {
+      setSubmitError('送金に失敗しました。時間をおいて再度お試しください。');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -71,7 +96,7 @@ export function TransferAmountPage() {
       <h1 className="text-lg font-bold text-slate-900">送金先</h1>
 
       <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <UserAvatar name={recipient.name} />
+        <UserAvatar name={recipient.name} profileUrl={recipient.profileUrl} />
         <span className="text-base font-medium text-slate-800">
           {recipient.name}
         </span>
@@ -125,13 +150,17 @@ export function TransferAmountPage() {
         />
       </div>
 
+      {submitError !== '' && (
+        <p className="text-sm text-red-600">{submitError}</p>
+      )}
+
       <button
         type="button"
-        disabled={!canSubmit}
-        onClick={() => setIsSent(true)}
+        disabled={!canSubmit || isSubmitting}
+        onClick={() => void handleSubmit()}
         className="rounded-2xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
       >
-        送金
+        {isSubmitting ? '送信中...' : '送金'}
       </button>
     </div>
   );
