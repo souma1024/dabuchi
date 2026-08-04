@@ -3,5 +3,4 @@ export interface User {
   name: string;
   kozaBango: string;
   zandaka: number;
-  iconSrc: string;
 }

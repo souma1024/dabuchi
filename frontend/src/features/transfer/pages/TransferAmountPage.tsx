@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import { UserAvatar } from '../components/UserAvatar';
 import { currentUser, recipients } from '../mockUsers';
 import type { User } from '../types';
 
@@ -70,11 +71,7 @@ export function TransferAmountPage() {
       <h1 className="text-lg font-bold text-slate-900">送金先</h1>
 
       <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <img
-          src={recipient.iconSrc}
-          alt=""
-          className="h-12 w-12 rounded-full object-cover"
-        />
+        <UserAvatar name={recipient.name} />
         <span className="text-base font-medium text-slate-800">
           {recipient.name}
         </span>
