@@ -10,6 +10,11 @@
     "node": ">=22"
   },
   "scripts": {
+    "db:up": "docker compose up --detach --wait mysql",
+    "db:migrate": "docker compose run --rm migrate",
+    "db:seed": "bash database/scripts/seed.sh",
+    "db:test": "bash database/tests/run.sh",
+    "db:down": "docker compose down",
     "dev:frontend": "npm run dev --workspace frontend",
     "dev:backend": "npm run dev --workspace backend",
     "format": "prettier --check .",

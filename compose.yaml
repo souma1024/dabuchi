@@ -1,0 +1,43 @@
+name: dabuchi
+
+services:
+  mysql:
+    image: mysql:8.4.10
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?Set MYSQL_DATABASE in .env}
+      MYSQL_USER: ${MYSQL_USER:?Set MYSQL_USER in .env}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+    ports:
+      - '127.0.0.1:${MYSQL_PORT:-3306}:3306'
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysqladmin ping --host=127.0.0.1 --user=root --silent',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  migrate:
+    image: flyway/flyway:13.1.0
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      FLYWAY_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:?Set MYSQL_DATABASE in .env}?allowPublicKeyRetrieval=true&useSSL=false
+      FLYWAY_USER: ${MYSQL_USER:?Set MYSQL_USER in .env}
+      FLYWAY_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      FLYWAY_LOCATIONS: filesystem:/flyway/sql
+    volumes:
+      - ./database/migrations:/flyway/sql:ro
+    command: migrate
+    restart: 'no'
+
+volumes:
+  mysql-data:
