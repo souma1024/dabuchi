@@ -1,6 +1,41 @@
 name: dabuchi
 
 services:
+  frontend:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+    ports:
+      - '127.0.0.1:5173:5173'
+    environment:
+      CHOKIDAR_USEPOLLING: 'true'
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    depends_on:
+      backend:
+        condition: service_started
+
+  backend:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+      - backend-node-modules:/app/node_modules
+    ports:
+      - '127.0.0.1:3000:3000'
+    environment:
+      PORT: 3000
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?Set MYSQL_DATABASE in .env}
+      MYSQL_USER: ${MYSQL_USER:?Set MYSQL_USER in .env}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+    command: sh -c "npm install && npm run dev"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
   mysql:
     image: mysql:8.4.10
     restart: unless-stopped
@@ -40,4 +75,6 @@ services:
     restart: 'no'
 
 volumes:
+  frontend-node-modules:
+  backend-node-modules:
   mysql-data:
