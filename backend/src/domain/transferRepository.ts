@@ -1,5 +1,6 @@
 export interface NewTransfer {
-  userId: string;
+  senderId: string;
+  recipientId: string;
   amount: number;
 }
 

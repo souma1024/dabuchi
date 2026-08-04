@@ -110,33 +110,59 @@ if query "
 fi
 
 query "
-  INSERT INTO transfers (user_id, amount)
-  VALUES ('auto-id-test', 1500);
+  INSERT INTO users (user_id, user_name, profile_url)
+  VALUES ('recipient-test', '受取人テスト', '/assets/profiles/human2.png');
+
+  INSERT INTO transfers (sender_id, recipient_id, amount)
+  SELECT sender.id, recipient.id, 1500
+  FROM users AS sender
+  CROSS JOIN users AS recipient
+  WHERE sender.user_id = 'auto-id-test'
+    AND recipient.user_id = 'recipient-test';
 " >/dev/null
 
 saved_transfer="$(query "
-  SELECT CONCAT(user_id, ':', amount)
+  SELECT CONCAT(sender.user_id, ':', recipient.user_id, ':', transfers.amount)
   FROM transfers
-  WHERE user_id = 'auto-id-test';
+  JOIN users AS sender ON sender.id = transfers.sender_id
+  JOIN users AS recipient ON recipient.id = transfers.recipient_id;
 ")"
 assert_equals \
-  "auto-id-test:1500" \
+  "auto-id-test:recipient-test:1500" \
   "${saved_transfer}" \
-  "transfer must save user_id and amount"
+  "transfer must save sender_id, recipient_id and amount"
 
 if query "
-  INSERT INTO transfers (user_id, amount)
-  VALUES ('auto-id-test', 0);
+  INSERT INTO transfers (sender_id, recipient_id, amount)
+  SELECT sender.id, recipient.id, 0
+  FROM users AS sender
+  CROSS JOIN users AS recipient
+  WHERE sender.user_id = 'auto-id-test'
+    AND recipient.user_id = 'recipient-test';
 " >/dev/null 2>&1; then
   echo "FAIL: zero transfer amount must be rejected" >&2
   exit 1
 fi
 
 if query "
-  INSERT INTO transfers (user_id, amount)
-  VALUES ('missing-user', 100);
+  INSERT INTO transfers (sender_id, recipient_id, amount)
+  VALUES (
+    UUID_TO_BIN('00000000-0000-0000-0000-000000000000'),
+    UUID_TO_BIN('00000000-0000-0000-0000-000000000001'),
+    100
+  );
 " >/dev/null 2>&1; then
-  echo "FAIL: unknown transfer user_id must be rejected" >&2
+  echo "FAIL: unknown transfer user IDs must be rejected" >&2
+  exit 1
+fi
+
+if query "
+  INSERT INTO transfers (sender_id, recipient_id, amount)
+  SELECT id, id, 100
+  FROM users
+  WHERE user_id = 'auto-id-test';
+" >/dev/null 2>&1; then
+  echo "FAIL: sender and recipient must be different" >&2
   exit 1
 fi
 

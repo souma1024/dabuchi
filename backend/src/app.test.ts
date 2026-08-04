@@ -1,6 +1,12 @@
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 
+import { createApp } from './app.js';
+import { ListUserRecipients } from './application/usecases/listUserRecipients.js';
+import type {
+  NewTransfer,
+  TransferRepository,
+} from './domain/transferRepository.js';
 import { encodeRecipientCursor } from './presentation/http/recipientCursorCodec.js';
 import { createTestApp } from './test/factories/appFactory.js';
 import {
@@ -8,12 +14,6 @@ import {
   createUserRecipientRecords,
 } from './test/factories/userRecipientFactory.js';
 import { createUserRecipientRepository } from './test/factories/userRecipientRepositoryFactory.js';
-import { createApp } from './app.js';
-import { ListUserRecipients } from './application/usecases/listUserRecipients.js';
-import type {
-  NewTransfer,
-  TransferRepository,
-} from './domain/transferRepository.js';
 
 const CURRENT_USER_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -161,27 +161,35 @@ describe('backend application', () => {
     consoleError.mockRestore();
   });
 
-  it('ユーザーIDと金額を保存する', async () => {
+  it('送信者ID、受取人IDと金額を保存する', async () => {
     const repository = new InMemoryTransferRepository();
+    const senderId = '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001';
+    const recipientId = '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf002';
     const response = await request(createTransferTestApp(repository))
       .post('/api/transfers')
-      .send({ userId: 'friend-001', amount: 1500 });
+      .send({ senderId, recipientId, amount: 1500 });
 
     expect(response.status).toBe(201);
     expect(response.body).toEqual({
       id: 1,
-      userId: 'friend-001',
+      senderId,
+      recipientId,
       amount: 1500,
     });
     expect(repository.transfers).toEqual([
-      { userId: 'friend-001', amount: 1500 },
+      { senderId, recipientId, amount: 1500 },
     ]);
   });
 
+  const senderId = '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001';
+  const recipientId = '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf002';
   it.each([
-    [{ amount: 1500 }, 'userId'],
-    [{ userId: 'friend-001', amount: 0 }, 'amount'],
-    [{ userId: 'friend-001', amount: 10.5 }, 'amount'],
+    [{ recipientId, amount: 1500 }, 'senderId'],
+    [{ senderId: 'invalid', recipientId, amount: 1500 }, 'senderId'],
+    [{ senderId, amount: 1500 }, 'recipientId'],
+    [{ senderId, recipientId: senderId, amount: 1500 }, 'different'],
+    [{ senderId, recipientId, amount: 0 }, 'amount'],
+    [{ senderId, recipientId, amount: 10.5 }, 'amount'],
   ])('不正な入力に400を返す: %j', async (body, expectedError) => {
     const repository = new InMemoryTransferRepository();
     const response = await request(createTransferTestApp(repository))

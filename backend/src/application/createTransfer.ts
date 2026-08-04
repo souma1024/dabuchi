@@ -4,7 +4,8 @@ import type {
   TransferRepository,
 } from '../domain/transferRepository.js';
 
-const MAX_USER_ID_LENGTH = 64;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export class InvalidTransferError extends Error {}
 
@@ -18,18 +19,24 @@ export class CreateTransfer {
 
 function parseTransfer(input: unknown): NewTransfer {
   if (typeof input !== 'object' || input === null) {
-    throw new InvalidTransferError('userId and amount are required');
+    throw new InvalidTransferError(
+      'senderId, recipientId and amount are required',
+    );
   }
 
-  const { userId, amount } = input as Record<string, unknown>;
+  const { senderId, recipientId, amount } = input as Record<string, unknown>;
 
-  if (
-    typeof userId !== 'string' ||
-    userId.trim().length === 0 ||
-    userId.length > MAX_USER_ID_LENGTH
-  ) {
+  if (typeof senderId !== 'string' || !UUID_PATTERN.test(senderId)) {
+    throw new InvalidTransferError('senderId must be a UUID');
+  }
+
+  if (typeof recipientId !== 'string' || !UUID_PATTERN.test(recipientId)) {
+    throw new InvalidTransferError('recipientId must be a UUID');
+  }
+
+  if (senderId.toLowerCase() === recipientId.toLowerCase()) {
     throw new InvalidTransferError(
-      `userId must be a non-empty string up to ${MAX_USER_ID_LENGTH} characters`,
+      'senderId and recipientId must be different',
     );
   }
 
@@ -37,5 +44,5 @@ function parseTransfer(input: unknown): NewTransfer {
     throw new InvalidTransferError('amount must be a positive safe integer');
   }
 
-  return { userId, amount: amount as number };
+  return { senderId, recipientId, amount: amount as number };
 }

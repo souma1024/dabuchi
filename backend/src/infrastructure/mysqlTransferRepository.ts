@@ -12,8 +12,9 @@ export class MysqlTransferRepository implements TransferRepository {
 
   async save(transfer: NewTransfer): Promise<SavedTransfer> {
     const [result] = await this.pool.execute<ResultSetHeader>(
-      'INSERT INTO transfers (user_id, amount) VALUES (?, ?)',
-      [transfer.userId, transfer.amount],
+      `INSERT INTO transfers (sender_id, recipient_id, amount)
+       VALUES (UUID_TO_BIN(?), UUID_TO_BIN(?), ?)`,
+      [transfer.senderId, transfer.recipientId, transfer.amount],
     );
 
     return { id: result.insertId, ...transfer };
