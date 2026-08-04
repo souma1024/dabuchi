@@ -2,8 +2,7 @@
 
 ## 進行中
 
-- [進行中] PR #5で送る相手候補の取得基盤をレビューする
-- [進行中] PR #7でHTTP endpointとAPI仕様をレビューする
+- [進行中] 候補一覧APIのLIMITパラメータ修正PRをレビューする
 
 ## 未着手
 
@@ -19,6 +18,9 @@
 
 ## 完了
 
+- [完了] PR #5の送る相手候補取得基盤をmainへマージする
+- [完了] PR #7のHTTP endpointとAPI仕様をmainへマージする
+- [完了] 実MySQLで候補一覧APIが500になるLIMITパラメータ型を修正する
 - [完了] PR #7のDB設定エラーで具体的な原因を安全にログ出力する
 - [完了] PR #5へPR #2マージ後の最新mainを取り込み、lockfile競合を解消する
 - [完了] frontendをReact / TypeScript / Viteで初期化する
