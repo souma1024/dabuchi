@@ -7,6 +7,7 @@
 - Frontend: React / TypeScript / Vite
 - Backend: Node.js / TypeScript / Express
 - Database: MySQL 8.4 / Flyway
+- Database access: MySQL2
 - Test: Vitest / Testing Library / Supertest
 - Quality: ESLint / Prettier / TypeScript
 - CI: GitHub Actions
@@ -89,6 +90,8 @@ npm run db:test
 
 テストは隔離された一時MySQLとvolumeを作成し、完了時に削除します。30件の開発用シードは投入せず、migration、UUID生成、公開IDの一意制約、残高制約だけを最小データで確認します。
 
+候補一覧APIを利用するbackendも同じ`.env`のMySQL接続情報を参照します。`MYSQL_HOST`を省略した場合は`127.0.0.1`へ接続します。
+
 ## ディレクトリ構成
 
 ```text
@@ -141,6 +144,12 @@ npm run db:test
 - 成功: `200 OK`
 - 未定義のパス: `404 Not Found` / `{ "error": "Not Found" }`
 
+### `GET /api/users/:currentUserId/recipients`
+
+自分以外の送る相手候補を、作成日時順に20件ずつ返します。次ページはレスポンスの`pageInfo.nextCursor`を`cursor` queryへ渡して取得します。
+
+詳細なrequest / response / status codeは[送る相手候補一覧API](docs/api/user-recipients.md)を参照してください。
+
 ## 品質チェック
 
 ```bash
@@ -174,7 +183,8 @@ test(backend): add transfer validation cases
 ## 設計記録と引き継ぎ
 
 - [ADR 0001](docs/adr/0001-initialize-typescript-monorepo.md)
-- [ADR 0002](docs/adr/0002-use-mysql-and-flyway.md)
+- [ADR 0002: MySQLとFlyway](docs/adr/0002-use-mysql-and-flyway.md)
+- [ADR 0003: 候補一覧のカーソルページング](docs/adr/0003-use-cursor-pagination-for-user-recipients.md)
 - [TODO](docs/TODO.md)
 - [作業報告書](docs/reports/2026-08-04-project-initialization-report.md)
 - [users DB作業報告書](docs/reports/2026-08-04-users-database-report.md)
