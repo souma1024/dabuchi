@@ -2,7 +2,8 @@
 
 ## 進行中
 
-- [進行中] users migrationとDatabase Migration CIをPull Requestでレビューする
+- [進行中] PR #5で送る相手候補の取得基盤をレビューする
+- [進行中] PR #7で候補一覧HTTP endpointをレビューする
 
 ## 未着手
 
@@ -11,12 +12,13 @@
 - [未着手] APIのrequest / response / status codeを機能ごとに設計する
 - [未着手] 認証・認可が必要な機能範囲を決定する
 - [未着手] frontendからbackendへの接続方法と環境変数を定義する
-- [未着手] backendからusers一覧を取得するAPIを実装する
+- [進行中] backendからusers一覧を取得するAPIを実装する
 - [未着手] 公開`user_id`の文字種・長さ・変更可否を決定する
 - [未着手] 送金時の残高更新と履歴管理をトランザクションとして設計する
 
 ## 完了
 
+- [完了] PR #5へPR #2マージ後の最新mainを取り込み、lockfile競合を解消する
 - [完了] frontendをReact / TypeScript / Viteで初期化する
 - [完了] backendをNode.js / TypeScript / Expressで初期化する
 - [完了] formatter / lint / typecheck / test / buildをCIへ追加する
