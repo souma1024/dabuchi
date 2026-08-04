@@ -31,6 +31,16 @@
 - `npm audit --audit-level=high`: 既知の脆弱性0件
 - `git diff --check`: 成功
 
+## 最新Stack取り込み日時
+
+2026年08月04日 16時05分18秒 JST
+
+## 最新Stack取り込み内容
+
+- 最新`main`を取り込んだPR #5をPR #7へmergeした
+- 競合した`docs/TODO.md`は、PR #5のmain追従記録とPR #7のレビュー対応記録を両方保持した
+- PR #2のfrontend、PR #5の候補取得基盤、PR #7のHTTP endpointとログ修正をまとめて再検証する
+
 ## PR分割方針
 
 - PR #5: domain、usecase、MySQL repository、DB設定とfactory-based test

@@ -15,4 +15,11 @@ describe('App', () => {
       screen.getByText('チーム開発の準備ができました。'),
     ).toBeInTheDocument();
   });
+
+  it('「送金する」リンクから送金金額入力画面のパスへ遷移できる', () => {
+    render(<App />);
+
+    const link = screen.getByRole('link', { name: '送金する' });
+    expect(link).toHaveAttribute('href', '/transfer');
+  });
 });
