@@ -19,6 +19,7 @@
 
 ## 完了
 
+- [完了] PR #7のDB設定エラーで具体的な原因を安全にログ出力する
 - [完了] frontendをReact / TypeScript / Viteで初期化する
 - [完了] backendをNode.js / TypeScript / Expressで初期化する
 - [完了] formatter / lint / typecheck / test / buildをCIへ追加する

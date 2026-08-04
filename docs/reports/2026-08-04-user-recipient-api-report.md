@@ -8,6 +8,29 @@
 
 2026年08月04日 15時11分06秒 JST
 
+## レビュー対応日時
+
+2026年08月04日 15時56分31秒 JST
+
+## レビュー対応内容
+
+- PR #7のレビューを受け、DB設定エラーの具体的な`Error.message`を起動ログへ出すようにした
+- `unknown`をそのままログへ出さず、`Error`以外は`Unknown error.`へ置き換える共通関数を追加した
+- 設定不足の原因を確認できる正常系と、任意オブジェクト内の値をログへ漏らさない異常系のunit testを追加した
+- 対象ファイルは`backend/src/server.ts`、`backend/src/shared/errorMessage.ts`、`backend/src/shared/errorMessage.test.ts`
+- CIの既存検証項目に変更はなく、Prettier、ESLint、TypeScript、Vitest、frontend/backend buildで確認する
+- 未解決事項はなく、次回はレビュー返信後にスレッドを解決する
+
+## レビュー対応の確認結果
+
+- `npm run format:write` / `npm run format`: 成功
+- `npm run lint`: 成功
+- `npm run typecheck`: 成功
+- `npm test`: frontend 1件、backend 23件、合計24件成功
+- `npm run build`: frontend / backendともに成功
+- `npm audit --audit-level=high`: 既知の脆弱性0件
+- `git diff --check`: 成功
+
 ## PR分割方針
 
 - PR #5: domain、usecase、MySQL repository、DB設定とfactory-based test

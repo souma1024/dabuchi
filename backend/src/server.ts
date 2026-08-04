@@ -3,6 +3,7 @@ import { ListUserRecipients } from './application/usecases/listUserRecipients.js
 import { createDatabasePool } from './infrastructure/database/createDatabasePool.js';
 import { loadDatabaseConfig } from './infrastructure/database/databaseConfig.js';
 import { MysqlUserRecipientRepository } from './infrastructure/repositories/mysqlUserRecipientRepository.js';
+import { getErrorMessage } from './shared/errorMessage.js';
 
 const port = Number(process.env.PORT ?? 3000);
 
@@ -23,8 +24,11 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
       console.error('Backend failed to start.', error);
       process.exitCode = 1;
     });
-  } catch {
-    console.error('Backend database configuration is invalid.');
+  } catch (error) {
+    console.error(
+      'Backend database configuration is invalid.',
+      getErrorMessage(error),
+    );
     process.exitCode = 1;
   }
 }
