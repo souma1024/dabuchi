@@ -11,7 +11,7 @@
 ## PR分割方針
 
 - PR #5: domain、usecase、MySQL repository、DB設定とfactory-based test
-- Stacked PR: HTTP router、cursor codec、error handler、Expressへの組み込み、HTTP test、API文書
+- PR #7: HTTP router、cursor codec、error handler、Expressへの組み込み、HTTP test、API文書
 - PR #5のマージ後、Stacked PRのbaseを`main`へ変更する
 
 ## 作業対象
