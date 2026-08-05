@@ -15,6 +15,8 @@
 - [未着手] PR #2の送金相手型を候補一覧に必要な項目へ分離する
 - [未着手] 公開`user_id`の文字種・長さ・変更可否を決定する
 - [未着手] 送金時の残高更新と履歴管理をトランザクションとして設計する
+- [未着手] 請求承認時の残高更新・送金履歴作成・状態更新をDB transactionで実装する
+- [未着手] 被請求者向けpending一覧と承認・拒否APIを設計する
 
 ## 完了
 
@@ -43,6 +45,9 @@
 - [完了] Vite proxyをローカル起動とCompose起動の両方に対応させる
 - [完了] PR #6マージ後のmainを空のDocker volumeから再構築して実APIを確認する
 - [完了] Composeのworkspace指定とLinux ARM64 musl binding不足を修正する
+- [完了] 請求状態を送金履歴から分離するDB設計とV3 migrationを追加する
+- [完了] server側current userから複数人分の個別金額請求を作成するAPIを実装する
+- [完了] 請求作成backendをDockerと実MySQLで動作確認する
 
 ## 保留・要確認
 
@@ -59,4 +64,4 @@
 
 ## 次回最初に着手するタスク
 
-cross-platform Compose修正PRをMac・Windowsのチームメンバーに確認してもらう。
+請求作成backendの実機確認結果を踏まえ、stack PRを作成するか修正する。
