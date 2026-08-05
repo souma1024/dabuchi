@@ -1,6 +1,5 @@
 import { RecipientListItem } from './components/RecipientListItem';
 import { useRecipients } from './hooks/useRecipients';
-import styles from './recipientSelection.module.css';
 import type { Recipient } from './types';
 
 interface RecipientSelectionScreenProps {
@@ -21,40 +20,44 @@ export function RecipientSelectionScreen({
   const state = useRecipients(currentUserId);
 
   return (
-    <main className={styles.screen}>
-      <header className={styles.appBar}>
+    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white">
+      <header className="grid grid-cols-[40px_1fr_40px] items-center border-b border-slate-200 px-3 py-3.5">
         {onBack ? (
           <button
             type="button"
-            className={styles.back}
             onClick={onBack}
             aria-label="戻る"
+            className="h-10 w-10 border-none bg-transparent text-xl text-slate-500"
           >
             ←
           </button>
         ) : (
           <span />
         )}
-        <h1 className={styles.title}>送金相手を選ぶ</h1>
+        <h1 className="m-0 text-center text-base font-semibold text-slate-900">
+          送金相手を選ぶ
+        </h1>
         <span />
       </header>
 
       {state.status === 'loading' && (
-        <p className={styles.status}>読み込み中…</p>
+        <p className="px-4 py-8 text-center text-slate-500">読み込み中…</p>
       )}
 
       {state.status === 'error' && (
-        <p className={styles.status} role="alert">
+        <p role="alert" className="px-4 py-8 text-center text-slate-500">
           {state.message}
         </p>
       )}
 
       {state.status === 'success' && state.recipients.length === 0 && (
-        <p className={styles.status}>送金できる相手がいません。</p>
+        <p className="px-4 py-8 text-center text-slate-500">
+          送金できる相手がいません。
+        </p>
       )}
 
       {state.status === 'success' && state.recipients.length > 0 && (
-        <ul className={styles.peopleList}>
+        <ul className="m-0 flex-1 list-none p-0">
           {state.recipients.map((recipient) => (
             <RecipientListItem
               key={recipient.id}

@@ -1,11 +1,12 @@
 import { useState } from 'react';
 
-import styles from '../recipientSelection.module.css';
-
 interface RecipientAvatarProps {
   name: string;
   imageUrl: string;
 }
+
+const AVATAR_CLASS =
+  'flex h-14 w-14 flex-none items-center justify-center rounded-full border border-slate-200 bg-slate-100 object-cover text-xl text-slate-400';
 
 /**
  * 相手のアイコン。写真は「速く見つける」ための補助なので alt は空にし、
@@ -16,7 +17,7 @@ export function RecipientAvatar({ name, imageUrl }: RecipientAvatarProps) {
 
   if (hasError) {
     return (
-      <span className={styles.avatar} aria-hidden="true">
+      <span className={AVATAR_CLASS} aria-hidden="true">
         {name.slice(0, 1)}
       </span>
     );
@@ -24,7 +25,7 @@ export function RecipientAvatar({ name, imageUrl }: RecipientAvatarProps) {
 
   return (
     <img
-      className={styles.avatar}
+      className={AVATAR_CLASS}
       src={imageUrl}
       alt=""
       onError={() => {

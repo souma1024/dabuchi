@@ -20,7 +20,7 @@ export function HomePage() {
           チーム開発の準備ができました。
         </p>
         <Link
-          to="/transfer"
+          to="/recipients"
           className="mt-8 inline-block rounded-2xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
         >
           送金する

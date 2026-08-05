@@ -1,5 +1,4 @@
 import type { Recipient } from '../types';
-import styles from '../recipientSelection.module.css';
 import { RecipientAvatar } from './RecipientAvatar';
 
 interface RecipientListItemProps {
@@ -16,17 +15,19 @@ export function RecipientListItem({
   onSelect,
 }: RecipientListItemProps) {
   return (
-    <li className={styles.person}>
+    <li className="border-b border-slate-100">
       <button
         type="button"
-        className={styles.personButton}
         onClick={() => {
           onSelect(recipient);
         }}
+        className="flex min-h-[76px] w-full items-center gap-3.5 border-none bg-transparent px-4 py-3 text-left hover:bg-slate-50"
       >
         <RecipientAvatar name={recipient.name} imageUrl={recipient.imageUrl} />
-        <span className={styles.name}>{recipient.name}</span>
-        <span className={styles.chevron} aria-hidden="true">
+        <span className="min-w-0 flex-1 truncate text-base font-semibold text-slate-800">
+          {recipient.name}
+        </span>
+        <span aria-hidden="true" className="flex-none text-lg text-slate-400">
           ›
         </span>
       </button>

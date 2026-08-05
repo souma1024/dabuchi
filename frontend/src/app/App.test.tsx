@@ -16,10 +16,10 @@ describe('App', () => {
     ).toBeInTheDocument();
   });
 
-  it('「送金する」リンクから送金金額入力画面のパスへ遷移できる', () => {
+  it('「送金する」リンクから相手選択画面のパスへ遷移できる', () => {
     render(<App />);
 
     const link = screen.getByRole('link', { name: '送金する' });
-    expect(link).toHaveAttribute('href', '/transfer');
+    expect(link).toHaveAttribute('href', '/recipients');
   });
 });
