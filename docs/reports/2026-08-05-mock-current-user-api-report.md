@@ -90,3 +90,64 @@ PR 1のcurrent user取得基盤を先にマージし、その後に本stack PR�
 - mock認証をproductionで許可しない
 - `profile_url`はAPIで`profileUrl`として返すため、`user_icon`という別カラムは追加しない
 - 残高は円単位の非負整数で返す
+
+## 追記: ローカル`.env`読込の修正
+
+### 作業日時
+
+2026年08月05日 13時15分53秒 JST
+
+### 作業目的
+
+READMEどおりに`cp .env.example .env`、`npm run dev:backend`を実行したとき、mock認証設定とDB設定をルート`.env`から読み込めるようにする。
+
+### 変更内容・変更意図
+
+- backendのローカル開発コマンドへ`--env-file=../.env`を追加した
+- Composeは環境変数を直接注入するため、`.env`ファイルを要求しない`dev:container`へ分離した
+- READMEへローカル起動とComposeでの設定供給方法を追記した
+- ローカル用・Compose用の起動契約を検証する回帰テストを追加した
+
+新しい依存ライブラリは追加せず、Node.js 22とtsxが対応する`--env-file`を利用する。影響範囲は開発時のbackend起動コマンドだけで、API、DB schema、frontendには影響しない。
+
+### 変更したファイル
+
+- `backend/package.json`
+- `backend/src/infrastructure/auth/developmentEnvironmentConfig.test.ts`
+- `compose.yaml`
+- `README.md`
+- `docs/TODO.md`
+- 本報告書
+
+### 追加・更新したテスト
+
+- ローカル起動コマンドがルート`.env`を指定すること
+- Composeが環境変数注入用の`dev:container`を使うこと
+
+### 実行した確認コマンド・結果
+
+- `npm run format`: 成功
+- `npm run lint`: 成功
+- `npm run typecheck`: 成功
+- `npm test`: frontend 26件、backend 38件成功
+- `npm run build`: 成功
+- `git diff --check`: 成功
+- READMEどおり`npm run dev:backend`を実行し、一時`.env`のmock userで`GET /api/me`: `200 OK`
+- `.env`ファイルなしでCompose backendを`dev:container`から起動し、`GET /health`: `200 OK`
+
+### CIで確認される内容
+
+通常CIでformat、lint、typecheck、unit test、frontend/backend buildを確認する。`compose.yaml`を変更したため、Database Migration CIでも既存migrationテストを確認する。
+
+### 未解決の課題・次にやること
+
+- PR #28のCIを再確認する
+- PR #27を先にマージし、その後PR #28をマージする
+
+### 次回最初に見るべきファイル・引き継ぎ事項
+
+- `backend/package.json`
+- `compose.yaml`
+- `backend/src/infrastructure/auth/developmentEnvironmentConfig.test.ts`
+- ローカル起動ではルート`.env`、Composeでは注入済み環境変数を使う
+- 次回最初に`gh pr checks 28 --repo souma1024/dabuchi`を実行する

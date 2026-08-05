@@ -39,6 +39,7 @@
 - [完了] factory-basedの候補一覧unit / HTTP / repositoryテストを追加する
 - [完了] 公開`user_id`からホーム表示用ユーザーを取得するrepository / usecaseとfactory-basedテストを追加する
 - [完了] 開発用mockログイン設定と`GET /api/me`を追加する
+- [完了] ローカルbackend起動時にルート`.env`を読み込む
 
 ## 保留・要確認
 

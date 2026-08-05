@@ -41,7 +41,7 @@ npm run dev:backend
 - Frontend: `http://localhost:5173`
 - Backend: `http://localhost:3000`
 
-バックエンドのポートは`PORT`環境変数で変更できます。秘密情報をリポジトリやログへ含めないでください。
+`npm run dev:backend`は、セットアップで作成したルートの`.env`を読み込みます。Composeでは同じ設定値をbackendコンテナへ環境変数として渡します。バックエンドのポートは`PORT`環境変数で変更できます。秘密情報をリポジトリやログへ含めないでください。
 
 ログイン機能を実装するまでは、`.env`の`MOCK_USER_ID`に設定した公開`user_id`を現在ユーザーとして扱います。mock認証は開発・テスト専用で、本番環境では起動を拒否します。
 
