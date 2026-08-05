@@ -35,3 +35,25 @@ ON DUPLICATE KEY UPDATE
   user_name = VALUES(user_name),
   profile_url = VALUES(profile_url);
 
+INSERT INTO transactions (id, sender_id, recipient_id, amount, created_at)
+VALUES
+  (UUID_TO_BIN('0a1b2c3d-0000-4000-8000-000000000001'), (SELECT id FROM users WHERE user_id = 'friend-001'), (SELECT id FROM users WHERE user_id = 'friend-002'), 5000, '2026-07-28 09:15:00.000000'),
+  (UUID_TO_BIN('0a1b2c3d-0000-4000-8000-000000000002'), (SELECT id FROM users WHERE user_id = 'friend-003'), (SELECT id FROM users WHERE user_id = 'friend-001'), 12000, '2026-07-29 14:30:00.000000'),
+  (UUID_TO_BIN('0a1b2c3d-0000-4000-8000-000000000003'), (SELECT id FROM users WHERE user_id = 'friend-002'), (SELECT id FROM users WHERE user_id = 'friend-004'), 3000, '2026-07-30 08:05:00.000000'),
+  (UUID_TO_BIN('0a1b2c3d-0000-4000-8000-000000000004'), (SELECT id FROM users WHERE user_id = 'friend-005'), (SELECT id FROM users WHERE user_id = 'friend-002'), 20000, '2026-07-31 19:45:00.000000'),
+  (UUID_TO_BIN('0a1b2c3d-0000-4000-8000-000000000005'), (SELECT id FROM users WHERE user_id = 'friend-001'), (SELECT id FROM users WHERE user_id = 'friend-006'), 7500, '2026-08-01 11:20:00.000000'),
+  (UUID_TO_BIN('0a1b2c3d-0000-4000-8000-000000000006'), (SELECT id FROM users WHERE user_id = 'friend-004'), (SELECT id FROM users WHERE user_id = 'friend-003'), 4200, '2026-08-01 16:10:00.000000'),
+  (UUID_TO_BIN('0a1b2c3d-0000-4000-8000-000000000007'), (SELECT id FROM users WHERE user_id = 'friend-006'), (SELECT id FROM users WHERE user_id = 'friend-005'), 9800, '2026-08-02 10:00:00.000000'),
+  (UUID_TO_BIN('0a1b2c3d-0000-4000-8000-000000000008'), (SELECT id FROM users WHERE user_id = 'friend-002'), (SELECT id FROM users WHERE user_id = 'friend-001'), 15000, '2026-08-02 20:30:00.000000'),
+  (UUID_TO_BIN('0a1b2c3d-0000-4000-8000-000000000009'), (SELECT id FROM users WHERE user_id = 'friend-007'), (SELECT id FROM users WHERE user_id = 'friend-008'), 6400, '2026-08-03 13:25:00.000000'),
+  (UUID_TO_BIN('0a1b2c3d-0000-4000-8000-000000000010'), (SELECT id FROM users WHERE user_id = 'friend-008'), (SELECT id FROM users WHERE user_id = 'friend-002'), 11000, '2026-08-04 07:50:00.000000'),
+  (UUID_TO_BIN('0a1b2c3d-0000-4000-8000-000000000011'), (SELECT id FROM users WHERE user_id = 'friend-001'), (SELECT id FROM users WHERE user_id = 'friend-003'), 2500, '2026-08-04 18:40:00.000000'),
+  (UUID_TO_BIN('0a1b2c3d-0000-4000-8000-000000000012'), (SELECT id FROM users WHERE user_id = 'friend-003'), (SELECT id FROM users WHERE user_id = 'friend-002'), 8800, '2026-08-05 09:05:00.000000'),
+  (UUID_TO_BIN('0a1b2c3d-0000-4000-8000-000000000013'), NULL, (SELECT id FROM users WHERE user_id = 'friend-001'), 30000, '2026-08-05 10:15:00.000000'),
+  (UUID_TO_BIN('0a1b2c3d-0000-4000-8000-000000000014'), NULL, (SELECT id FROM users WHERE user_id = 'friend-002'), 50000, '2026-08-05 12:30:00.000000')
+ON DUPLICATE KEY UPDATE
+  sender_id = VALUES(sender_id),
+  recipient_id = VALUES(recipient_id),
+  amount = VALUES(amount),
+  created_at = VALUES(created_at);
+

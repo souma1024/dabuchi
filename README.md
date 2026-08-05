@@ -76,11 +76,25 @@ npm run db:down
 
 提供画像は再配布せず、各自のローカル環境で`frontend/public/assets/profiles/`へ配置してください。必要なファイル名と注意事項は[プロフィール画像の配置手順](frontend/public/assets/profiles/README.md)に記載しています。PNGファイルは`.gitignore`でGit管理から除外しています。
 
+### transactionsテーブル
+
+| カラム       | 型              | 役割                                            |
+| ------------ | --------------- | ----------------------------------------------- |
+| id           | BINARY(16)      | 内部主キー。MySQLがUUIDを自動生成               |
+| sender_id    | BINARY(16)      | 送金元`users.id`。`users`を参照。任意（NULL可） |
+| recipient_id | BINARY(16)      | 送金先`users.id`。`users`を参照。必須           |
+| amount       | BIGINT UNSIGNED | 円単位の取引額。0より大きい                     |
+| created_at   | DATETIME(6)     | 取引日時。MySQLが自動設定                       |
+
+取引履歴を保存するテーブルです。`sender_id`・`recipient_id`は`users(id)`への外部キーです。送り先は必ず存在するため`recipient_id`は必須とし、`sender_id`はNULLを許容します。これは「送金」「受け取り」に加えて、将来の「チャージ」（送り主なしで`recipient_id`だけ）のように、`sender_id`・`recipient_id`・`amount`の組み合わせで種別を表現するためです。`amount > 0`と、両者が非NULLのときの`sender_id <> recipient_id`をCHECK制約で保証します。相手ごとに作成日時の降順で一覧取得する読み取りに備えて、`(sender_id, created_at, id)`と`(recipient_id, created_at, id)`の複合indexを持ちます。
+
+今回は履歴表示に必要な読み取り基盤までを対象とし、送金時の残高更新と取引記録の書き込みは含みません。開発用シードは`friend-001`〜`friend-008`の間で14件の取引を投入し、うち2件は送り主なしのチャージ例です。
+
 ### migrationの追加
 
 `database/migrations/`へ、`V2__説明.sql`のように連番のSQLを追加します。適用済みmigrationは書き換えず、新しいmigrationで変更してください。
 
-破壊的なrollbackは自動実行しません。今回の手動rollback SQLは`database/rollback/V1__drop_users.sql`です。実行前にデータのバックアップと対象環境を確認してください。
+破壊的なrollbackは自動実行しません。手動rollback SQLは`database/rollback/V1__drop_users.sql`と`database/rollback/V2__drop_transactions.sql`です。`transactions`は`users`を参照するため、rollbackは`V2`から先に実行します。実行前にデータのバックアップと対象環境を確認してください。
 
 ### DBテスト
 
@@ -188,3 +202,4 @@ test(backend): add transfer validation cases
 - [TODO](docs/TODO.md)
 - [作業報告書](docs/reports/2026-08-04-project-initialization-report.md)
 - [users DB作業報告書](docs/reports/2026-08-04-users-database-report.md)
+- [transactions DB作業報告書](docs/reports/2026-08-05-transactions-database-report.md)

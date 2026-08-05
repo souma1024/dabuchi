@@ -3,6 +3,7 @@
 ## 進行中
 
 - [進行中] ホーム画面用current user取得基盤PRをレビューする
+- [進行中] 取引履歴保存用transactions migration・rollback・DB統合テスト基盤PRをレビューする
 
 ## 未着手
 
