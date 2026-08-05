@@ -23,7 +23,7 @@ describe('TransferAmountPage', () => {
     );
 
     expect(screen.getByText('佐藤次郎')).toBeInTheDocument();
-    expect(screen.getByText('80,000円')).toBeInTheDocument();
+    expect(screen.getByText('100,000円')).toBeInTheDocument();
   });
 
   it('遷移元から有効な相手が渡された場合はその相手を表示する', () => {

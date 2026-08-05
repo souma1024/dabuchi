@@ -42,7 +42,7 @@ describe('BillingAmountPage', () => {
     expect(screen.getByText('テスト花子')).toBeInTheDocument();
   });
 
-  it('請求上限額（口座残高）とメッセージ欄を表示する', () => {
+  it('請求上限額（システム固定の上限額）とメッセージ欄を表示する', () => {
     render(
       <MemoryRouter>
         <BillingAmountPage />
@@ -50,7 +50,7 @@ describe('BillingAmountPage', () => {
     );
 
     expect(screen.getByText('請求上限額')).toBeInTheDocument();
-    expect(screen.getByText('80,000円')).toBeInTheDocument();
+    expect(screen.getByText('100,000円')).toBeInTheDocument();
     expect(screen.getByLabelText('メッセージ（任意）')).toBeInTheDocument();
   });
 
