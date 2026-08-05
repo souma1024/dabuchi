@@ -20,6 +20,7 @@ query() {
     -e MYSQL_PWD="${MYSQL_PASSWORD}" \
     mysql \
     mysql --batch --skip-column-names \
+    --default-character-set=utf8mb4 \
     --user="${MYSQL_USER}" \
     --database="${MYSQL_DATABASE}" \
     --execute="$1"
@@ -167,3 +168,16 @@ if query "
 fi
 
 echo "Database migration tests passed."
+bash database/scripts/seed.sh
+
+seeded_user_name="$(query "
+  SELECT user_name
+  FROM users
+  WHERE user_id = 'friend-001';
+")"
+assert_equals \
+  "山田 太郎" \
+  "${seeded_user_name}" \
+  "development seed must preserve utf8mb4 user names"
+
+echo "Database migration and seed tests passed."

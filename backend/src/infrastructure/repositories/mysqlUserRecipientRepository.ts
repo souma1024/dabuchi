@@ -43,7 +43,7 @@ export class MysqlUserRecipientRepository implements UserRecipientRepository {
           OR (created_at = ? AND id > UUID_TO_BIN(?))
         )`
       : '';
-    const values: Array<number | string> = [input.currentUserId];
+    const values: string[] = [input.currentUserId];
 
     if (input.cursor) {
       values.push(
@@ -53,7 +53,8 @@ export class MysqlUserRecipientRepository implements UserRecipientRepository {
       );
     }
 
-    values.push(input.limit);
+    // mysql2 sends JavaScript numbers as DOUBLE values, which MySQL rejects for LIMIT.
+    values.push(String(input.limit));
 
     const [rows] = await this.pool.execute<RecipientRow[]>(
       `${BASE_RECIPIENT_QUERY}
