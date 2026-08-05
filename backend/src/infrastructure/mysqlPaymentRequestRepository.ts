@@ -7,6 +7,7 @@ import type {
   PaymentRequestRepository,
   SavedPaymentRequest,
 } from '../domain/paymentRequestRepository.js';
+import { isForeignKeyViolation } from './database/mysqlError.js';
 
 export class MysqlPaymentRequestRepository implements PaymentRequestRepository {
   constructor(private readonly pool: Pool) {}
@@ -46,13 +47,4 @@ export class MysqlPaymentRequestRepository implements PaymentRequestRepository {
       status: 'pending',
     }));
   }
-}
-
-function isForeignKeyViolation(error: unknown): error is { code: string } {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    error.code === 'ER_NO_REFERENCED_ROW_2'
-  );
 }
