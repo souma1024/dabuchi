@@ -1,4 +1,4 @@
-import { UserAvatar } from '../../transfer/components/UserAvatar';
+import { UserAvatar } from '../../../components/UserAvatar';
 import { formatTransactionDateTime } from '../formatTransactionDateTime';
 import type { Transaction, TransactionDirection } from '../types';
 
