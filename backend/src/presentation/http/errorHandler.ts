@@ -1,6 +1,6 @@
 import type { ErrorRequestHandler } from 'express';
 
-import { CurrentUserNotFoundError } from '../../application/usecases/listUserRecipients.js';
+import { CurrentUserNotFoundError } from '../../application/errors/currentUserNotFoundError.js';
 import { InvalidRecipientRequestError } from './userRecipientRouter.js';
 
 export const errorHandler: ErrorRequestHandler = (

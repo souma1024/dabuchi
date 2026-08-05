@@ -41,7 +41,9 @@ npm run dev:backend
 - Frontend: `http://localhost:5173`
 - Backend: `http://localhost:3000`
 
-バックエンドのポートは`PORT`環境変数で変更できます。秘密情報をリポジトリやログへ含めないでください。
+`npm run dev:backend`は、セットアップで作成したルートの`.env`を読み込みます。Composeでは同じ設定値をbackendコンテナへ環境変数として渡します。バックエンドのポートは`PORT`環境変数で変更できます。秘密情報をリポジトリやログへ含めないでください。
+
+ログイン機能を実装するまでは、`.env`の`MOCK_USER_ID`に設定した公開`user_id`を現在ユーザーとして扱います。mock認証は開発・テスト専用で、本番環境では起動を拒否します。
 
 ## データベース
 
@@ -150,6 +152,12 @@ npm run db:test
 
 詳細なrequest / response / status codeは[送る相手候補一覧API](docs/api/user-recipients.md)を参照してください。
 
+### `GET /api/me`
+
+mockログイン中のユーザーについて、ホーム画面に必要な内部UUID、名前、プロフィール画像URL、残高を返します。
+
+詳細なresponse / status codeは[Current user API](docs/api/current-user.md)を参照してください。
+
 ## 品質チェック
 
 ```bash
@@ -185,6 +193,7 @@ test(backend): add transfer validation cases
 - [ADR 0001](docs/adr/0001-initialize-typescript-monorepo.md)
 - [ADR 0002: MySQLとFlyway](docs/adr/0002-use-mysql-and-flyway.md)
 - [ADR 0003: 候補一覧のカーソルページング](docs/adr/0003-use-cursor-pagination-for-user-recipients.md)
+- [ADR 0004: ログイン実装までのmock user](docs/adr/0004-use-configured-mock-user-until-login.md)
 - [TODO](docs/TODO.md)
 - [作業報告書](docs/reports/2026-08-04-project-initialization-report.md)
 - [users DB作業報告書](docs/reports/2026-08-04-users-database-report.md)

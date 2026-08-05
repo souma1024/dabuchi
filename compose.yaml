@@ -31,7 +31,10 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:?Set MYSQL_DATABASE in .env}
       MYSQL_USER: ${MYSQL_USER:?Set MYSQL_USER in .env}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
-    command: sh -c "npm install && npm run dev"
+      NODE_ENV: ${NODE_ENV:-development}
+      AUTH_MODE: ${AUTH_MODE:-mock}
+      MOCK_USER_ID: ${MOCK_USER_ID:-}
+    command: sh -c "npm install && npm run dev:container"
     depends_on:
       migrate:
         condition: service_completed_successfully
