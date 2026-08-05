@@ -9,6 +9,6 @@ set -euo pipefail
 docker compose exec -T \
   -e MYSQL_PWD="${MYSQL_PASSWORD}" \
   mysql \
-  mysql --user="${MYSQL_USER}" --database="${MYSQL_DATABASE}" \
+  mysql --default-character-set=utf8mb4 \
+  --user="${MYSQL_USER}" --database="${MYSQL_DATABASE}" \
   < database/seeds/development.sql
-
