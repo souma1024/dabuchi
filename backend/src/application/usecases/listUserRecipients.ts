@@ -1,5 +1,5 @@
-import type { UserRecipient } from '../../domain/userRecipient.js';
 import { CurrentUserNotFoundError } from '../errors/currentUserNotFoundError.js';
+import type { UserRecipient } from '../../domain/userRecipient.js';
 import type {
   RecipientCursor,
   UserRecipientRepository,

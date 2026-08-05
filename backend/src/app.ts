@@ -2,15 +2,18 @@ import express from 'express';
 
 import type { GetCurrentUser } from './application/usecases/getCurrentUser.js';
 import type { ListUserRecipients } from './application/usecases/listUserRecipients.js';
+import type { TransferRepository } from './domain/transferRepository.js';
 import { createCurrentUserRouter } from './presentation/http/currentUserRouter.js';
 import { errorHandler } from './presentation/http/errorHandler.js';
 import { healthRouter } from './presentation/http/healthRouter.js';
 import { createUserRecipientRouter } from './presentation/http/userRecipientRouter.js';
+import { createTransferRouter } from './presentation/http/transferRouter.js';
 
 export interface AppDependencies {
   getCurrentUser: GetCurrentUser;
   currentUserId: string;
   listUserRecipients: ListUserRecipients;
+  transferRepository: TransferRepository;
 }
 
 export function createApp(dependencies: AppDependencies) {
@@ -29,6 +32,10 @@ export function createApp(dependencies: AppDependencies) {
   app.use(
     '/api/users',
     createUserRecipientRouter(dependencies.listUserRecipients),
+  );
+  app.use(
+    '/api/transfers',
+    createTransferRouter(dependencies.transferRepository),
   );
 
   app.use((_request, response) => {

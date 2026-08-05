@@ -82,7 +82,19 @@ npm run db:down
 
 `database/migrations/`へ、`V2__説明.sql`のように連番のSQLを追加します。適用済みmigrationは書き換えず、新しいmigrationで変更してください。
 
-破壊的なrollbackは自動実行しません。今回の手動rollback SQLは`database/rollback/V1__drop_users.sql`です。実行前にデータのバックアップと対象環境を確認してください。
+破壊的なrollbackは自動実行しません。V2で追加した`transfers`テーブルを戻す場合は、必ず対象環境を確認し、実行前にバックアップを取得してください。
+
+```bash
+docker compose exec -T mysql sh -c \
+  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqldump --user=root "$MYSQL_DATABASE" transfers' \
+  > transfers-backup.sql
+
+docker compose exec -T mysql sh -c \
+  'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --user=root "$MYSQL_DATABASE"' \
+  < database/rollback/V2__drop_transfers.sql
+```
+
+このrollbackは`transfers`テーブルと保存済みデータを削除します。`users`テーブルを削除するV1のrollbackではなく、`database/rollback/V2__drop_transfers.sql`を使用してください。手動rollbackではFlywayのschema historyは変更されないため、migrationを再適用する場合はDBを再作成するか、運用手順に従ってschema historyとの整合性を回復してください。
 
 ### DBテスト
 
@@ -151,6 +163,24 @@ npm run db:test
 自分以外の送る相手候補を、作成日時順に20件ずつ返します。次ページはレスポンスの`pageInfo.nextCursor`を`cursor` queryへ渡して取得します。
 
 詳細なrequest / response / status codeは[送る相手候補一覧API](docs/api/user-recipients.md)を参照してください。
+
+### `POST /api/transfers`
+
+送信者と受取人の内部UUID、および金額（円単位の正の整数）を保存します。
+`senderId`と`recipientId`には`users.id`をUUID文字列へ変換した値を指定します。
+
+```json
+{
+  "senderId": "5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001",
+  "recipientId": "5e5a4a1e-3b42-4f47-8b1f-b77ef98bf002",
+  "amount": 1500
+}
+```
+
+- 成功: `201 Created`
+- 入力不正: `400 Bad Request`
+- 存在しない送信者または受取人: `422 Unprocessable Entity`
+- 想定外のDBエラー: `500 Internal Server Error`
 
 ### `GET /api/me`
 

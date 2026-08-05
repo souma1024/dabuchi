@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { CurrentUserNotFoundError } from '../errors/currentUserNotFoundError.js';
 import { createUserRecipientRecords } from '../../test/factories/userRecipientFactory.js';
 import { createUserRecipientRepository } from '../../test/factories/userRecipientRepositoryFactory.js';
-import { CurrentUserNotFoundError } from '../errors/currentUserNotFoundError.js';
 import { ListUserRecipients } from './listUserRecipients.js';
 
 const CURRENT_USER_ID = '11111111-1111-4111-8111-111111111111';

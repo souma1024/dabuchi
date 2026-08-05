@@ -1,6 +1,11 @@
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 
+import { TransferParticipantNotFoundError } from './application/createTransfer.js';
+import type {
+  NewTransfer,
+  TransferRepository,
+} from './domain/transferRepository.js';
 import { encodeRecipientCursor } from './presentation/http/recipientCursorCodec.js';
 import { createTestApp } from './test/factories/appFactory.js';
 import { createCurrentUser } from './test/factories/currentUserFactory.js';
@@ -12,6 +17,24 @@ import { createUserRecipientRepository } from './test/factories/userRecipientRep
 
 const CURRENT_USER_ID = '11111111-1111-4111-8111-111111111111';
 const MOCK_USER_ID = 'friend-001';
+
+class InMemoryTransferRepository implements TransferRepository {
+  transfers: NewTransfer[] = [];
+  error: Error | null = null;
+
+  save(transfer: NewTransfer) {
+    if (this.error) {
+      return Promise.reject(this.error);
+    }
+
+    this.transfers.push(transfer);
+    return Promise.resolve({ id: this.transfers.length, ...transfer });
+  }
+}
+
+function createTransferTestApp(repository: TransferRepository) {
+  return createTestApp({ transferRepository: repository }).app;
+}
 
 describe('backend application', () => {
   it('ヘルスチェックで稼働状態を返す', async () => {
@@ -166,5 +189,71 @@ describe('backend application', () => {
     const responseBody: unknown = response.body;
     expect(JSON.stringify(responseBody)).not.toContain('database detail');
     consoleError.mockRestore();
+  });
+
+  it('送信者ID、受取人IDと金額を保存する', async () => {
+    const repository = new InMemoryTransferRepository();
+    const senderId = '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001';
+    const recipientId = '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf002';
+    const response = await request(createTransferTestApp(repository))
+      .post('/api/transfers')
+      .send({ senderId, recipientId, amount: 1500 });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toEqual({
+      id: 1,
+      senderId,
+      recipientId,
+      amount: 1500,
+    });
+    expect(repository.transfers).toEqual([
+      { senderId, recipientId, amount: 1500 },
+    ]);
+  });
+
+  const senderId = '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001';
+  const recipientId = '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf002';
+  it.each([
+    [{ recipientId, amount: 1500 }, 'senderId'],
+    [{ senderId: 'invalid', recipientId, amount: 1500 }, 'senderId'],
+    [{ senderId, amount: 1500 }, 'recipientId'],
+    [{ senderId, recipientId: senderId, amount: 1500 }, 'different'],
+    [{ senderId, recipientId, amount: 0 }, 'amount'],
+    [{ senderId, recipientId, amount: 10.5 }, 'amount'],
+  ])('不正な入力に400を返す: %j', async (body, expectedError) => {
+    const repository = new InMemoryTransferRepository();
+    const response = await request(createTransferTestApp(repository))
+      .post('/api/transfers')
+      .send(body);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: {
+        code: 'INVALID_REQUEST',
+        message: expect.stringContaining(expectedError) as string,
+      },
+    });
+    expect(repository.transfers).toEqual([]);
+  });
+
+  it('存在しない送信者または受取人なら422を返す', async () => {
+    const repository = new InMemoryTransferRepository();
+    repository.error = new TransferParticipantNotFoundError();
+
+    const response = await request(createTransferTestApp(repository))
+      .post('/api/transfers')
+      .send({
+        senderId,
+        recipientId,
+        amount: 1500,
+      });
+
+    expect(response.status).toBe(422);
+    expect(response.body).toEqual({
+      error: {
+        code: 'TRANSFER_PARTICIPANT_NOT_FOUND',
+        message: 'senderId or recipientId was not found.',
+      },
+    });
   });
 });

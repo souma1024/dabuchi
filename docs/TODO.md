@@ -2,8 +2,7 @@
 
 ## 進行中
 
-- [進行中] ホーム画面用current user取得基盤PRをレビューする
-- [進行中] mockログインと`GET /api/me`のstack PRをレビューする
+- [進行中] PR #6の送金履歴保存APIをレビューする
 
 ## 未着手
 
@@ -40,6 +39,7 @@
 - [完了] 公開`user_id`からホーム表示用ユーザーを取得するrepository / usecaseとfactory-basedテストを追加する
 - [完了] 開発用mockログイン設定と`GET /api/me`を追加する
 - [完了] ローカルbackend起動時にルート`.env`を読み込む
+- [完了] Vite proxyをローカル起動とCompose起動の両方に対応させる
 
 ## 保留・要確認
 
@@ -51,7 +51,6 @@
 ## 技術的負債
 
 - DB CIはmigration・seed関連の変更時だけ起動する方針のため、backend repositoryはfactory-based testで検証している
-- Docker frontendのVite proxyが`localhost:3000`を参照しており、コンテナ間API通信ではbackend service名へ切り替える必要がある
 - users件数増加時に`created_at, id`の複合indexを検討する
 
 ## 次回最初に着手するタスク

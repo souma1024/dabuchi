@@ -1,3 +1,4 @@
+import type { TransferRepository } from '../../domain/transferRepository.js';
 import { createApp } from '../../app.js';
 import type { CurrentUserRepository } from '../../application/ports/currentUserRepository.js';
 import type { UserRecipientRepository } from '../../application/ports/userRecipientRepository.js';
@@ -15,6 +16,7 @@ interface AppFactoryOptions {
   currentUserExists?: boolean;
   recipients?: UserRecipientRecord[];
   repository?: UserRecipientRepository;
+  transferRepository?: TransferRepository;
 }
 
 export function createTestApp(options: AppFactoryOptions = {}) {
@@ -29,12 +31,18 @@ export function createTestApp(options: AppFactoryOptions = {}) {
     });
   const getCurrentUser = new GetCurrentUser(currentUserRepository);
   const listUserRecipients = new ListUserRecipients(repository);
+  const transferRepository: TransferRepository =
+    options.transferRepository ??
+    ({
+      save: () => Promise.reject(new Error('Transfer repository was not set.')),
+    } satisfies TransferRepository);
 
   return {
     app: createApp({
       currentUserId: options.currentUserId ?? 'friend-001',
       getCurrentUser,
       listUserRecipients,
+      transferRepository,
     }),
     currentUserRepository,
     repository,
