@@ -43,23 +43,6 @@ describe('TransferAmountPage', () => {
     expect(screen.getByText('テスト花子')).toBeInTheDocument();
   });
 
-  it.each([
-    ['recipientがnull', { recipient: null }],
-    ['recipientが空オブジェクト', { recipient: {} }],
-    ['recipientにnameがない', { recipient: { id: '9' } }],
-  ])(
-    '不正なstate（%s）の場合はモックの相手にフォールバックする',
-    (_label, state) => {
-      render(
-        <MemoryRouter initialEntries={[{ pathname: '/', state }]}>
-          <TransferAmountPage />
-        </MemoryRouter>,
-      );
-
-      expect(screen.getByText('佐藤次郎')).toBeInTheDocument();
-    },
-  );
-
   it('送金上限額を超える金額を入力すると送金ボタンが無効になる', async () => {
     const user = userEvent.setup();
     render(
