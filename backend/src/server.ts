@@ -1,7 +1,10 @@
 import { createApp } from './app.js';
+import { GetCurrentUser } from './application/usecases/getCurrentUser.js';
 import { ListUserRecipients } from './application/usecases/listUserRecipients.js';
+import { loadMockAuthenticationConfig } from './infrastructure/auth/mockAuthenticationConfig.js';
 import { createDatabasePool } from './infrastructure/database/createDatabasePool.js';
 import { loadDatabaseConfig } from './infrastructure/database/databaseConfig.js';
+import { MysqlCurrentUserRepository } from './infrastructure/repositories/mysqlCurrentUserRepository.js';
 import { MysqlUserRecipientRepository } from './infrastructure/repositories/mysqlUserRecipientRepository.js';
 import { getErrorMessage } from './shared/errorMessage.js';
 
@@ -13,10 +16,17 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
 } else {
   try {
     const databaseConfig = loadDatabaseConfig(process.env);
+    const authenticationConfig = loadMockAuthenticationConfig(process.env);
     const pool = createDatabasePool(databaseConfig);
-    const repository = new MysqlUserRecipientRepository(pool);
-    const listUserRecipients = new ListUserRecipients(repository);
-    const server = createApp({ listUserRecipients }).listen(port, () => {
+    const currentUserRepository = new MysqlCurrentUserRepository(pool);
+    const userRecipientRepository = new MysqlUserRecipientRepository(pool);
+    const getCurrentUser = new GetCurrentUser(currentUserRepository);
+    const listUserRecipients = new ListUserRecipients(userRecipientRepository);
+    const server = createApp({
+      currentUserId: authenticationConfig.currentUserId,
+      getCurrentUser,
+      listUserRecipients,
+    }).listen(port, () => {
       console.info(`Backend is listening on port ${port}.`);
     });
 
@@ -25,10 +35,7 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
       process.exitCode = 1;
     });
   } catch (error) {
-    console.error(
-      'Backend database configuration is invalid.',
-      getErrorMessage(error),
-    );
+    console.error('Backend configuration is invalid.', getErrorMessage(error));
     process.exitCode = 1;
   }
 }

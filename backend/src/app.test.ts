@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { encodeRecipientCursor } from './presentation/http/recipientCursorCodec.js';
 import { createTestApp } from './test/factories/appFactory.js';
+import { createCurrentUser } from './test/factories/currentUserFactory.js';
 import {
   createUserRecipientRecord,
   createUserRecipientRecords,
@@ -10,6 +11,7 @@ import {
 import { createUserRecipientRepository } from './test/factories/userRecipientRepositoryFactory.js';
 
 const CURRENT_USER_ID = '11111111-1111-4111-8111-111111111111';
+const MOCK_USER_ID = 'friend-001';
 
 describe('backend application', () => {
   it('ヘルスチェックで稼働状態を返す', async () => {
@@ -26,6 +28,33 @@ describe('backend application', () => {
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ error: 'Not Found' });
+  });
+
+  it('mockログイン中のユーザーをホーム表示用の4項目で返す', async () => {
+    const currentUser = createCurrentUser();
+    const { app, currentUserRepository } = createTestApp({ currentUser });
+
+    const response = await request(app).get('/api/me');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ user: currentUser });
+    expect(currentUserRepository.findByUserId).toHaveBeenCalledWith(
+      MOCK_USER_ID,
+    );
+  });
+
+  it('mockログインユーザーが存在しなければ404を返す', async () => {
+    const { app } = createTestApp({ currentUser: null });
+
+    const response = await request(app).get('/api/me');
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({
+      error: {
+        code: 'CURRENT_USER_NOT_FOUND',
+        message: 'Current user was not found.',
+      },
+    });
   });
 
   it('送る相手候補を20件と次ページ情報で返す', async () => {
