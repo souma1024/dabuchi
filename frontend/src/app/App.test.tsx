@@ -22,4 +22,18 @@ describe('App', () => {
     const link = screen.getByRole('link', { name: '送金する' });
     expect(link).toHaveAttribute('href', '/transfer');
   });
+
+  it('「請求する」リンクから請求金額入力画面のパスへ遷移できる', () => {
+    render(<App />);
+
+    const link = screen.getByRole('link', { name: '請求する' });
+    expect(link).toHaveAttribute('href', '/billing');
+  });
+
+  it('「請求した相手一覧」リンクから請求一覧画面のパスへ遷移できる', () => {
+    render(<App />);
+
+    const link = screen.getByRole('link', { name: '請求した相手一覧' });
+    expect(link).toHaveAttribute('href', '/billing/requests');
+  });
 });
