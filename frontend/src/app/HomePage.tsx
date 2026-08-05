@@ -1,11 +1,7 @@
 import { Link } from 'react-router-dom';
 
+import { useCurrentUser } from '../features/currentUser/hooks/useCurrentUser';
 import { UserAvatar } from '../features/transfer/components/UserAvatar';
-import { currentUser } from '../features/transfer/mockUsers';
-
-// currentUserはprofileUrlを持たないため、暫定で提供画像の1枚を割り当てる。
-// 認証を実装したらログインユーザーの画像を使う。画像が無い環境では頭文字表示にフォールバックする。
-const currentUserProfileUrl = '/assets/profiles/human1.png';
 
 // お金が出ていく操作はsend、入ってくる操作はrequestとして色を分ける。
 // 押し間違いを防ぐため、送金と請求は同じ色にしない。
@@ -57,6 +53,9 @@ const disabledStyles: Record<Tone, string> = {
   quiet: 'cursor-not-allowed border border-slate-200 text-slate-400',
 };
 
+const balanceSectionStyle =
+  'flex min-h-[7.5rem] items-center gap-5 border-b border-slate-200 px-5 py-8';
+
 function MenuButton({ item }: { item: MenuItem }) {
   const sizeStyle = item.tone === 'quiet' ? 'text-sm' : 'text-base';
 
@@ -83,6 +82,61 @@ function MenuButton({ item }: { item: MenuItem }) {
   );
 }
 
+/** 現在ユーザーの氏名・残高・アイコンを表示する。取得中と失敗時も高さを保つ。 */
+function BalanceSection() {
+  const { currentUser, isLoading, error } = useCurrentUser();
+
+  if (isLoading) {
+    return (
+      <section aria-label="残高" className={balanceSectionStyle}>
+        <div
+          aria-hidden="true"
+          className="h-16 w-16 shrink-0 animate-pulse rounded-full bg-slate-200"
+        />
+        <div className="flex-1">
+          <div
+            aria-hidden="true"
+            className="h-4 w-24 animate-pulse rounded bg-slate-200"
+          />
+          <div
+            aria-hidden="true"
+            className="mt-2 h-8 w-44 animate-pulse rounded bg-slate-200"
+          />
+        </div>
+        <span className="sr-only">残高を読み込み中</span>
+      </section>
+    );
+  }
+
+  if (error !== null || currentUser === null) {
+    return (
+      <section aria-label="残高" className={balanceSectionStyle}>
+        <p role="alert" className="m-0 text-sm text-slate-500">
+          {error ?? 'ユーザー情報の取得に失敗しました'}
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section aria-label="残高" className={balanceSectionStyle}>
+      {/* アイコンは飾りでタップできない。 */}
+      <UserAvatar
+        name={currentUser.name}
+        profileUrl={currentUser.profileUrl}
+        size="large"
+      />
+      <div>
+        <p className="m-0 text-sm text-slate-500">{currentUser.name} さん</p>
+        {/* 送金画面の残高表示と同じ「N円」形式に揃える。 */}
+        <p className="m-0 text-4xl font-bold tracking-tight text-slate-900">
+          {currentUser.balance.toLocaleString()}円
+        </p>
+      </div>
+    </section>
+  );
+}
+
 export function HomePage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[420px] flex-col bg-white">
@@ -90,24 +144,7 @@ export function HomePage() {
         <h1 className="m-0 text-base font-semibold text-slate-900">dabuchi</h1>
       </header>
 
-      <section
-        aria-label="残高"
-        className="flex items-center gap-5 border-b border-slate-200 px-5 py-8"
-      >
-        {/* アイコンは飾りでタップできない。 */}
-        <UserAvatar
-          name={currentUser.name}
-          profileUrl={currentUserProfileUrl}
-          size="large"
-        />
-        <div>
-          <p className="m-0 text-sm text-slate-500">{currentUser.name} さん</p>
-          {/* 送金画面の残高表示と同じ「N円」形式に揃える。 */}
-          <p className="m-0 text-4xl font-bold tracking-tight text-slate-900">
-            {currentUser.zandaka.toLocaleString()}円
-          </p>
-        </div>
-      </section>
+      <BalanceSection />
 
       <nav aria-label="メニュー" className="flex flex-1 flex-col gap-3 p-5">
         <div className="grid grid-cols-2 gap-3">
