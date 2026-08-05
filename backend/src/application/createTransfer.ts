@@ -8,6 +8,12 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export class InvalidTransferError extends Error {}
+export class TransferParticipantNotFoundError extends Error {
+  constructor() {
+    super('senderId or recipientId was not found.');
+    this.name = 'TransferParticipantNotFoundError';
+  }
+}
 
 export class CreateTransfer {
   constructor(private readonly repository: TransferRepository) {}

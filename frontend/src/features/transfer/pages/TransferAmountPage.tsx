@@ -79,10 +79,15 @@ export function TransferAmountPage() {
   if (isSent) {
     return (
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-6 bg-slate-50 px-5 py-8 text-center">
-        <p className="text-lg font-bold text-slate-900">送金が完了しました</p>
+        <p className="text-lg font-bold text-slate-900">
+          送金情報を登録しました
+        </p>
         <p className="text-sm text-slate-600">
-          {recipient.name}さんに{numericAmount.toLocaleString()}
-          円を送金しました。
+          {recipient.name}さんへの
+          {numericAmount.toLocaleString()}円の送金情報を登録しました。
+        </p>
+        <p className="text-sm text-slate-500">
+          残高の更新はまだ反映されていません。
         </p>
         <button
           type="button"

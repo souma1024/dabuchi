@@ -1,24 +1,18 @@
 import express from 'express';
 
+import type { TransferRepository } from './domain/transferRepository.js';
 import type { ListUserRecipients } from './application/usecases/listUserRecipients.js';
 import { errorHandler } from './presentation/http/errorHandler.js';
 import { healthRouter } from './presentation/http/healthRouter.js';
 import { createUserRecipientRouter } from './presentation/http/userRecipientRouter.js';
-import type { TransferRepository } from './domain/transferRepository.js';
-import { createMysqlPool } from './infrastructure/mysqlPool.js';
-import { MysqlTransferRepository } from './infrastructure/mysqlTransferRepository.js';
 import { createTransferRouter } from './presentation/http/transferRouter.js';
 
 export interface AppDependencies {
   listUserRecipients: ListUserRecipients;
+  transferRepository: TransferRepository;
 }
 
-export function createApp(
-  transferRepository: TransferRepository = new MysqlTransferRepository(
-    createMysqlPool(),
-  ),
-  dependencies: AppDependencies,
-) {
+export function createApp(dependencies: AppDependencies) {
   const app = express();
 
   app.disable('x-powered-by');
@@ -28,7 +22,10 @@ export function createApp(
     '/api/users',
     createUserRecipientRouter(dependencies.listUserRecipients),
   );
-  app.use('/api/transfers', createTransferRouter(transferRepository));
+  app.use(
+    '/api/transfers',
+    createTransferRouter(dependencies.transferRepository),
+  );
 
   app.use((_request, response) => {
     response.status(404).json({ error: 'Not Found' });

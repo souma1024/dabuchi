@@ -1,9 +1,6 @@
 import { Router } from 'express';
 
-import {
-  CreateTransfer,
-  InvalidTransferError,
-} from '../../application/createTransfer.js';
+import { CreateTransfer } from '../../application/createTransfer.js';
 import type { TransferRepository } from '../../domain/transferRepository.js';
 
 export function createTransferRouter(repository: TransferRepository) {
@@ -15,11 +12,6 @@ export function createTransferRouter(repository: TransferRepository) {
       const transfer = await createTransfer.execute(request.body);
       response.status(201).json(transfer);
     } catch (error) {
-      if (error instanceof InvalidTransferError) {
-        response.status(400).json({ error: error.message });
-        return;
-      }
-
       next(error);
     }
   });

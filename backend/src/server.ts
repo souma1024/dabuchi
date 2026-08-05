@@ -2,6 +2,7 @@ import { createApp } from './app.js';
 import { ListUserRecipients } from './application/usecases/listUserRecipients.js';
 import { createDatabasePool } from './infrastructure/database/createDatabasePool.js';
 import { loadDatabaseConfig } from './infrastructure/database/databaseConfig.js';
+import { MysqlTransferRepository } from './infrastructure/mysqlTransferRepository.js';
 import { MysqlUserRecipientRepository } from './infrastructure/repositories/mysqlUserRecipientRepository.js';
 import { getErrorMessage } from './shared/errorMessage.js';
 
@@ -16,12 +17,13 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
     const pool = createDatabasePool(databaseConfig);
     const repository = new MysqlUserRecipientRepository(pool);
     const listUserRecipients = new ListUserRecipients(repository);
-    const server = createApp(undefined, { listUserRecipients }).listen(
-      port,
-      () => {
+    const transferRepository = new MysqlTransferRepository(pool);
+    const server = createApp({
+      listUserRecipients,
+      transferRepository,
+    }).listen(port, () => {
         console.info(`Backend is listening on port ${port}.`);
-      },
-    );
+      });
 
     server.on('error', (error: Error) => {
       console.error('Backend failed to start.', error);

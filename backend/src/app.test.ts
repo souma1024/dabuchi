@@ -2,7 +2,10 @@ import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createApp } from './app.js';
-import { ListUserRecipients } from './application/usecases/listUserRecipients.js';
+import {
+  ListUserRecipients,
+} from './application/usecases/listUserRecipients.js';
+import { TransferParticipantNotFoundError } from './application/createTransfer.js';
 import type {
   NewTransfer,
   TransferRepository,
@@ -19,8 +22,13 @@ const CURRENT_USER_ID = '11111111-1111-4111-8111-111111111111';
 
 class InMemoryTransferRepository implements TransferRepository {
   transfers: NewTransfer[] = [];
+  error: Error | null = null;
 
   save(transfer: NewTransfer) {
+    if (this.error) {
+      return Promise.reject(this.error);
+    }
+
     this.transfers.push(transfer);
     return Promise.resolve({ id: this.transfers.length, ...transfer });
   }
@@ -30,7 +38,7 @@ function createTransferTestApp(repository: TransferRepository) {
   const userRecipientRepository = createUserRecipientRepository();
   const listUserRecipients = new ListUserRecipients(userRecipientRepository);
 
-  return createApp(repository, { listUserRecipients });
+  return createApp({ listUserRecipients, transferRepository: repository });
 }
 
 describe('backend application', () => {
@@ -198,8 +206,32 @@ describe('backend application', () => {
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
-      error: expect.stringContaining(expectedError) as string,
+      error: {
+        code: 'INVALID_REQUEST',
+        message: expect.stringContaining(expectedError) as string,
+      },
     });
     expect(repository.transfers).toEqual([]);
+  });
+
+  it('存在しない送信者または受取人なら422を返す', async () => {
+    const repository = new InMemoryTransferRepository();
+    repository.error = new TransferParticipantNotFoundError();
+
+    const response = await request(createTransferTestApp(repository))
+      .post('/api/transfers')
+      .send({
+        senderId,
+        recipientId,
+        amount: 1500,
+      });
+
+    expect(response.status).toBe(422);
+    expect(response.body).toEqual({
+      error: {
+        code: 'TRANSFER_PARTICIPANT_NOT_FOUND',
+        message: 'senderId or recipientId was not found.',
+      },
+    });
   });
 });

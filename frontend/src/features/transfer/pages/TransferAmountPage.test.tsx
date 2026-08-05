@@ -74,7 +74,7 @@ describe('TransferAmountPage', () => {
     expect(screen.getByRole('button', { name: '送金' })).toBeDisabled();
   });
 
-  it('送金APIに送信者ID、受取人ID、金額を送信し、成功したら完了メッセージを表示する', async () => {
+  it('送金APIに送信者ID、受取人ID、金額を送信し、成功したら登録メッセージを表示する', async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 200 }));
 
@@ -88,7 +88,12 @@ describe('TransferAmountPage', () => {
     await user.type(screen.getByLabelText('送金金額'), '1000');
     await user.click(screen.getByRole('button', { name: '送金' }));
 
-    expect(await screen.findByText('送金が完了しました')).toBeInTheDocument();
+    expect(
+      await screen.findByText('送金情報を登録しました'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('残高の更新はまだ反映されていません。'),
+    ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/transfers',
       expect.objectContaining({
