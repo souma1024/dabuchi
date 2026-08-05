@@ -5,12 +5,36 @@ type NonEmpty<T> = readonly [T, ...T[]];
 
 // 開発用シード（database/seeds/development.sql）の氏名・画像に合わせている。
 const counterparties: NonEmpty<Counterparty> = [
-  { id: 'friend-002', name: '佐藤 花子', profileUrl: '/assets/profiles/human2.png' },
-  { id: 'friend-003', name: '鈴木 一郎', profileUrl: '/assets/profiles/human3.png' },
-  { id: 'friend-004', name: '高橋 美咲', profileUrl: '/assets/profiles/human4.png' },
-  { id: 'friend-005', name: '田中 健太', profileUrl: '/assets/profiles/human5.png' },
-  { id: 'friend-006', name: '伊藤 結衣', profileUrl: '/assets/profiles/human6.png' },
-  { id: 'friend-007', name: '渡辺 翔太', profileUrl: '/assets/profiles/human1.png' },
+  {
+    id: 'friend-002',
+    name: '佐藤 花子',
+    profileUrl: '/assets/profiles/human2.png',
+  },
+  {
+    id: 'friend-003',
+    name: '鈴木 一郎',
+    profileUrl: '/assets/profiles/human3.png',
+  },
+  {
+    id: 'friend-004',
+    name: '高橋 美咲',
+    profileUrl: '/assets/profiles/human4.png',
+  },
+  {
+    id: 'friend-005',
+    name: '田中 健太',
+    profileUrl: '/assets/profiles/human5.png',
+  },
+  {
+    id: 'friend-006',
+    name: '伊藤 結衣',
+    profileUrl: '/assets/profiles/human6.png',
+  },
+  {
+    id: 'friend-007',
+    name: '渡辺 翔太',
+    profileUrl: '/assets/profiles/human1.png',
+  },
 ];
 
 const amounts: NonEmpty<number> = [

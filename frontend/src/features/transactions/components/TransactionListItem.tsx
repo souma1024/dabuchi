@@ -30,11 +30,12 @@ export function TransactionListItem({ transaction }: TransactionListItemProps) {
   const { counterparty, direction, amount, createdAt } = transaction;
 
   return (
-    <li className="flex min-h-[76px] items-center gap-3.5 border-b border-slate-100 px-4 py-3">      <UserAvatar
+    <li className="flex min-h-[76px] items-center gap-3.5 border-b border-slate-100 px-4 py-3">
+      {' '}
+      <UserAvatar
         name={counterparty.name}
         profileUrl={counterparty.profileUrl}
       />
-
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <span
@@ -50,7 +51,6 @@ export function TransactionListItem({ transaction }: TransactionListItemProps) {
           {formatTransactionDateTime(createdAt)}
         </div>
       </div>
-
       <span
         className={`flex-none text-[15px] font-bold ${amountStyles[direction]}`}
       >

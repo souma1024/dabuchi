@@ -2,7 +2,10 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchMockTransactionPage, mockTransactions } from '../mockTransactions';
+import {
+  fetchMockTransactionPage,
+  mockTransactions,
+} from '../mockTransactions';
 import { TransactionsPage } from './TransactionsPage';
 
 vi.mock('../mockTransactions', async (importOriginal) => {
