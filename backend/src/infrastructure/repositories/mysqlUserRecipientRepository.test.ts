@@ -32,11 +32,11 @@ describe('MysqlUserRecipientRepository', () => {
     ).resolves.toEqual([record]);
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('WHERE id <> UUID_TO_BIN(?)'),
-      [CURRENT_USER_ID, 21],
+      [CURRENT_USER_ID, '21'],
     );
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('ORDER BY created_at ASC, id ASC'),
-      [CURRENT_USER_ID, 21],
+      [CURRENT_USER_ID, '21'],
     );
   });
 
@@ -56,7 +56,7 @@ describe('MysqlUserRecipientRepository', () => {
 
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('created_at > ?'),
-      [CURRENT_USER_ID, cursor.createdAt, cursor.createdAt, cursor.id, 21],
+      [CURRENT_USER_ID, cursor.createdAt, cursor.createdAt, cursor.id, '21'],
     );
   });
 });
