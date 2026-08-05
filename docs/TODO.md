@@ -2,13 +2,14 @@
 
 ## 進行中
 
-- [進行中] 開発用シードの日本語文字化け修正PRをレビューする
+- [進行中] ホーム画面用current user取得基盤PRをレビューする
 
 ## 未着手
 
 - [未着手] チームで開発コースとMVPの範囲を確定する
 - [未着手] 画面一覧とユーザーストーリーを整理する
 - [未着手] APIのrequest / response / status codeを機能ごとに設計する
+- [未着手] mockログイン設定からcurrent userを返す`GET /api/me`を公開する
 - [未着手] 認証・認可が必要な機能範囲を決定する
 - [未着手] frontendからbackendへの接続方法と環境変数を定義する
 - [未着手] ユーザー選択画面から候補一覧APIへ接続する
@@ -36,6 +37,7 @@
 - [完了] 送る相手候補一覧APIのrequest / response / status codeを定義する
 - [完了] 20件単位のカーソルページングを実装する
 - [完了] factory-basedの候補一覧unit / HTTP / repositoryテストを追加する
+- [完了] 公開`user_id`からホーム表示用ユーザーを取得するrepository / usecaseとfactory-basedテストを追加する
 
 ## 保留・要確認
 
@@ -52,4 +54,4 @@
 
 ## 次回最初に着手するタスク
 
-ユーザー選択画面から候補一覧APIへ接続し、PR #2の送金金額入力画面へ選択結果を渡す。
+mockログイン設定と`GET /api/me`を追加し、ホーム画面からcurrent userを取得できるようにする。
