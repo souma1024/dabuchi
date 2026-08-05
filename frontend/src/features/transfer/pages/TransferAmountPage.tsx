@@ -1,7 +1,11 @@
 import { RecipientAmountPage } from '../../../components/RecipientAmountPage';
 import { sendTransfer } from '../api/transferClient';
 import { useRecipientFromLocationState } from '../../../hooks/useRecipientFromLocationState';
-import { currentUser, recipients } from '../../../lib/mockUsers';
+import {
+  currentUser,
+  recipients,
+  transferLimitMaxAmount,
+} from '../../../lib/mockUsers';
 import type { Recipient } from '../../../types/user';
 
 // 送金相手の選択画面は別担当が実装するため、遷移元から渡されなかった場合はモックの相手にフォールバックする。
@@ -23,11 +27,7 @@ export function TransferAmountPage() {
         `${recipient.name}さんに${amount.toLocaleString()}円を送金しました。`
       }
       onSubmit={(amount) => sendTransfer({ userId: recipient.id, amount })}
-      maxAmount={{
-        value: currentUser.zandaka,
-        label: '送金上限額',
-        exceededMessage: '送金上限額を超えています',
-      }}
+      maxAmount={transferLimitMaxAmount}
       showMessageField
     />
   );

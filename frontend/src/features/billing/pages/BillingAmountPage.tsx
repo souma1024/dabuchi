@@ -1,6 +1,10 @@
 import { RecipientAmountPage } from '../../../components/RecipientAmountPage';
 import { useRecipientFromLocationState } from '../../../hooks/useRecipientFromLocationState';
-import { currentUser, recipients } from '../../../lib/mockUsers';
+import {
+  currentUser,
+  recipients,
+  transferLimitMaxAmount,
+} from '../../../lib/mockUsers';
 import type { Recipient } from '../../../types/user';
 import { sendBillingRequest } from '../api/billingClient';
 
@@ -25,6 +29,8 @@ export function BillingAmountPage() {
       onSubmit={(amount) =>
         sendBillingRequest({ userId: recipient.id, amount })
       }
+      maxAmount={transferLimitMaxAmount}
+      showMessageField
     />
   );
 }

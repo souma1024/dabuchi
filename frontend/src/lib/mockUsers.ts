@@ -1,3 +1,4 @@
+import type { MaxAmountConfig } from '../components/RecipientAmountPage';
 import type { Recipient, User } from '../types/user';
 
 // sample-app/src/db.json のユーザーデータを流用したモック。
@@ -6,6 +7,13 @@ export const currentUser: User = {
   name: '鈴木太郎',
   kozaBango: '1000000',
   zandaka: 80000,
+};
+
+// 送金・請求のいずれも、口座残高（送金上限額）を超える金額は扱えない前提で共通利用する。
+export const transferLimitMaxAmount: MaxAmountConfig = {
+  value: currentUser.zandaka,
+  label: '送金上限額',
+  exceededMessage: '送金上限額を超えています',
 };
 
 // profileUrlはdatabase/seeds/development.sqlのprofile_url（/assets/profiles/human1〜6.png）の命名規則に合わせている。
