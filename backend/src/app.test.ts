@@ -2,9 +2,7 @@ import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createApp } from './app.js';
-import {
-  ListUserRecipients,
-} from './application/usecases/listUserRecipients.js';
+import { ListUserRecipients } from './application/usecases/listUserRecipients.js';
 import { TransferParticipantNotFoundError } from './application/createTransfer.js';
 import type {
   NewTransfer,

@@ -22,8 +22,8 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
       listUserRecipients,
       transferRepository,
     }).listen(port, () => {
-        console.info(`Backend is listening on port ${port}.`);
-      });
+      console.info(`Backend is listening on port ${port}.`);
+    });
 
     server.on('error', (error: Error) => {
       console.error('Backend failed to start.', error);
