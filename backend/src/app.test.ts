@@ -8,8 +8,30 @@ import {
   createUserRecipientRecords,
 } from './test/factories/userRecipientFactory.js';
 import { createUserRecipientRepository } from './test/factories/userRecipientRepositoryFactory.js';
+import { createApp } from './app.js';
+import { ListUserRecipients } from './application/usecases/listUserRecipients.js';
+import type {
+  NewTransfer,
+  TransferRepository,
+} from './domain/transferRepository.js';
 
 const CURRENT_USER_ID = '11111111-1111-4111-8111-111111111111';
+
+class InMemoryTransferRepository implements TransferRepository {
+  transfers: NewTransfer[] = [];
+
+  save(transfer: NewTransfer) {
+    this.transfers.push(transfer);
+    return Promise.resolve({ id: this.transfers.length, ...transfer });
+  }
+}
+
+function createTransferTestApp(repository: TransferRepository) {
+  const userRecipientRepository = createUserRecipientRepository();
+  const listUserRecipients = new ListUserRecipients(userRecipientRepository);
+
+  return createApp(repository, { listUserRecipients });
+}
 
 describe('backend application', () => {
   it('ヘルスチェックで稼働状態を返す', async () => {
@@ -137,5 +159,39 @@ describe('backend application', () => {
     const responseBody: unknown = response.body;
     expect(JSON.stringify(responseBody)).not.toContain('database detail');
     consoleError.mockRestore();
+  });
+
+  it('ユーザーIDと金額を保存する', async () => {
+    const repository = new InMemoryTransferRepository();
+    const response = await request(createTransferTestApp(repository))
+      .post('/api/transfers')
+      .send({ userId: 'friend-001', amount: 1500 });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toEqual({
+      id: 1,
+      userId: 'friend-001',
+      amount: 1500,
+    });
+    expect(repository.transfers).toEqual([
+      { userId: 'friend-001', amount: 1500 },
+    ]);
+  });
+
+  it.each([
+    [{ amount: 1500 }, 'userId'],
+    [{ userId: 'friend-001', amount: 0 }, 'amount'],
+    [{ userId: 'friend-001', amount: 10.5 }, 'amount'],
+  ])('不正な入力に400を返す: %j', async (body, expectedError) => {
+    const repository = new InMemoryTransferRepository();
+    const response = await request(createTransferTestApp(repository))
+      .post('/api/transfers')
+      .send(body);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: expect.stringContaining(expectedError) as string,
+    });
+    expect(repository.transfers).toEqual([]);
   });
 });

@@ -149,6 +149,20 @@ npm run db:test
 自分以外の送る相手候補を、作成日時順に20件ずつ返します。次ページはレスポンスの`pageInfo.nextCursor`を`cursor` queryへ渡して取得します。
 
 詳細なrequest / response / status codeは[送る相手候補一覧API](docs/api/user-recipients.md)を参照してください。
+### `POST /api/transfers`
+
+ユーザーIDと金額（円単位の正の整数）を保存します。`userId`には`users.user_id`を指定します。
+
+```json
+{
+  "userId": "friend-001",
+  "amount": 1500
+}
+```
+
+- 成功: `201 Created` / `{ "id": 1, "userId": "friend-001", "amount": 1500 }`
+- 入力不正: `400 Bad Request`
+- DB接続エラーや存在しないユーザーID: `500 Internal Server Error`
 
 ## 品質チェック
 

@@ -109,4 +109,35 @@ if query "
   exit 1
 fi
 
+query "
+  INSERT INTO transfers (user_id, amount)
+  VALUES ('auto-id-test', 1500);
+" >/dev/null
+
+saved_transfer="$(query "
+  SELECT CONCAT(user_id, ':', amount)
+  FROM transfers
+  WHERE user_id = 'auto-id-test';
+")"
+assert_equals \
+  "auto-id-test:1500" \
+  "${saved_transfer}" \
+  "transfer must save user_id and amount"
+
+if query "
+  INSERT INTO transfers (user_id, amount)
+  VALUES ('auto-id-test', 0);
+" >/dev/null 2>&1; then
+  echo "FAIL: zero transfer amount must be rejected" >&2
+  exit 1
+fi
+
+if query "
+  INSERT INTO transfers (user_id, amount)
+  VALUES ('missing-user', 100);
+" >/dev/null 2>&1; then
+  echo "FAIL: unknown transfer user_id must be rejected" >&2
+  exit 1
+fi
+
 echo "Database migration tests passed."

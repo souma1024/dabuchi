@@ -20,7 +20,7 @@ export function createTestApp(options: AppFactoryOptions = {}) {
   const listUserRecipients = new ListUserRecipients(repository);
 
   return {
-    app: createApp({ listUserRecipients }),
+    app: createApp(undefined, { listUserRecipients }),
     repository,
   };
 }
