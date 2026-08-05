@@ -2,7 +2,7 @@
 
 ## 進行中
 
-- [進行中] 候補一覧APIのLIMITパラメータ修正PRをレビューする
+- [進行中] 開発用シードの日本語文字化け修正PRをレビューする
 
 ## 未着手
 
@@ -21,6 +21,7 @@
 - [完了] PR #5の送る相手候補取得基盤をmainへマージする
 - [完了] PR #7のHTTP endpointとAPI仕様をmainへマージする
 - [完了] 実MySQLで候補一覧APIが500になるLIMITパラメータ型を修正する
+- [完了] 開発用シードをutf8mb4で投入し、日本語名の文字化けを防止する
 - [完了] PR #7のDB設定エラーで具体的な原因を安全にログ出力する
 - [完了] PR #5へPR #2マージ後の最新mainを取り込み、lockfile競合を解消する
 - [完了] frontendをReact / TypeScript / Viteで初期化する
@@ -45,7 +46,8 @@
 
 ## 技術的負債
 
-- DB CIはmigration変更時だけ起動する方針のため、backend repositoryはfactory-based testで検証している
+- DB CIはmigration・seed関連の変更時だけ起動する方針のため、backend repositoryはfactory-based testで検証している
+- Docker frontendのVite proxyが`localhost:3000`を参照しており、コンテナ間API通信ではbackend service名へ切り替える必要がある
 - users件数増加時に`created_at, id`の複合indexを検討する
 
 ## 次回最初に着手するタスク
