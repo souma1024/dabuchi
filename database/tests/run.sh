@@ -167,6 +167,182 @@ if query "
   exit 1
 fi
 
+payment_request_columns="$(query "
+  SELECT GROUP_CONCAT(
+    CONCAT(column_name, ':', column_type, ':', is_nullable)
+    ORDER BY ordinal_position SEPARATOR ','
+  )
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'payment_requests';
+")"
+assert_equals \
+  "id:binary(16):NO,requester_id:binary(16):NO,recipient_id:binary(16):NO,amount:bigint unsigned:NO,status:varchar(16):NO,created_at:datetime(6):NO,responded_at:datetime(6):YES" \
+  "${payment_request_columns}" \
+  "payment_requests columns must match the migration"
+
+payment_request_foreign_keys="$(query "
+  SELECT GROUP_CONCAT(
+    CONCAT(column_name, '->', referenced_table_name, '.', referenced_column_name)
+    ORDER BY column_name SEPARATOR ','
+  )
+  FROM information_schema.key_column_usage
+  WHERE table_schema = DATABASE()
+    AND table_name = 'payment_requests'
+    AND referenced_table_name IS NOT NULL;
+")"
+assert_equals \
+  "recipient_id->users.id,requester_id->users.id" \
+  "${payment_request_foreign_keys}" \
+  "payment request participants must reference users(id)"
+
+recipient_request_index="$(query "
+  SELECT GROUP_CONCAT(column_name ORDER BY seq_in_index SEPARATOR ',')
+  FROM information_schema.statistics
+  WHERE table_schema = DATABASE()
+    AND table_name = 'payment_requests'
+    AND index_name = 'idx_payment_requests_recipient_status_created';
+")"
+assert_equals \
+  "recipient_id,status,created_at,id" \
+  "${recipient_request_index}" \
+  "recipient request index must support pending request pagination"
+
+query "
+  INSERT INTO payment_requests (requester_id, recipient_id, amount)
+  SELECT requester.id, recipient.id, 2400
+  FROM users AS requester
+  CROSS JOIN users AS recipient
+  WHERE requester.user_id = 'auto-id-test'
+    AND recipient.user_id = 'recipient-test';
+" >/dev/null
+
+saved_payment_request="$(query "
+  SELECT CONCAT(
+    IS_UUID(BIN_TO_UUID(payment_requests.id)), ':',
+    requester.user_id, '->', recipient.user_id, ':',
+    payment_requests.amount, ':', payment_requests.status, ':',
+    payment_requests.responded_at IS NULL
+  )
+  FROM payment_requests
+  JOIN users AS requester ON requester.id = payment_requests.requester_id
+  JOIN users AS recipient ON recipient.id = payment_requests.recipient_id;
+")"
+assert_equals \
+  "1:auto-id-test->recipient-test:2400:pending:1" \
+  "${saved_payment_request}" \
+  "payment request must generate a UUID and default to pending"
+
+if query "
+  INSERT INTO payment_requests (requester_id, recipient_id, amount)
+  SELECT requester.id, recipient.id, 0
+  FROM users AS requester
+  CROSS JOIN users AS recipient
+  WHERE requester.user_id = 'auto-id-test'
+    AND recipient.user_id = 'recipient-test';
+" >/dev/null 2>&1; then
+  echo "FAIL: zero payment request amount must be rejected" >&2
+  exit 1
+fi
+
+if query "
+  INSERT INTO payment_requests (requester_id, recipient_id, amount)
+  SELECT id, id, 100
+  FROM users
+  WHERE user_id = 'auto-id-test';
+" >/dev/null 2>&1; then
+  echo "FAIL: requester and recipient must be different" >&2
+  exit 1
+fi
+
+if query "
+  INSERT INTO payment_requests (
+    requester_id,
+    recipient_id,
+    amount,
+    status
+  )
+  SELECT requester.id, recipient.id, 100, 'accepted'
+  FROM users AS requester
+  CROSS JOIN users AS recipient
+  WHERE requester.user_id = 'auto-id-test'
+    AND recipient.user_id = 'recipient-test';
+" >/dev/null 2>&1; then
+  echo "FAIL: responded payment request must have responded_at" >&2
+  exit 1
+fi
+
+query "
+  INSERT INTO payment_requests (
+    requester_id,
+    recipient_id,
+    amount,
+    status,
+    created_at,
+    responded_at
+  )
+  SELECT
+    requester.id,
+    recipient.id,
+    100,
+    'accepted',
+    '2026-08-05 12:00:00.000000',
+    '2026-08-05 12:00:00.000000'
+  FROM users AS requester
+  CROSS JOIN users AS recipient
+  WHERE requester.user_id = 'auto-id-test'
+    AND recipient.user_id = 'recipient-test';
+"
+
+valid_response_time_count="$(query "
+  SELECT COUNT(*)
+  FROM payment_requests
+  WHERE status = 'accepted'
+    AND responded_at = created_at;
+")"
+assert_equals \
+  "1" \
+  "${valid_response_time_count}" \
+  "responded_at equal to created_at must be accepted"
+
+for responded_status in accepted rejected; do
+  if query "
+    INSERT INTO payment_requests (
+      requester_id,
+      recipient_id,
+      amount,
+      status,
+      created_at,
+      responded_at
+    )
+    SELECT
+      requester.id,
+      recipient.id,
+      100,
+      '${responded_status}',
+      '2026-08-05 12:00:00.000000',
+      '2026-08-05 11:59:59.999999'
+    FROM users AS requester
+    CROSS JOIN users AS recipient
+    WHERE requester.user_id = 'auto-id-test'
+      AND recipient.user_id = 'recipient-test';
+  " >/dev/null 2>&1; then
+    echo "FAIL: ${responded_status} payment request must not predate created_at" >&2
+    exit 1
+  fi
+done
+
+if query "
+  INSERT INTO payment_requests (requester_id, recipient_id, amount)
+  VALUES (
+    (SELECT id FROM users WHERE user_id = 'auto-id-test'),
+    UUID_TO_BIN('00000000-0000-0000-0000-000000000000'),
+    100
+  );
+" >/dev/null 2>&1; then
+  echo "FAIL: payment request recipient must exist" >&2
+  exit 1
+fi
+
 echo "Database migration tests passed."
 bash database/scripts/seed.sh
 
