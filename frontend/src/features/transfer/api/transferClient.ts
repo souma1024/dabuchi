@@ -1,19 +1,20 @@
 export interface SendTransferParams {
-  userId: string;
+  senderId: string;
+  recipientId: string;
   amount: number;
 }
 
-// TODO: backend担当とエンドポイント・HTTPメソッドを確定次第、このパスを更新する（現時点は仮）。
 const TRANSFER_ENDPOINT = '/api/transfers';
 
 export async function sendTransfer({
-  userId,
+  senderId,
+  recipientId,
   amount,
 }: SendTransferParams): Promise<void> {
   const response = await fetch(TRANSFER_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, amount }),
+    body: JSON.stringify({ senderId, recipientId, amount }),
   });
 
   if (!response.ok) {

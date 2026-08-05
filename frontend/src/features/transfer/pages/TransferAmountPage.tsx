@@ -63,7 +63,11 @@ export function TransferAmountPage() {
     setSubmitError('');
     setIsSubmitting(true);
     try {
-      await sendTransfer({ userId: recipient.id, amount: numericAmount });
+      await sendTransfer({
+        senderId: currentUser.id,
+        recipientId: recipient.id,
+        amount: numericAmount,
+      });
       setIsSent(true);
     } catch {
       setSubmitError('送金に失敗しました。時間をおいて再度お試しください。');

@@ -74,7 +74,7 @@ describe('TransferAmountPage', () => {
     expect(screen.getByRole('button', { name: '送金' })).toBeDisabled();
   });
 
-  it('送金APIに金額と送金先userIdを送信し、成功したら完了メッセージを表示する', async () => {
+  it('送金APIに送信者ID、受取人ID、金額を送信し、成功したら完了メッセージを表示する', async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 200 }));
 
@@ -93,7 +93,11 @@ describe('TransferAmountPage', () => {
       '/api/transfers',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ userId: '2', amount: 1000 }),
+        body: JSON.stringify({
+          senderId: '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001',
+          recipientId: '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf002',
+          amount: 1000,
+        }),
       }),
     );
   });
