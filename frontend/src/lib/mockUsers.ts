@@ -1,4 +1,4 @@
-import type { TransferRecipient, User } from './types';
+import type { Recipient, User } from '../types/user';
 
 // sample-app/src/db.json のユーザーデータを流用したモック。
 export const currentUser: User = {
@@ -9,7 +9,7 @@ export const currentUser: User = {
 };
 
 // profileUrlはdatabase/seeds/development.sqlのprofile_url（/assets/profiles/human1〜6.png）の命名規則に合わせている。
-export const recipients: TransferRecipient[] = [
+export const recipients: Recipient[] = [
   { id: '2', name: '佐藤次郎', profileUrl: '/assets/profiles/human2.png' },
   { id: '3', name: '佐藤三郎', profileUrl: '/assets/profiles/human3.png' },
   { id: '4', name: '佐々木花子', profileUrl: '/assets/profiles/human4.png' },
