@@ -16,8 +16,10 @@ function isCurrentUser(value: unknown): value is CurrentUser {
     typeof user.id === 'string' &&
     typeof user.name === 'string' &&
     typeof user.profileUrl === 'string' &&
+    // balanceはAPI仕様で円単位の非負整数。負数・小数・桁あふれは不正として扱う。
     typeof user.balance === 'number' &&
-    Number.isFinite(user.balance)
+    Number.isSafeInteger(user.balance) &&
+    user.balance >= 0
   );
 }
 

@@ -55,4 +55,25 @@ describe('fetchCurrentUser', () => {
 
     await expect(fetchCurrentUser()).rejects.toThrow('不正なレスポンス');
   });
+
+  // API仕様（docs/api/current-user.md）でbalanceは円単位の非負整数。
+  it.each([
+    ['負数', -100],
+    ['小数', 10.5],
+    ['安全な整数の範囲外', Number.MAX_SAFE_INTEGER + 1],
+    ['NaN', Number.NaN],
+  ])('balanceが%sのレスポンスは不正として扱う', async (_label, balance) => {
+    stubFetch({ ok: true, body: { user: { ...validUser, balance } } });
+
+    await expect(fetchCurrentUser()).rejects.toThrow('不正なレスポンス');
+  });
+
+  it('balanceが0のレスポンスは受け入れる', async () => {
+    stubFetch({ ok: true, body: { user: { ...validUser, balance: 0 } } });
+
+    await expect(fetchCurrentUser()).resolves.toEqual({
+      ...validUser,
+      balance: 0,
+    });
+  });
 });
