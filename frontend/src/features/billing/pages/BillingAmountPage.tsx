@@ -1,10 +1,6 @@
 import { RecipientAmountPage } from '../../../components/RecipientAmountPage';
 import { useRecipientFromLocationState } from '../../../hooks/useRecipientFromLocationState';
-import {
-  currentUser,
-  recipients,
-  transferLimitMaxAmount,
-} from '../../../lib/mockUsers';
+import { currentUser, recipients } from '../../../lib/mockUsers';
 import type { Recipient } from '../../../types/user';
 import { sendBillingRequest } from '../api/billingClient';
 
@@ -29,7 +25,11 @@ export function BillingAmountPage() {
       onSubmit={(amount) =>
         sendBillingRequest({ userId: recipient.id, amount })
       }
-      maxAmount={transferLimitMaxAmount}
+      maxAmount={{
+        value: currentUser.zandaka,
+        label: '請求上限額',
+        exceededMessage: '請求上限額を超えています',
+      }}
       showMessageField
     />
   );

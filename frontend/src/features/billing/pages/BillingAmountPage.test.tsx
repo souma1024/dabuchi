@@ -42,19 +42,19 @@ describe('BillingAmountPage', () => {
     expect(screen.getByText('テスト花子')).toBeInTheDocument();
   });
 
-  it('送金画面と同じ送金上限額とメッセージ欄を表示する', () => {
+  it('請求上限額（口座残高）とメッセージ欄を表示する', () => {
     render(
       <MemoryRouter>
         <BillingAmountPage />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('送金上限額')).toBeInTheDocument();
+    expect(screen.getByText('請求上限額')).toBeInTheDocument();
     expect(screen.getByText('80,000円')).toBeInTheDocument();
     expect(screen.getByLabelText('メッセージ（任意）')).toBeInTheDocument();
   });
 
-  it('送金上限額を超える金額を入力すると請求ボタンが無効になる', async () => {
+  it('請求上限額を超える金額を入力すると請求ボタンが無効になる', async () => {
     const user = userEvent.setup();
     render(
       <MemoryRouter>
@@ -64,7 +64,7 @@ describe('BillingAmountPage', () => {
 
     await user.type(screen.getByLabelText('請求金額'), '999999');
 
-    expect(screen.getByText('送金上限額を超えています')).toBeInTheDocument();
+    expect(screen.getByText('請求上限額を超えています')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '請求' })).toBeDisabled();
   });
 
