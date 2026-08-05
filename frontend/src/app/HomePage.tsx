@@ -32,12 +32,6 @@ export function HomePage() {
           >
             請求する
           </Link>
-          <Link
-            to="/billing/requests"
-            className="inline-block rounded-2xl border border-slate-300 px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-100"
-          >
-            請求した相手一覧
-          </Link>
         </div>
       </section>
     </main>
