@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 
+import { UserAvatar } from '../components/UserAvatar';
 import { useCurrentUser } from '../features/currentUser/hooks/useCurrentUser';
-import { UserAvatar } from '../features/transfer/components/UserAvatar';
 
 // お金が出ていく操作はsend、入ってくる操作はrequestとして色を分ける。
 // 押し間違いを防ぐため、送金と請求は同じ色にしない。

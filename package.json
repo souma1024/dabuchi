@@ -26,5 +26,9 @@
   },
   "devDependencies": {
     "prettier": "^3.9.6"
+  },
+  "optionalDependencies": {
+    "@rolldown/binding-linux-arm64-musl": "1.2.2",
+    "@rolldown/binding-linux-x64-musl": "1.2.2"
   }
 }

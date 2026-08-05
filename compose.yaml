@@ -12,7 +12,7 @@ services:
     environment:
       CHOKIDAR_USEPOLLING: 'true'
       VITE_API_PROXY_TARGET: http://backend:3000
-    command: sh -c "npm install && npm run dev --workspace frontend -- --host 0.0.0.0"
+    command: sh -c "npm ci && npm run dev --workspace frontend -- --host 0.0.0.0"
     depends_on:
       backend:
         condition: service_started
@@ -35,7 +35,7 @@ services:
       NODE_ENV: ${NODE_ENV:-development}
       AUTH_MODE: ${AUTH_MODE:-mock}
       MOCK_USER_ID: ${MOCK_USER_ID:-}
-    command: sh -c "npm install && npm run dev:container"
+    command: sh -c "npm ci && npm run dev:container --workspace backend"
     depends_on:
       migrate:
         condition: service_completed_successfully
