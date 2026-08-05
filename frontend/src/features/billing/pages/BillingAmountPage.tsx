@@ -24,7 +24,7 @@ export function BillingAmountPage() {
         `${recipient.name}さんに${amount.toLocaleString()}円を請求しました。`
       }
       onSubmit={(amount) =>
-        sendBillingRequest({ userId: recipient.id, amount })
+        sendBillingRequest({ recipientId: recipient.id, amount })
       }
       maxAmount={{
         value: MAX_TRANSACTION_AMOUNT,

@@ -87,9 +87,11 @@ describe('BillingAmountPage', () => {
     expect(screen.getByRole('button', { name: '請求' })).toBeDisabled();
   });
 
-  it('請求APIに金額と請求相手userIdを送信し、成功したら完了メッセージを表示する', async () => {
+  it('請求APIへrequests配列で被請求者IDと金額を送信し、成功したら完了メッセージを表示する', async () => {
     const fetchMock = vi.mocked(fetch);
-    fetchMock.mockResolvedValueOnce(new Response(null, { status: 200 }));
+    fetchMock.mockResolvedValueOnce(
+      new Response(null, { status: 201, statusText: 'Created' }),
+    );
 
     const user = userEvent.setup();
     render(
@@ -106,20 +108,24 @@ describe('BillingAmountPage', () => {
       screen.getByText('佐藤次郎さんに1,000円を請求しました。'),
     ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
-      '/api/billing-requests',
+      '/api/payment-requests',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
-          userId: '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf002',
-          amount: 1000,
+          requests: [
+            {
+              recipientId: '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf002',
+              amount: 1000,
+            },
+          ],
         }),
       }),
     );
   });
 
-  it('請求APIが失敗した場合はエラーメッセージを表示する', async () => {
+  it('請求者IDはbackendのcurrent userで決まるため、リクエストボディへ含めない', async () => {
     const fetchMock = vi.mocked(fetch);
-    fetchMock.mockResolvedValueOnce(new Response(null, { status: 500 }));
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 201 }));
 
     const user = userEvent.setup();
     render(
@@ -131,10 +137,38 @@ describe('BillingAmountPage', () => {
     await user.type(screen.getByLabelText('請求金額'), '1000');
     await user.click(screen.getByRole('button', { name: '請求' }));
 
-    expect(
-      await screen.findByText(
-        '請求に失敗しました。時間をおいて再度お試しください。',
-      ),
-    ).toBeInTheDocument();
+    await screen.findByText('請求が完了しました');
+
+    const body = fetchMock.mock.calls[0]?.[1]?.body;
+    expect(typeof body).toBe('string');
+    expect(body).not.toContain('requesterId');
+    expect(body).not.toContain('senderId');
   });
+
+  // backendは400 INVALID_REQUEST / 404 CURRENT_USER_NOT_FOUND /
+  // 422 PAYMENT_REQUEST_PARTICIPANT_NOT_FOUND / 500を返す。
+  // 現時点はどれも同じ文言で扱い、code別の出し分けは行わない。
+  it.each([400, 404, 422, 500])(
+    '請求APIが%dを返した場合はエラーメッセージを表示する',
+    async (status) => {
+      const fetchMock = vi.mocked(fetch);
+      fetchMock.mockResolvedValueOnce(new Response(null, { status }));
+
+      const user = userEvent.setup();
+      render(
+        <MemoryRouter>
+          <BillingAmountPage />
+        </MemoryRouter>,
+      );
+
+      await user.type(screen.getByLabelText('請求金額'), '1000');
+      await user.click(screen.getByRole('button', { name: '請求' }));
+
+      expect(
+        await screen.findByText(
+          '請求に失敗しました。時間をおいて再度お試しください。',
+        ),
+      ).toBeInTheDocument();
+    },
+  );
 });
