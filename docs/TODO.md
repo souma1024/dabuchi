@@ -2,7 +2,7 @@
 
 ## 進行中
 
-- [進行中] PR #6の送金履歴保存APIをレビューする
+- [進行中] チームのMac・Windows環境でoverrideなしのCompose起動を確認する
 
 ## 未着手
 
@@ -40,6 +40,8 @@
 - [完了] 開発用mockログイン設定と`GET /api/me`を追加する
 - [完了] ローカルbackend起動時にルート`.env`を読み込む
 - [完了] Vite proxyをローカル起動とCompose起動の両方に対応させる
+- [完了] PR #6マージ後のmainを空のDocker volumeから再構築して実APIを確認する
+- [完了] Composeのworkspace指定とLinux ARM64 musl binding不足を修正する
 
 ## 保留・要確認
 
@@ -52,7 +54,8 @@
 
 - DB CIはmigration・seed関連の変更時だけ起動する方針のため、backend repositoryはfactory-based testで検証している
 - users件数増加時に`created_at, id`の複合indexを検討する
+- npm auditで既存依存のhigh severity 2件が報告されるため、影響範囲と安全な更新先を確認する
 
 ## 次回最初に着手するタスク
 
-ホーム画面から`GET /api/me`を呼び出し、名前、アイコン、残高を表示する。
+cross-platform Compose修正PRをMac・Windowsのチームメンバーに確認してもらう。
