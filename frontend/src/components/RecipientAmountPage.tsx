@@ -45,13 +45,20 @@ export function RecipientAmountPage({
   const [isSent, setIsSent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [submittedAmount, setSubmittedAmount] = useState(0);
 
   const numericAmount = Number(amount);
+  const isSafeAmount = Number.isSafeInteger(numericAmount);
   const errorMessage =
-    maxAmount !== undefined && amount !== '' && numericAmount > maxAmount.value
-      ? maxAmount.exceededMessage
-      : '';
-  const canSubmit = amount !== '' && numericAmount > 0 && errorMessage === '';
+    amount !== '' && !isSafeAmount
+      ? '入力できる金額の桁数を超えています'
+      : maxAmount !== undefined &&
+          amount !== '' &&
+          numericAmount > maxAmount.value
+        ? maxAmount.exceededMessage
+        : '';
+  const canSubmit =
+    amount !== '' && isSafeAmount && numericAmount > 0 && errorMessage === '';
 
   const handleAmountChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
@@ -61,10 +68,12 @@ export function RecipientAmountPage({
   };
 
   const handleSubmit = async () => {
+    const amountToSubmit = numericAmount;
     setSubmitError('');
     setIsSubmitting(true);
     try {
-      await onSubmit(numericAmount);
+      await onSubmit(amountToSubmit);
+      setSubmittedAmount(amountToSubmit);
       setIsSent(true);
     } catch {
       setSubmitError(submitErrorMessage);
@@ -78,7 +87,7 @@ export function RecipientAmountPage({
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-6 bg-slate-50 px-5 py-8 text-center">
         <p className="text-lg font-bold text-slate-900">{completeTitle}</p>
         <p className="text-sm text-slate-600">
-          {renderCompleteDescription(recipient, numericAmount)}
+          {renderCompleteDescription(recipient, submittedAmount)}
         </p>
         <button
           type="button"
@@ -128,7 +137,8 @@ export function RecipientAmountPage({
             placeholder="金額"
             value={amount}
             onChange={handleAmountChange}
-            className="w-full text-right text-2xl font-semibold text-slate-900 outline-none"
+            disabled={isSubmitting}
+            className="w-full text-right text-2xl font-semibold text-slate-900 outline-none disabled:opacity-60"
           />
           <span className="ml-2 text-lg text-slate-600">円</span>
         </div>
@@ -151,7 +161,8 @@ export function RecipientAmountPage({
             value={message}
             onChange={(event) => setMessage(event.target.value)}
             rows={3}
-            className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none focus:border-blue-400"
+            disabled={isSubmitting}
+            className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none focus:border-blue-400 disabled:opacity-60"
           />
         </div>
       )}

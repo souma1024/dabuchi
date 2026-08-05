@@ -92,6 +92,18 @@ describe('RecipientAmountPage', () => {
     expect(screen.getByRole('button', { name: '請求' })).toBeEnabled();
   });
 
+  it('安全な整数の範囲を超える金額を入力するとエラー表示され送信ボタンが無効になる', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByLabelText('請求金額'), '9'.repeat(20));
+
+    expect(
+      screen.getByText('入力できる金額の桁数を超えています'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '請求' })).toBeDisabled();
+  });
+
   it('showMessageFieldがtrueの場合のみメッセージ欄を表示する', () => {
     renderPage({ showMessageField: true });
     expect(screen.getByLabelText('メッセージ（任意）')).toBeInTheDocument();
@@ -110,6 +122,32 @@ describe('RecipientAmountPage', () => {
 
     await user.type(screen.getByLabelText('請求金額'), '1000');
     await user.click(screen.getByRole('button', { name: '請求' }));
+
+    expect(await screen.findByText('請求が完了しました')).toBeInTheDocument();
+    expect(
+      screen.getByText('テスト花子さんに1,000円を請求しました。'),
+    ).toBeInTheDocument();
+    expect(onSubmit).toHaveBeenCalledWith(1000);
+  });
+
+  it('送信中は金額欄・メッセージ欄を編集できず、応答待ち中に金額を変更しても完了画面には送信時点の金額を表示する', async () => {
+    let resolveSubmit: () => void = () => {};
+    const onSubmit = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSubmit = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    renderPage({ onSubmit, showMessageField: true });
+
+    await user.type(screen.getByLabelText('請求金額'), '1000');
+    await user.click(screen.getByRole('button', { name: '請求' }));
+
+    expect(screen.getByLabelText('請求金額')).toBeDisabled();
+    expect(screen.getByLabelText('メッセージ（任意）')).toBeDisabled();
+
+    resolveSubmit();
 
     expect(await screen.findByText('請求が完了しました')).toBeInTheDocument();
     expect(
