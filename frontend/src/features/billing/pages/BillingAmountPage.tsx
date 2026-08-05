@@ -1,6 +1,6 @@
 import { RecipientAmountPage } from '../../../components/RecipientAmountPage';
 import { useRecipientFromLocationState } from '../../../hooks/useRecipientFromLocationState';
-import { DEFAULT_AMOUNT_LIMIT } from '../../../lib/amountLimits';
+import { MAX_TRANSACTION_AMOUNT } from '../../../lib/amountLimits';
 import { currentUser, recipients } from '../../../lib/mockUsers';
 import type { Recipient } from '../../../types/user';
 import { sendBillingRequest } from '../api/billingClient';
@@ -27,7 +27,7 @@ export function BillingAmountPage() {
         sendBillingRequest({ userId: recipient.id, amount })
       }
       maxAmount={{
-        value: DEFAULT_AMOUNT_LIMIT,
+        value: MAX_TRANSACTION_AMOUNT,
         label: '請求上限額',
         exceededMessage: '請求上限額を超えています',
       }}

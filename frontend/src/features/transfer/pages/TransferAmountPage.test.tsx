@@ -57,6 +57,53 @@ describe('TransferAmountPage', () => {
     expect(screen.getByRole('button', { name: '送金' })).toBeDisabled();
   });
 
+  it('送金上限額ちょうど（100,000円）は送信でき、1円超える（100,001円）と無効になる', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <TransferAmountPage />
+      </MemoryRouter>,
+    );
+
+    await user.type(screen.getByLabelText('送金金額'), '100000');
+    expect(
+      screen.queryByText('送金上限額を超えています'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '送金' })).toBeEnabled();
+
+    await user.type(screen.getByLabelText('送金金額'), '1');
+    expect(screen.getByText('送金上限額を超えています')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '送金' })).toBeDisabled();
+  });
+
+  it('メッセージを入力しても送金APIへ送信するリクエストボディは変わらない', async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 200 }));
+
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <TransferAmountPage />
+      </MemoryRouter>,
+    );
+
+    await user.type(screen.getByLabelText('送金金額'), '1000');
+    await user.type(
+      screen.getByLabelText('メッセージ（任意）'),
+      'お願いします',
+    );
+    await user.click(screen.getByRole('button', { name: '送金' }));
+
+    expect(await screen.findByText('送金が完了しました')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/transfers',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ userId: '2', amount: 1000 }),
+      }),
+    );
+  });
+
   it('送金APIに金額と送金先userIdを送信し、成功したら完了メッセージを表示する', async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 200 }));

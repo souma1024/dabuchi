@@ -11,7 +11,9 @@ function isRecipient(value: unknown): value is Recipient {
     typeof value === 'object' &&
     value !== null &&
     typeof (value as { id?: unknown }).id === 'string' &&
-    typeof (value as { name?: unknown }).name === 'string'
+    (value as { id: string }).id !== '' &&
+    typeof (value as { name?: unknown }).name === 'string' &&
+    (value as { name: string }).name !== ''
   );
 }
 

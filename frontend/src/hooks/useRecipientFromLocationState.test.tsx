@@ -32,6 +32,8 @@ describe('useRecipientFromLocationState', () => {
     ['recipientがnull', { recipient: null }],
     ['recipientが空オブジェクト', { recipient: {} }],
     ['recipientにnameがない', { recipient: { id: '9' } }],
+    ['recipientのidが空文字', { recipient: { id: '', name: 'テスト花子' } }],
+    ['recipientのnameが空文字', { recipient: { id: '9', name: '' } }],
   ])('不正なstate（%s）の場合はdefaultRecipientを返す', (_label, state) => {
     const { result } = renderWithState(state);
     expect(result.current).toEqual(defaultRecipient);

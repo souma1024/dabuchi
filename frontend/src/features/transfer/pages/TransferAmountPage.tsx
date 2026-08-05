@@ -1,7 +1,7 @@
 import { RecipientAmountPage } from '../../../components/RecipientAmountPage';
 import { sendTransfer } from '../api/transferClient';
 import { useRecipientFromLocationState } from '../../../hooks/useRecipientFromLocationState';
-import { DEFAULT_AMOUNT_LIMIT } from '../../../lib/amountLimits';
+import { MAX_TRANSACTION_AMOUNT } from '../../../lib/amountLimits';
 import { currentUser, recipients } from '../../../lib/mockUsers';
 import type { Recipient } from '../../../types/user';
 
@@ -25,7 +25,7 @@ export function TransferAmountPage() {
       }
       onSubmit={(amount) => sendTransfer({ userId: recipient.id, amount })}
       maxAmount={{
-        value: DEFAULT_AMOUNT_LIMIT,
+        value: MAX_TRANSACTION_AMOUNT,
         label: '送金上限額',
         exceededMessage: '送金上限額を超えています',
       }}

@@ -68,6 +68,25 @@ describe('BillingAmountPage', () => {
     expect(screen.getByRole('button', { name: '請求' })).toBeDisabled();
   });
 
+  it('請求上限額ちょうど（100,000円）は送信でき、1円超える（100,001円）と無効になる', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <BillingAmountPage />
+      </MemoryRouter>,
+    );
+
+    await user.type(screen.getByLabelText('請求金額'), '100000');
+    expect(
+      screen.queryByText('請求上限額を超えています'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '請求' })).toBeEnabled();
+
+    await user.type(screen.getByLabelText('請求金額'), '1');
+    expect(screen.getByText('請求上限額を超えています')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '請求' })).toBeDisabled();
+  });
+
   it('請求APIに金額と請求相手userIdを送信し、成功したら完了メッセージを表示する', async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 200 }));

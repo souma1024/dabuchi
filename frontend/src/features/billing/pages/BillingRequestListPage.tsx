@@ -10,6 +10,8 @@ function formatCreatedAt(createdAt: string): string {
 }
 
 // 自分が送った請求の一覧画面。バックエンドの請求一覧APIが未確定のため、モックデータを表示する。
+// 固定のモックデータを直接参照しているため、BillingAmountPageで作成した請求はこの一覧に反映されない。
+// APIが決まり次第、取得処理を関数（またはhook）として1枚挟み、この一覧をそこへ差し替える想定。
 export function BillingRequestListPage() {
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 bg-slate-50 px-5 py-8">

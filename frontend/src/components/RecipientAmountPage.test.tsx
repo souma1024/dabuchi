@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
@@ -82,6 +82,24 @@ describe('RecipientAmountPage', () => {
     expect(screen.getByRole('button', { name: '請求' })).toBeDisabled();
   });
 
+  it('maxAmountの値ちょうどの金額は送信できる', async () => {
+    const user = userEvent.setup();
+    renderPage({
+      maxAmount: {
+        value: 1000,
+        label: '送金上限額',
+        exceededMessage: '送金上限額を超えています',
+      },
+    });
+
+    await user.type(screen.getByLabelText('請求金額'), '1000');
+
+    expect(
+      screen.queryByText('送金上限額を超えています'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '請求' })).toBeEnabled();
+  });
+
   it('maxAmountが未指定の場合、上限額は表示されず高額でも送信できる', async () => {
     const user = userEvent.setup();
     renderPage();
@@ -156,6 +174,28 @@ describe('RecipientAmountPage', () => {
     expect(onSubmit).toHaveBeenCalledWith(1000);
   });
 
+  it('連続でクリックしてもonSubmitは1回だけ実行される', async () => {
+    let resolveSubmit: () => void = () => {};
+    const onSubmit = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSubmit = resolve;
+        }),
+    );
+    const user = userEvent.setup();
+    renderPage({ onSubmit });
+
+    await user.type(screen.getByLabelText('請求金額'), '1000');
+    const button = screen.getByRole('button', { name: '請求' });
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    resolveSubmit();
+    await screen.findByText('請求が完了しました');
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
   it('送信に失敗した場合はsubmitErrorMessageを表示する', async () => {
     const user = userEvent.setup();
     renderPage({ onSubmit: vi.fn().mockRejectedValue(new Error('failed')) });
@@ -168,5 +208,27 @@ describe('RecipientAmountPage', () => {
         '請求に失敗しました。時間をおいて再度お試しください。',
       ),
     ).toBeInTheDocument();
+  });
+
+  it('送信に失敗した後は入力欄が再度有効になり、再送信できる', async () => {
+    const onSubmit = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('failed'))
+      .mockResolvedValueOnce(undefined);
+    const user = userEvent.setup();
+    renderPage({ onSubmit });
+
+    await user.type(screen.getByLabelText('請求金額'), '1000');
+    await user.click(screen.getByRole('button', { name: '請求' }));
+
+    await screen.findByText(
+      '請求に失敗しました。時間をおいて再度お試しください。',
+    );
+    expect(screen.getByLabelText('請求金額')).toBeEnabled();
+
+    await user.click(screen.getByRole('button', { name: '請求' }));
+
+    expect(await screen.findByText('請求が完了しました')).toBeInTheDocument();
+    expect(onSubmit).toHaveBeenCalledTimes(2);
   });
 });

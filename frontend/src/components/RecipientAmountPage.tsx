@@ -68,6 +68,9 @@ export function RecipientAmountPage({
   };
 
   const handleSubmit = async () => {
+    if (isSubmitting) {
+      return;
+    }
     const amountToSubmit = numericAmount;
     setSubmitError('');
     setIsSubmitting(true);
