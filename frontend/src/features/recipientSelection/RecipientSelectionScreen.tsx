@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 import { RecipientListItem } from './components/RecipientListItem';
 import { useRecipients } from './hooks/useRecipients';
 import type { Recipient } from './types';
@@ -11,13 +13,37 @@ interface RecipientSelectionScreenProps {
   onBack?: () => void;
 }
 
-/** 送金相手を顔写真と氏名で選ぶ画面。 */
+/** 送金相手を顔写真と氏名で選ぶ画面。スクロール末尾で次ページを追加取得する。 */
 export function RecipientSelectionScreen({
   currentUserId,
   onSelectRecipient,
   onBack,
 }: RecipientSelectionScreenProps) {
-  const state = useRecipients(currentUserId);
+  const {
+    recipients,
+    isLoadingInitial,
+    isLoadingMore,
+    error,
+    hasMore,
+    loadMore,
+  } = useRecipients(currentUserId);
+  const sentinelRef = useRef<HTMLLIElement | null>(null);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) {
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        loadMore();
+      }
+    });
+    observer.observe(sentinel);
+    return () => {
+      observer.disconnect();
+    };
+  }, [loadMore, hasMore, recipients.length]);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white">
@@ -40,31 +66,44 @@ export function RecipientSelectionScreen({
         <span />
       </header>
 
-      {state.status === 'loading' && (
+      {isLoadingInitial && (
         <p className="px-4 py-8 text-center text-slate-500">読み込み中…</p>
       )}
 
-      {state.status === 'error' && (
+      {!isLoadingInitial && recipients.length === 0 && error && (
         <p role="alert" className="px-4 py-8 text-center text-slate-500">
-          {state.message}
+          {error}
         </p>
       )}
 
-      {state.status === 'success' && state.recipients.length === 0 && (
+      {!isLoadingInitial && recipients.length === 0 && !error && (
         <p className="px-4 py-8 text-center text-slate-500">
           送金できる相手がいません。
         </p>
       )}
 
-      {state.status === 'success' && state.recipients.length > 0 && (
+      {recipients.length > 0 && (
         <ul className="m-0 flex-1 list-none p-0">
-          {state.recipients.map((recipient) => (
+          {recipients.map((recipient) => (
             <RecipientListItem
               key={recipient.id}
               recipient={recipient}
               onSelect={onSelectRecipient}
             />
           ))}
+          {hasMore && (
+            <li ref={sentinelRef} aria-hidden="true" className="h-px" />
+          )}
+          {isLoadingMore && (
+            <li className="px-4 py-4 text-center text-slate-500">
+              読み込み中…
+            </li>
+          )}
+          {error && (
+            <li role="alert" className="px-4 py-4 text-center text-slate-500">
+              {error}
+            </li>
+          )}
         </ul>
       )}
     </main>

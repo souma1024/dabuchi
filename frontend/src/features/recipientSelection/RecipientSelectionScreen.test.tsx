@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { RecipientPage } from './api/fetchRecipients';
 import { fetchRecipients } from './api/fetchRecipients';
 import { RecipientSelectionScreen } from './RecipientSelectionScreen';
 import type { Recipient } from './types';
@@ -24,13 +25,17 @@ const sampleRecipients: Recipient[] = [
   },
 ];
 
+function page(recipients: Recipient[]): RecipientPage {
+  return { recipients, nextCursor: null };
+}
+
 describe('RecipientSelectionScreen', () => {
   beforeEach(() => {
     mockedFetchRecipients.mockReset();
   });
 
   it('取得したユーザーを一覧表示する', async () => {
-    mockedFetchRecipients.mockResolvedValue(sampleRecipients);
+    mockedFetchRecipients.mockResolvedValue(page(sampleRecipients));
 
     render(
       <RecipientSelectionScreen
@@ -47,8 +52,36 @@ describe('RecipientSelectionScreen', () => {
     ).toBeInTheDocument();
   });
 
+  it('読み込み中はローディングを表示する', () => {
+    mockedFetchRecipients.mockReturnValue(new Promise<RecipientPage>(() => {}));
+
+    render(
+      <RecipientSelectionScreen
+        currentUserId="me"
+        onSelectRecipient={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('読み込み中…')).toBeInTheDocument();
+  });
+
+  it('相手がいない場合はメッセージを表示する', async () => {
+    mockedFetchRecipients.mockResolvedValue(page([]));
+
+    render(
+      <RecipientSelectionScreen
+        currentUserId="me"
+        onSelectRecipient={vi.fn()}
+      />,
+    );
+
+    expect(
+      await screen.findByText('送金できる相手がいません。'),
+    ).toBeInTheDocument();
+  });
+
   it('行をタップすると選んだ相手を親へ通知する', async () => {
-    mockedFetchRecipients.mockResolvedValue(sampleRecipients);
+    mockedFetchRecipients.mockResolvedValue(page(sampleRecipients));
     const onSelectRecipient = vi.fn();
 
     render(

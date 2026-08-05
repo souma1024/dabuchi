@@ -17,63 +17,87 @@ describe('fetchRecipients', () => {
     vi.unstubAllGlobals();
   });
 
-  it('カーソルを辿って全ページを取得し、profileUrlをimageUrlへ写す', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        jsonResponse({
-          users: [
-            {
-              id: 'uuid-1',
-              name: '山田 太郎',
-              profileUrl: '/assets/profiles/human1.png',
-            },
-          ],
-          pageInfo: { nextCursor: 'CURSOR_1', hasNextPage: true },
-        }),
-      )
-      .mockResolvedValueOnce(
-        jsonResponse({
-          users: [
-            {
-              id: 'uuid-2',
-              name: '佐藤 花子',
-              profileUrl: '/assets/profiles/human2.png',
-            },
-          ],
-          pageInfo: { nextCursor: null, hasNextPage: false },
-        }),
-      );
+  it('1ページ分を取得し、profileUrlをimageUrlへ写して返す', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        users: [
+          {
+            id: 'uuid-1',
+            name: '山田 太郎',
+            profileUrl: '/assets/profiles/human1.png',
+          },
+        ],
+        pageInfo: { nextCursor: 'CURSOR_1', hasNextPage: true },
+      }),
+    );
     vi.stubGlobal('fetch', fetchMock);
 
-    const result = await fetchRecipients(CURRENT_USER_ID);
+    const page = await fetchRecipients(CURRENT_USER_ID);
 
-    expect(result).toEqual([
-      {
-        id: 'uuid-1',
-        name: '山田 太郎',
-        imageUrl: '/assets/profiles/human1.png',
-      },
-      {
-        id: 'uuid-2',
-        name: '佐藤 花子',
-        imageUrl: '/assets/profiles/human2.png',
-      },
-    ]);
+    expect(page).toEqual({
+      recipients: [
+        {
+          id: 'uuid-1',
+          name: '山田 太郎',
+          imageUrl: '/assets/profiles/human1.png',
+        },
+      ],
+      nextCursor: 'CURSOR_1',
+    });
 
-    const urls = fetchMock.mock.calls.map((call) => String(call[0]));
-    expect(urls).toHaveLength(2);
-    expect(urls[0]).toContain(`/api/users/${CURRENT_USER_ID}/recipients`);
-    expect(urls[0]).not.toContain('cursor=');
-    expect(urls[1]).toContain('cursor=CURSOR_1');
+    const url = String(fetchMock.mock.calls[0]?.[0]);
+    expect(url).toContain(`/api/users/${CURRENT_USER_ID}/recipients`);
+    expect(url).not.toContain('cursor=');
   });
 
-  it('レスポンスが失敗ならエラーを投げる', async () => {
+  it('cursorを渡すとクエリに付与する', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        users: [],
+        pageInfo: { nextCursor: null, hasNextPage: false },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchRecipients(CURRENT_USER_ID, 'CURSOR_1');
+
+    const url = String(fetchMock.mock.calls[0]?.[0]);
+    expect(url).toContain('cursor=CURSOR_1');
+  });
+
+  it('HTTPエラーならエラーを投げる', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({ ok: false, status: 500 }),
     );
 
     await expect(fetchRecipients(CURRENT_USER_ID)).rejects.toThrow('HTTP 500');
+  });
+
+  it('レスポンスの形が不正ならエラーを投げる', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse({ foo: 'bar' })),
+    );
+
+    await expect(fetchRecipients(CURRENT_USER_ID)).rejects.toThrow(
+      '不正なレスポンス',
+    );
+  });
+
+  it('usersの要素が型不正ならエラーを投げる', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse({
+          users: [{ id: 1, name: '山田', profileUrl: '/x.png' }],
+          pageInfo: { nextCursor: null, hasNextPage: false },
+        }),
+      ),
+    );
+
+    await expect(fetchRecipients(CURRENT_USER_ID)).rejects.toThrow(
+      '不正なレスポンス',
+    );
   });
 });
