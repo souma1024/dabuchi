@@ -1,17 +1,11 @@
 import type { UserRecipient } from '../../domain/userRecipient.js';
+import { CurrentUserNotFoundError } from '../errors/currentUserNotFoundError.js';
 import type {
   RecipientCursor,
   UserRecipientRepository,
 } from '../ports/userRecipientRepository.js';
 
 const RECIPIENT_PAGE_SIZE = 20;
-
-export class CurrentUserNotFoundError extends Error {
-  constructor() {
-    super('Current user was not found.');
-    this.name = 'CurrentUserNotFoundError';
-  }
-}
 
 export interface ListUserRecipientsInput {
   currentUserId: string;
