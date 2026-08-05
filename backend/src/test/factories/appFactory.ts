@@ -1,12 +1,16 @@
 import type { TransferRepository } from '../../domain/transferRepository.js';
 import { createApp } from '../../app.js';
 import type { CurrentUserRepository } from '../../application/ports/currentUserRepository.js';
+import type { TransactionRepository } from '../../application/ports/transactionRepository.js';
 import type { UserRecipientRepository } from '../../application/ports/userRecipientRepository.js';
 import { GetCurrentUser } from '../../application/usecases/getCurrentUser.js';
 import { ListUserRecipients } from '../../application/usecases/listUserRecipients.js';
+import { ListUserTransactions } from '../../application/usecases/listUserTransactions.js';
 import type { CurrentUser } from '../../domain/currentUser.js';
+import type { TransactionRecord } from '../../domain/transaction.js';
 import type { UserRecipientRecord } from '../../domain/userRecipient.js';
 import { createCurrentUserRepository } from './currentUserRepositoryFactory.js';
+import { createTransactionRepository } from './transactionRepositoryFactory.js';
 import { createUserRecipientRepository } from './userRecipientRepositoryFactory.js';
 
 interface AppFactoryOptions {
@@ -16,6 +20,8 @@ interface AppFactoryOptions {
   currentUserExists?: boolean;
   recipients?: UserRecipientRecord[];
   repository?: UserRecipientRepository;
+  transactions?: TransactionRecord[];
+  transactionRepository?: TransactionRepository;
   transferRepository?: TransferRepository;
 }
 
@@ -29,8 +35,15 @@ export function createTestApp(options: AppFactoryOptions = {}) {
       currentUserExists: options.currentUserExists,
       recipients: options.recipients,
     });
+  const transactionRepository =
+    options.transactionRepository ??
+    createTransactionRepository({
+      currentUserExists: options.currentUserExists,
+      transactions: options.transactions,
+    });
   const getCurrentUser = new GetCurrentUser(currentUserRepository);
   const listUserRecipients = new ListUserRecipients(repository);
+  const listUserTransactions = new ListUserTransactions(transactionRepository);
   const transferRepository: TransferRepository =
     options.transferRepository ??
     ({
@@ -42,9 +55,11 @@ export function createTestApp(options: AppFactoryOptions = {}) {
       currentUserId: options.currentUserId ?? 'friend-001',
       getCurrentUser,
       listUserRecipients,
+      listUserTransactions,
       transferRepository,
     }),
     currentUserRepository,
     repository,
+    transactionRepository,
   };
 }
