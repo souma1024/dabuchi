@@ -23,10 +23,10 @@ describe('HomePage', () => {
     expect(screen.getByText('80,000円')).toBeInTheDocument();
   });
 
-  it('「送る」から相手選択画面のパスへ遷移できる', () => {
+  it('「送金する」から相手選択画面のパスへ遷移できる', () => {
     renderHomePage();
 
-    expect(screen.getByRole('link', { name: '送る' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '送金する' })).toHaveAttribute(
       'href',
       '/recipients',
     );
