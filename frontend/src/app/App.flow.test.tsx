@@ -38,4 +38,21 @@ describe('送金フローの結合', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('山田 太郎')).toBeInTheDocument();
   });
+
+  it('ホーム→相手選択（請求）→相手タップで、請求画面へ選んだ相手が渡る', async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('link', { name: '請求する' }));
+
+    expect(
+      await screen.findByRole('heading', { name: '請求相手を選ぶ' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('button', { name: '山田 太郎' }));
+
+    expect(
+      await screen.findByRole('heading', { name: '請求先' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('山田 太郎')).toBeInTheDocument();
+  });
 });

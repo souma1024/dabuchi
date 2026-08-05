@@ -6,9 +6,11 @@ import type { Recipient } from '../features/recipientSelection/types';
 import { RecipientSelectionRoute } from './RecipientSelectionRoute';
 
 const navigateMock = vi.hoisted(() => vi.fn());
+let searchParams = vi.hoisted(() => new URLSearchParams());
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => navigateMock,
+  useSearchParams: () => [searchParams],
 }));
 
 vi.mock('../features/recipientSelection/api/fetchRecipients', () => ({
@@ -20,6 +22,7 @@ const mockedFetchRecipients = vi.mocked(fetchRecipients);
 describe('RecipientSelectionRoute', () => {
   beforeEach(() => {
     navigateMock.mockReset();
+    searchParams = new URLSearchParams();
     mockedFetchRecipients.mockReset();
     mockedFetchRecipients.mockResolvedValue({
       recipients: [],
@@ -51,6 +54,37 @@ describe('RecipientSelectionRoute', () => {
     fireEvent.click(await screen.findByRole('button', { name: '山田 太郎' }));
 
     expect(navigateMock).toHaveBeenCalledWith('/transfer', {
+      state: {
+        recipient: {
+          id: 'uuid-1',
+          name: '山田 太郎',
+          profileUrl: '/assets/profiles/human1.png',
+        },
+      },
+    });
+  });
+
+  it('purpose=billingのときは相手を選ぶと請求画面へ遷移する', async () => {
+    searchParams = new URLSearchParams({ purpose: 'billing' });
+    const recipient: Recipient = {
+      id: 'uuid-1',
+      name: '山田 太郎',
+      imageUrl: '/assets/profiles/human1.png',
+    };
+    mockedFetchRecipients.mockResolvedValue({
+      recipients: [recipient],
+      nextCursor: null,
+    });
+
+    render(<RecipientSelectionRoute />);
+
+    expect(
+      await screen.findByRole('heading', { name: '請求相手を選ぶ' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('button', { name: '山田 太郎' }));
+
+    expect(navigateMock).toHaveBeenCalledWith('/billing', {
       state: {
         recipient: {
           id: 'uuid-1',

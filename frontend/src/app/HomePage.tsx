@@ -18,7 +18,7 @@ interface MenuItem {
 // お金を動かす操作。対になるため横に並べる。
 const actions: MenuItem[] = [
   { label: '送金する', to: '/recipients', tone: 'send' },
-  { label: '請求する', to: null, tone: 'request' },
+  { label: '請求する', to: '/recipients?purpose=billing', tone: 'request' },
 ];
 
 // 自分宛の通知。

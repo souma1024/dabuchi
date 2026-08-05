@@ -7,17 +7,23 @@ import type { Recipient } from './types';
 interface RecipientSelectionScreenProps {
   /** 現在ログイン中のユーザーID（暫定。認証導入後はトークンから取得する）。 */
   currentUserId: string;
-  /** 相手を選んだときに呼ばれる。送金画面への遷移は呼び出し側が担う。 */
+  /** 相手を選んだときに呼ばれる。送金・請求画面への遷移は呼び出し側が担う。 */
   onSelectRecipient: (recipient: Recipient) => void;
   /** 戻る操作。未指定なら戻るボタンは表示しない。 */
   onBack?: () => void;
+  /** ヘッダー見出し。送金・請求で呼び出し側から文言を切り替える。 */
+  title?: string;
+  /** 候補0件時のメッセージ。送金・請求で呼び出し側から文言を切り替える。 */
+  emptyMessage?: string;
 }
 
-/** 送金相手を顔写真と氏名で選ぶ画面。スクロール末尾で次ページを追加取得する。 */
+/** 相手を顔写真と氏名で選ぶ画面。スクロール末尾で次ページを追加取得する。 */
 export function RecipientSelectionScreen({
   currentUserId,
   onSelectRecipient,
   onBack,
+  title = '送金相手を選ぶ',
+  emptyMessage = '送金できる相手がいません。',
 }: RecipientSelectionScreenProps) {
   const {
     recipients,
@@ -61,7 +67,7 @@ export function RecipientSelectionScreen({
           <span />
         )}
         <h1 className="m-0 text-center text-base font-semibold text-slate-900">
-          送金相手を選ぶ
+          {title}
         </h1>
         <span />
       </header>
@@ -77,9 +83,7 @@ export function RecipientSelectionScreen({
       )}
 
       {!isLoadingInitial && recipients.length === 0 && !error && (
-        <p className="px-4 py-8 text-center text-slate-500">
-          送金できる相手がいません。
-        </p>
+        <p className="px-4 py-8 text-center text-slate-500">{emptyMessage}</p>
       )}
 
       {recipients.length > 0 && (
