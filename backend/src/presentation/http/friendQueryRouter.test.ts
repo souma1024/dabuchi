@@ -76,7 +76,7 @@ describe('friend query router', () => {
         friendshipId: detail.friendshipId,
         friend: detail.friend,
         addedBy: detail.addedBy,
-        addedAt: detail.addedAt,
+        addedAt: '2026-08-06T10:00:01.000Z',
         note: detail.note,
       },
     });

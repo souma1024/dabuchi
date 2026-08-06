@@ -74,21 +74,21 @@ export class MysqlFriendQueryRepository implements FriendQueryRepository {
          DATE_FORMAT(f.created_at, '%Y-%m-%d %H:%i:%s.%f') AS addedAt,
          fn.message AS note
        FROM friendships f
-       JOIN users current_user ON current_user.id = UUID_TO_BIN(?)
+       JOIN users viewer ON viewer.id = UUID_TO_BIN(?)
        JOIN users friend ON friend.id = CASE
-         WHEN f.user1_id = current_user.id THEN f.user2_id
+         WHEN f.user1_id = viewer.id THEN f.user2_id
          ELSE f.user1_id
        END
        JOIN users added_by ON added_by.id = f.added_by_id
        LEFT JOIN friendship_notes fn
          ON fn.friendship_id = f.id
-        AND fn.user_id = current_user.id
-       WHERE current_user.id IN (f.user1_id, f.user2_id)
+        AND fn.user_id = viewer.id
+       WHERE viewer.id IN (f.user1_id, f.user2_id)
          AND NOT EXISTS (
            SELECT 1
            FROM user_blocks ub
-           WHERE (ub.blocker_id = current_user.id AND ub.blocked_user_id = friend.id)
-              OR (ub.blocker_id = friend.id AND ub.blocked_user_id = current_user.id)
+           WHERE (ub.blocker_id = viewer.id AND ub.blocked_user_id = friend.id)
+              OR (ub.blocker_id = friend.id AND ub.blocked_user_id = viewer.id)
          )
        ${cursorClause}
        ORDER BY f.created_at ASC, f.id ASC
@@ -119,27 +119,27 @@ export class MysqlFriendQueryRepository implements FriendQueryRepository {
          EXISTS (
            SELECT 1
            FROM user_blocks outgoing_block
-           WHERE outgoing_block.blocker_id = current_user.id
+           WHERE outgoing_block.blocker_id = viewer.id
              AND outgoing_block.blocked_user_id = friend.id
          ) AS blockedByCurrentUser,
          EXISTS (
            SELECT 1
            FROM user_blocks incoming_block
            WHERE incoming_block.blocker_id = friend.id
-             AND incoming_block.blocked_user_id = current_user.id
+             AND incoming_block.blocked_user_id = viewer.id
          ) AS blocksCurrentUser
        FROM friendships f
-       JOIN users current_user ON current_user.id = UUID_TO_BIN(?)
+       JOIN users viewer ON viewer.id = UUID_TO_BIN(?)
        JOIN users friend ON friend.id = CASE
-         WHEN f.user1_id = current_user.id THEN f.user2_id
+         WHEN f.user1_id = viewer.id THEN f.user2_id
          ELSE f.user1_id
        END
        JOIN users added_by ON added_by.id = f.added_by_id
        LEFT JOIN friendship_notes fn
          ON fn.friendship_id = f.id
-        AND fn.user_id = current_user.id
+        AND fn.user_id = viewer.id
        WHERE f.id = UUID_TO_BIN(?)
-         AND current_user.id IN (f.user1_id, f.user2_id)
+         AND viewer.id IN (f.user1_id, f.user2_id)
        LIMIT 1`,
       [input.currentUserId, input.friendshipId],
     );
@@ -194,16 +194,16 @@ export class MysqlFriendQueryRepository implements FriendQueryRepository {
          fn.message AS note,
          DATE_FORMAT(ub.created_at, '%Y-%m-%d %H:%i:%s.%f') AS blockedAt
        FROM user_blocks ub
-       JOIN users current_user ON current_user.id = UUID_TO_BIN(?)
+       JOIN users viewer ON viewer.id = UUID_TO_BIN(?)
        JOIN users friend ON friend.id = ub.blocked_user_id
        JOIN friendships f
-         ON (f.user1_id = current_user.id AND f.user2_id = friend.id)
-         OR (f.user1_id = friend.id AND f.user2_id = current_user.id)
+         ON (f.user1_id = viewer.id AND f.user2_id = friend.id)
+         OR (f.user1_id = friend.id AND f.user2_id = viewer.id)
        JOIN users added_by ON added_by.id = f.added_by_id
        LEFT JOIN friendship_notes fn
          ON fn.friendship_id = f.id
-        AND fn.user_id = current_user.id
-       WHERE ub.blocker_id = current_user.id
+        AND fn.user_id = viewer.id
+       WHERE ub.blocker_id = viewer.id
        ${cursorClause}
        ORDER BY ub.created_at ASC, f.id ASC
        LIMIT ?`,
