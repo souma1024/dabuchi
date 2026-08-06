@@ -286,3 +286,40 @@ describe('MysqlFriendCommandRepository friendship note', () => {
     );
   });
 });
+
+describe('MysqlFriendCommandRepository user block', () => {
+  const blockKey = {
+    blockerId: FRIENDSHIP.user1Id,
+    blockedUserId: FRIENDSHIP.user2Id,
+  };
+
+  it('既存ブロックを解除せず冪等にブロックする', async () => {
+    const { pool, execute } = createMysqlPool([{ affectedRows: 1 }]);
+    const repository = new MysqlFriendCommandRepository(pool);
+
+    await expect(repository.blockUser(blockKey)).resolves.toBeUndefined();
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining('ON DUPLICATE KEY UPDATE'),
+      [blockKey.blockerId, blockKey.blockedUserId, blockKey.blockerId],
+    );
+  });
+
+  it('存在しないブロックも成功扱いで解除する', async () => {
+    const { pool, execute } = createMysqlPool([{ affectedRows: 0 }]);
+    const repository = new MysqlFriendCommandRepository(pool);
+
+    await expect(repository.unblockUser(blockKey)).resolves.toBeUndefined();
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining('DELETE FROM user_blocks'),
+      [blockKey.blockerId, blockKey.blockedUserId],
+    );
+  });
+
+  it('ブロック時のDB errorは握りつぶさない', async () => {
+    const databaseError = new Error('foreign key violation');
+    const { pool } = createMysqlPool([databaseError]);
+    const repository = new MysqlFriendCommandRepository(pool);
+
+    await expect(repository.blockUser(blockKey)).rejects.toBe(databaseError);
+  });
+});

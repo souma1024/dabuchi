@@ -2,10 +2,12 @@ import type { ResultSetHeader, RowDataPacket } from 'mysql2';
 import type { Pool } from 'mysql2/promise';
 
 import type {
+  FriendCommandRepository,
   FriendshipCommandRecord,
   FriendshipNoteKey,
   NewFriendship,
   NewFriendshipNote,
+  UserBlockKey,
 } from '../../application/ports/friendCommandRepository.js';
 import type {
   FriendProfile,
@@ -32,7 +34,7 @@ interface FriendshipCommandRow extends RowDataPacket {
 
 interface FriendshipNoteRow extends RowDataPacket, FriendshipNote {}
 
-export class MysqlFriendCommandRepository {
+export class MysqlFriendCommandRepository implements FriendCommandRepository {
   constructor(private readonly pool: Pool) {}
 
   async findUserByPublicId(userId: string): Promise<FriendProfile | null> {
@@ -220,6 +222,24 @@ export class MysqlFriendCommandRepository {
        WHERE friendship_id = UUID_TO_BIN(?)
          AND user_id = UUID_TO_BIN(?)`,
       [key.friendshipId, key.userId],
+    );
+  }
+
+  async blockUser(key: UserBlockKey): Promise<void> {
+    await this.pool.execute<ResultSetHeader>(
+      `INSERT INTO user_blocks (blocker_id, blocked_user_id)
+       VALUES (UUID_TO_BIN(?), UUID_TO_BIN(?))
+       ON DUPLICATE KEY UPDATE blocker_id = UUID_TO_BIN(?)`,
+      [key.blockerId, key.blockedUserId, key.blockerId],
+    );
+  }
+
+  async unblockUser(key: UserBlockKey): Promise<void> {
+    await this.pool.execute<ResultSetHeader>(
+      `DELETE FROM user_blocks
+       WHERE blocker_id = UUID_TO_BIN(?)
+         AND blocked_user_id = UUID_TO_BIN(?)`,
+      [key.blockerId, key.blockedUserId],
     );
   }
 
