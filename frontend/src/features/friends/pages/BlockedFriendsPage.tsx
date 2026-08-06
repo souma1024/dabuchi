@@ -28,10 +28,7 @@ export function BlockedFriendsPage({ onBack }: BlockedFriendsPageProps) {
     loadMore,
     reload,
   } = useBlockedFriends();
-  const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore, [
-    hasMore,
-    friends.length,
-  ]);
+  const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore);
   const [openedFriendshipId, setOpenedFriendshipId] = useState<string | null>(
     null,
   );
