@@ -47,10 +47,11 @@ describe('fetchRecipients', () => {
 
     const url = String(fetchMock.mock.calls[0]?.[0]);
     expect(url).toContain(`/api/users/${CURRENT_USER_ID}/recipients`);
+    expect(url).toContain('sort=created-asc');
     expect(url).not.toContain('cursor=');
   });
 
-  it('cursorを渡すとクエリに付与する', async () => {
+  it('cursorとsortを渡すとクエリに付与する', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       jsonResponse({
         users: [],
@@ -59,10 +60,11 @@ describe('fetchRecipients', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    await fetchRecipients(CURRENT_USER_ID, 'CURSOR_1');
+    await fetchRecipients(CURRENT_USER_ID, 'CURSOR_1', 'name-asc');
 
     const url = String(fetchMock.mock.calls[0]?.[0]);
     expect(url).toContain('cursor=CURSOR_1');
+    expect(url).toContain('sort=name-asc');
   });
 
   it('HTTPエラーならエラーを投げる', async () => {

@@ -1,8 +1,13 @@
+import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { MAX_BILLING_RECIPIENTS } from '../features/billing/api/billingClient';
 import { RecipientSelectionScreen } from '../features/recipientSelection/RecipientSelectionScreen';
-import type { Recipient } from '../features/recipientSelection/types';
+import {
+  DEFAULT_RECIPIENT_SORT,
+  type Recipient,
+  type RecipientSort,
+} from '../features/recipientSelection/types';
 
 // 認証が未実装のため、暫定で環境変数（未設定なら開発シードfriend-001のUUID）を現在ユーザーとして扱う。
 // バックエンドはcurrentUserIdにUUID（内部id）を要求する。
@@ -38,6 +43,7 @@ function toStateRecipient({ id, name, imageUrl }: Recipient) {
 export function RecipientSelectionRoute() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [sort, setSort] = useState<RecipientSort>(DEFAULT_RECIPIENT_SORT);
   const purpose: Purpose =
     searchParams.get('purpose') === 'billing' ? 'billing' : 'transfer';
   const { path, title, emptyMessage } = PURPOSE_CONFIG[purpose];
@@ -52,6 +58,8 @@ export function RecipientSelectionRoute() {
         currentUserId={CURRENT_USER_ID}
         title={title}
         emptyMessage={emptyMessage}
+        sort={sort}
+        onSortChange={setSort}
         onBack={handleBack}
         selectionMode="multiple"
         maxSelectionCount={MAX_BILLING_RECIPIENTS}
@@ -70,6 +78,8 @@ export function RecipientSelectionRoute() {
       currentUserId={CURRENT_USER_ID}
       title={title}
       emptyMessage={emptyMessage}
+      sort={sort}
+      onSortChange={setSort}
       onBack={handleBack}
       onSelectRecipient={(recipient: Recipient) =>
         void navigate(path, {

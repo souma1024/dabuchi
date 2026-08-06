@@ -50,6 +50,9 @@ describe('RecipientSelectionScreen', () => {
     expect(
       screen.getByRole('button', { name: '佐藤 花子' }),
     ).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: '並び替え' })).toHaveValue(
+      'created-asc',
+    );
   });
 
   it('読み込み中はローディングを表示する', () => {
@@ -111,6 +114,28 @@ describe('RecipientSelectionScreen', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       '送金相手の取得に失敗しました',
     );
+  });
+
+  it('並び替えを変更すると親へ通知する', async () => {
+    mockedFetchRecipients.mockResolvedValue(page(sampleRecipients));
+    const onSortChange = vi.fn();
+
+    render(
+      <RecipientSelectionScreen
+        currentUserId="me"
+        onSelectRecipient={vi.fn()}
+        onSortChange={onSortChange}
+      />,
+    );
+
+    fireEvent.change(
+      await screen.findByRole('combobox', { name: '並び替え' }),
+      {
+        target: { value: 'name-asc' },
+      },
+    );
+
+    expect(onSortChange).toHaveBeenCalledWith('name-asc');
   });
 
   // 請求は複数人へまとめて出せるため、選んでから「次へ」で確定する。

@@ -49,6 +49,44 @@ describe('RecipientSelectionRoute', () => {
     expect(navigateMock).toHaveBeenCalledWith('/', { replace: true });
   });
 
+  it('初期表示はcreated-ascで取得し、並び替え変更時に再取得する', async () => {
+    mockedFetchRecipients
+      .mockResolvedValueOnce({
+        recipients: [taro],
+        nextCursor: null,
+      })
+      .mockResolvedValueOnce({
+        recipients: [hanako],
+        nextCursor: null,
+      });
+
+    render(<RecipientSelectionRoute />);
+
+    expect(
+      await screen.findByRole('button', { name: '山田 太郎' }),
+    ).toBeInTheDocument();
+    expect(mockedFetchRecipients).toHaveBeenNthCalledWith(
+      1,
+      expect.any(String),
+      null,
+      'created-asc',
+    );
+
+    fireEvent.change(screen.getByRole('combobox', { name: '並び替え' }), {
+      target: { value: 'name-asc' },
+    });
+
+    expect(
+      await screen.findByRole('button', { name: '佐藤 花子' }),
+    ).toBeInTheDocument();
+    expect(mockedFetchRecipients).toHaveBeenNthCalledWith(
+      2,
+      expect.any(String),
+      null,
+      'name-asc',
+    );
+  });
+
   it('相手を選ぶと選択相手を載せて送金画面へ遷移する', async () => {
     mockedFetchRecipients.mockResolvedValue({
       recipients: [taro],

@@ -1,4 +1,8 @@
-import type { Recipient } from '../types';
+import {
+  DEFAULT_RECIPIENT_SORT,
+  type Recipient,
+  type RecipientSort,
+} from '../types';
 
 // 未設定なら同一オリジン（Vite dev serverの /api プロキシ経由）を使う。
 const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? '';
@@ -76,12 +80,17 @@ function parseRecipientsResponse(data: unknown): RecipientsResponse {
   return { users, pageInfo: { nextCursor, hasNextPage } };
 }
 
-function buildRecipientsUrl(currentUserId: string, cursor: string | null): URL {
+function buildRecipientsUrl(
+  currentUserId: string,
+  cursor: string | null,
+  sort: RecipientSort,
+): URL {
   const base = API_BASE_URL || window.location.origin;
   const url = new URL(
     `/api/users/${encodeURIComponent(currentUserId)}/recipients`,
     base,
   );
+  url.searchParams.set('sort', sort);
   if (cursor) {
     url.searchParams.set('cursor', cursor);
   }
@@ -96,11 +105,15 @@ function buildRecipientsUrl(currentUserId: string, cursor: string | null): URL {
 export async function fetchRecipients(
   currentUserId: string,
   cursor: string | null = null,
+  sort: RecipientSort = DEFAULT_RECIPIENT_SORT,
   signal?: AbortSignal,
 ): Promise<RecipientPage> {
-  const response = await fetch(buildRecipientsUrl(currentUserId, cursor), {
-    signal,
-  });
+  const response = await fetch(
+    buildRecipientsUrl(currentUserId, cursor, sort),
+    {
+      signal,
+    },
+  );
   if (!response.ok) {
     throw new Error(`送金相手の取得に失敗しました (HTTP ${response.status})`);
   }

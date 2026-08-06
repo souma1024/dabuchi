@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { RecipientListItem } from './components/RecipientListItem';
+import { RecipientSortSelect } from './components/RecipientSortSelect';
 import { useRecipients } from './hooks/useRecipients';
-import type { Recipient } from './types';
+import {
+  DEFAULT_RECIPIENT_SORT,
+  type Recipient,
+  type RecipientSort,
+} from './types';
 
 interface RecipientSelectionScreenBaseProps {
   /** 現在ログイン中のユーザーID（暫定。認証導入後はトークンから取得する）。 */
@@ -13,6 +18,10 @@ interface RecipientSelectionScreenBaseProps {
   title?: string;
   /** 候補0件時のメッセージ。送金・請求で呼び出し側から文言を切り替える。 */
   emptyMessage?: string;
+  /** 一覧の並び替え条件。 */
+  sort?: RecipientSort;
+  /** 並び替え条件の変更通知。 */
+  onSortChange?: (sort: RecipientSort) => void;
 }
 
 interface SingleSelectionProps extends RecipientSelectionScreenBaseProps {
@@ -44,6 +53,8 @@ export function RecipientSelectionScreen(props: RecipientSelectionScreenProps) {
     onBack,
     title = '送金相手を選ぶ',
     emptyMessage = '送金できる相手がいません。',
+    sort = DEFAULT_RECIPIENT_SORT,
+    onSortChange,
   } = props;
   const {
     recipients,
@@ -52,7 +63,7 @@ export function RecipientSelectionScreen(props: RecipientSelectionScreenProps) {
     error,
     hasMore,
     loadMore,
-  } = useRecipients(currentUserId);
+  } = useRecipients(currentUserId, sort);
   const sentinelRef = useRef<HTMLLIElement | null>(null);
   // 選択済みの相手そのものを持つ。追加読み込みで一覧が伸びても選択が消えない。
   const [selected, setSelected] = useState<Recipient[]>([]);
@@ -120,6 +131,11 @@ export function RecipientSelectionScreen(props: RecipientSelectionScreenProps) {
         </h1>
         <span />
       </header>
+
+      <RecipientSortSelect
+        value={sort}
+        onChange={onSortChange ?? (() => undefined)}
+      />
 
       {isLoadingInitial && (
         <p className="px-4 py-8 text-center text-slate-500">読み込み中…</p>

@@ -7,3 +7,9 @@ export interface Recipient {
   /** アイコン画像の相対URL（例: /assets/profiles/human1.png）。 */
   imageUrl: string;
 }
+
+/** backendの送金相手一覧APIが受け付ける並び替え条件。 */
+export type RecipientSort = 'created-asc' | 'created-desc' | 'name-asc';
+
+/** フロントエンドで使う既定の並び替え。backendの既定値と合わせる。 */
+export const DEFAULT_RECIPIENT_SORT: RecipientSort = 'created-asc';
