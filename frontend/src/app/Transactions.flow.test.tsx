@@ -65,7 +65,7 @@ describe('取引履歴への導線', () => {
     fireEvent.click(screen.getByRole('button', { name: '戻る' }));
 
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'dabuchi' }),
+      await screen.findByRole('heading', { level: 1, name: 'DABUCHI' }),
     ).toBeInTheDocument();
   });
 });

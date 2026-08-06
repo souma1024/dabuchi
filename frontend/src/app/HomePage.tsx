@@ -182,8 +182,16 @@ function LogOutButton() {
 export function HomePage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[420px] flex-col bg-white">
-      <header className="border-b border-slate-200 px-5 py-4">
-        <h1 className="m-0 text-base font-semibold text-slate-900">dabuchi</h1>
+      <header className="flex items-center gap-2 border-b border-slate-200 px-5 py-4">
+        {/* 隣にアプリ名があるため、ロゴは読み上げの対象にしない。 */}
+        <img
+          src="/logo.svg"
+          alt=""
+          width={24}
+          height={24}
+          className="shrink-0"
+        />
+        <h1 className="m-0 text-base font-semibold text-slate-900">DABUCHI</h1>
       </header>
 
       <BalanceSection />
