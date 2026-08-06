@@ -37,18 +37,18 @@ function createRouterTestApp(
   app.use(express.json());
   app.use(
     '/api/payment-requests',
-    createPaymentRequestRouter(
+    createPaymentRequestRouter({
       createPaymentRequests,
-      CURRENT_USER_PUBLIC_ID,
-      new ListPaymentRequests(
+      currentUserPublicId: CURRENT_USER_PUBLIC_ID,
+      listPaymentRequests: new ListPaymentRequests(
         currentUserRepository,
         createPaymentRequestListRepository(),
       ),
-      new RespondToPaymentRequest(
+      respondToPaymentRequest: new RespondToPaymentRequest(
         currentUserRepository,
         paymentRequestCommandRepository,
       ),
-    ),
+    }),
   );
   app.use(
     (

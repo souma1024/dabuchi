@@ -101,12 +101,12 @@ export function createApp(dependencies: AppDependencies) {
   );
   app.use(
     '/api/payment-requests',
-    createPaymentRequestRouter(
-      dependencies.createPaymentRequests,
-      dependencies.currentUserId,
-      dependencies.listPaymentRequests,
-      dependencies.respondToPaymentRequest,
-    ),
+    createPaymentRequestRouter({
+      createPaymentRequests: dependencies.createPaymentRequests,
+      currentUserPublicId: dependencies.currentUserId,
+      listPaymentRequests: dependencies.listPaymentRequests,
+      respondToPaymentRequest: dependencies.respondToPaymentRequest,
+    }),
   );
 
   app.use((_request, response) => {
