@@ -66,12 +66,20 @@ function parseCursor(value: unknown): PaymentRequestCursor | null {
   return cursor;
 }
 
-export function createPaymentRequestRouter(
-  createPaymentRequests: CreatePaymentRequests,
-  currentUserId: string,
-  listPaymentRequests: ListPaymentRequests,
-  respondToPaymentRequest: RespondToPaymentRequest,
-) {
+interface PaymentRequestRouterDependencies {
+  createPaymentRequests: CreatePaymentRequests;
+  /** mock認証で決まる現在ユーザーの公開user_id。内部UUIDはusecase側で解決する。 */
+  currentUserPublicId: string;
+  listPaymentRequests: ListPaymentRequests;
+  respondToPaymentRequest: RespondToPaymentRequest;
+}
+
+export function createPaymentRequestRouter({
+  createPaymentRequests,
+  currentUserPublicId,
+  listPaymentRequests,
+  respondToPaymentRequest,
+}: PaymentRequestRouterDependencies) {
   const router = Router();
 
   // 承認と拒否は同じ手続きで、残高が動くかどうかだけが違う。
@@ -81,7 +89,7 @@ export function createPaymentRequestRouter(
     async (request, httpResponse, next) => {
       try {
         const result = await respondToPaymentRequest.execute({
-          currentUserId,
+          currentUserId: currentUserPublicId,
           // 単一のpath parameterだが、型上は配列もありうる。
           // 配列なら空文字にしてusecase側のUUID検証で400にする。
           paymentRequestId:
@@ -108,7 +116,7 @@ export function createPaymentRequestRouter(
   router.get('/', async (request, response, next) => {
     try {
       const result = await listPaymentRequests.execute({
-        currentUserId,
+        currentUserId: currentUserPublicId,
         direction: parseDirection(request.query.direction),
         status: parseStatus(request.query.status),
         cursor: parseCursor(request.query.cursor),
@@ -132,7 +140,7 @@ export function createPaymentRequestRouter(
   router.post('/', async (request, response, next) => {
     try {
       const paymentRequests = await createPaymentRequests.execute(
-        currentUserId,
+        currentUserPublicId,
         request.body,
       );
       response.status(201).json({ requests: paymentRequests });

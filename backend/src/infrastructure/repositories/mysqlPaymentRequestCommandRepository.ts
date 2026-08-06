@@ -24,6 +24,8 @@ interface PaymentRequestRow extends RowDataPacket {
   recipientId: string;
   amount: number;
   status: string;
+  /** pendingのあいだはnull。 */
+  respondedAt: string | null;
 }
 
 interface RespondedRow extends RowDataPacket {
@@ -34,9 +36,7 @@ interface BalanceRow extends RowDataPacket {
   balance: number;
 }
 
-export class MysqlPaymentRequestCommandRepository
-  implements PaymentRequestCommandRepository
-{
+export class MysqlPaymentRequestCommandRepository implements PaymentRequestCommandRepository {
   constructor(private readonly pool: Pool) {}
 
   async respond(
@@ -82,7 +82,8 @@ export class MysqlPaymentRequestCommandRepository
               BIN_TO_UUID(requester_id) AS requesterId,
               BIN_TO_UUID(recipient_id) AS recipientId,
               amount,
-              status
+              status,
+              DATE_FORMAT(responded_at, '%Y-%m-%d %H:%i:%s.%f') AS respondedAt
          FROM payment_requests
         WHERE id = UUID_TO_BIN(?)
         FOR UPDATE`,
@@ -102,11 +103,19 @@ export class MysqlPaymentRequestCommandRepository
       throw new PaymentRequestForbiddenError();
     }
 
-    if (paymentRequest.status !== 'pending') {
-      throw new PaymentRequestAlreadyRespondedError();
-    }
-
     const amount = Number(paymentRequest.amount);
+
+    if (paymentRequest.status !== 'pending') {
+      // 同じ向きの応答が確定済みなら、冪等リプレイとして現在の結果を返す。
+      // COMMITはMySQL側で完了したのに応答が届かず、clientが再送する場合がある。
+      // 409のままだと「失敗表示なのにお金は動いた」状態から成功へ収束できない。
+      // 逆向き（accepted済みへreject等）は取り消しにあたるため409のままにする。
+      if (paymentRequest.status !== input.response) {
+        throw new PaymentRequestAlreadyRespondedError();
+      }
+
+      return this.replayResponse(connection, paymentRequest, amount, input);
+    }
 
     // 承認のときだけ残高が動く。送金APIと同じ手続きを再利用し、
     // 残高検証・双方の更新・transfers への記録を同じtransactionで行う。
@@ -160,6 +169,43 @@ export class MysqlPaymentRequestCommandRepository
       recipientBalance,
     };
   }
+
+  /**
+   * 既に同じ向きで確定している請求の結果を、何も変えずに返す。
+   *
+   * 残高は動かさない。返す残高は現時点の値で、承認直後の値とは限らない
+   * （その後に別の送金があれば変わる）。clientが必要とするのは
+   * 「いま画面に出す残高」なので、これで問題ない。
+   */
+  private async replayResponse(
+    connection: PoolConnection,
+    paymentRequest: PaymentRequestRow,
+    amount: number,
+    input: RespondToPaymentRequestInput,
+  ): Promise<RespondedPaymentRequest> {
+    // CHECK制約 chk_payment_requests_response_time により、pending以外は
+    // responded_at が必ず入っている。取れないならDBの不変条件が壊れている。
+    if (paymentRequest.respondedAt === null) {
+      throw new Error(
+        `Payment request ${paymentRequest.id} is ${paymentRequest.status} but has no responded_at.`,
+      );
+    }
+
+    const recipientBalance =
+      input.response === 'accepted'
+        ? await readBalance(connection, paymentRequest.recipientId)
+        : null;
+
+    await connection.commit();
+
+    return {
+      id: paymentRequest.id,
+      amount,
+      status: input.response,
+      respondedAt: paymentRequest.respondedAt,
+      recipientBalance,
+    };
+  }
 }
 
 async function readBalance(
@@ -170,8 +216,15 @@ async function readBalance(
     `SELECT balance FROM users WHERE id = UUID_TO_BIN(?)`,
     [userInternalId],
   );
+  const row = rows[0];
 
-  return Number(rows[0]?.balance ?? 0);
+  // 直前にFOR UPDATEでロックしているため通常は起こらない。
+  // 残高0と偽って成功を返すより、不変条件違反として500にする。
+  if (!row) {
+    throw new Error(`User ${userInternalId} disappeared during the response.`);
+  }
+
+  return Number(row.balance);
 }
 
 async function rollbackQuietly(connection: PoolConnection): Promise<void> {

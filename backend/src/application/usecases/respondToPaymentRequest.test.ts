@@ -95,14 +95,17 @@ describe('RespondToPaymentRequest', () => {
     ['UUIDでない', 'not-a-uuid'],
     ['空文字', ''],
     ['連番', '20'],
-  ])('請求IDが%sならrepositoryを呼ばずに弾く', async (_name, paymentRequestId) => {
-    const repository = createPaymentRequestCommandRepository();
+  ])(
+    '請求IDが%sならrepositoryを呼ばずに弾く',
+    async (_name, paymentRequestId) => {
+      const repository = createPaymentRequestCommandRepository();
 
-    await expect(
-      createUsecase(repository).execute(createInput({ paymentRequestId })),
-    ).rejects.toBeInstanceOf(InvalidPaymentRequestIdError);
-    expect(repository.respond).not.toHaveBeenCalled();
-  });
+      await expect(
+        createUsecase(repository).execute(createInput({ paymentRequestId })),
+      ).rejects.toBeInstanceOf(InvalidPaymentRequestIdError);
+      expect(repository.respond).not.toHaveBeenCalled();
+    },
+  );
 
   it('現在ユーザーが存在しなければrepositoryを呼ばずにエラーにする', async () => {
     const repository = createPaymentRequestCommandRepository();
@@ -123,8 +126,8 @@ describe('RespondToPaymentRequest', () => {
       error: failure,
     });
 
-    await expect(
-      createUsecase(repository).execute(createInput()),
-    ).rejects.toBe(failure);
+    await expect(createUsecase(repository).execute(createInput())).rejects.toBe(
+      failure,
+    );
   });
 });
