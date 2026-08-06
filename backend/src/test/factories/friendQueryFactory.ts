@@ -1,5 +1,8 @@
 import type { FriendProfile } from '../../domain/friendship.js';
-import type { FriendQueryRecord } from '../../application/ports/friendQueryRepository.js';
+import type {
+  FriendQueryRecord,
+  FriendshipDetailQueryRecord,
+} from '../../application/ports/friendQueryRepository.js';
 
 export function createFriendProfile(
   index = 1,
@@ -34,4 +37,16 @@ export function createFriendQueryRecords(count: number): FriendQueryRecord[] {
   return Array.from({ length: count }, (_, index) =>
     createFriendQueryRecord(index + 1),
   );
+}
+
+export function createFriendshipDetailQueryRecord(
+  index = 1,
+  overrides: Partial<FriendshipDetailQueryRecord> = {},
+): FriendshipDetailQueryRecord {
+  return {
+    ...createFriendQueryRecord(index),
+    blockedByCurrentUser: false,
+    blocksCurrentUser: false,
+    ...overrides,
+  };
 }

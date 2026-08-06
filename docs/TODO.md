@@ -64,6 +64,7 @@
 - [完了] PR #52へ更新済み#50を取り込み、ホーム画面テストの競合を解消する
 - [完了] PR #56へ更新済み#52を取り込み、送信されないメッセージ欄の削除を再検証する
 - [完了] 友達一覧のapplication usecaseとfactory-based unit testを追加する
+- [完了] 友達詳細のapplication usecaseとブロック方向別の認可テストを追加する
 
 ## 保留・要確認
 
@@ -80,4 +81,4 @@
 
 ## 次回最初に着手するタスク
 
-友達詳細のapplication usecaseと認可テストを、友達一覧PRへ積む。
+自分がブロックしている一覧のapplication usecaseを、友達詳細PRへ積む。
