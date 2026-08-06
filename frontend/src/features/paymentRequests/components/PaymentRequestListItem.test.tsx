@@ -20,7 +20,7 @@ const baseRequest: PaymentRequest = {
 function renderItem(request: PaymentRequest = baseRequest) {
   return render(
     <ul>
-      <PaymentRequestListItem request={request} />
+      <PaymentRequestListItem request={request} direction="received" />
     </ul>,
   );
 }

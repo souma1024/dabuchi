@@ -1,7 +1,6 @@
-import { useEffect, useRef } from 'react';
-
 import { TransactionListItem } from '../components/TransactionListItem';
 import { useTransactions } from '../hooks/useTransactions';
+import { useInfiniteScrollSentinel } from '../../../hooks/useInfiniteScrollSentinel';
 
 interface TransactionsPageProps {
   /** 戻る操作。未指定なら戻るボタンは表示しない。 */
@@ -21,23 +20,9 @@ export function TransactionsPage({ onBack }: TransactionsPageProps) {
     hasMore,
     loadMore,
   } = useTransactions();
-  const sentinelRef = useRef<HTMLLIElement | null>(null);
-
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel) {
-      return;
-    }
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        loadMore();
-      }
-    });
-    observer.observe(sentinel);
-    return () => {
-      observer.disconnect();
-    };
-  }, [loadMore, hasMore, transactions.length]);
+  const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore, [
+    transactions.length,
+  ]);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white">

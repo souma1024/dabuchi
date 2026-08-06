@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 
 import { RecipientListItem } from './components/RecipientListItem';
 import { useRecipients } from './hooks/useRecipients';
 import type { Recipient } from './types';
+import { useInfiniteScrollSentinel } from '../../hooks/useInfiniteScrollSentinel';
 
 interface RecipientSelectionScreenBaseProps {
   /** 現在ログイン中のユーザーID（暫定。認証導入後はトークンから取得する）。 */
@@ -53,25 +54,9 @@ export function RecipientSelectionScreen(props: RecipientSelectionScreenProps) {
     hasMore,
     loadMore,
   } = useRecipients(currentUserId);
-  const sentinelRef = useRef<HTMLLIElement | null>(null);
+  const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore, []);
   // 選択済みの相手そのものを持つ。追加読み込みで一覧が伸びても選択が消えない。
   const [selected, setSelected] = useState<Recipient[]>([]);
-
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel) {
-      return;
-    }
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        loadMore();
-      }
-    });
-    observer.observe(sentinel);
-    return () => {
-      observer.disconnect();
-    };
-  }, [loadMore, hasMore, recipients.length]);
 
   const isMultiple = props.selectionMode === 'multiple';
   const maxSelectionCount = isMultiple ? props.maxSelectionCount : undefined;
