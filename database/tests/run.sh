@@ -343,6 +343,257 @@ if query "
   exit 1
 fi
 
+friendship_columns="$(query "
+  SELECT GROUP_CONCAT(
+    CONCAT(column_name, ':', column_type, ':', is_nullable)
+    ORDER BY ordinal_position SEPARATOR ','
+  )
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'friendships';
+")"
+assert_equals \
+  "id:binary(16):NO,user1_id:binary(16):NO,user2_id:binary(16):NO,added_by_id:binary(16):NO,created_at:datetime(6):NO" \
+  "${friendship_columns}" \
+  "friendships columns must match the migration"
+
+friendship_foreign_keys="$(query "
+  SELECT GROUP_CONCAT(
+    CONCAT(column_name, '->', referenced_table_name, '.', referenced_column_name)
+    ORDER BY column_name SEPARATOR ','
+  )
+  FROM information_schema.key_column_usage
+  WHERE table_schema = DATABASE()
+    AND table_name = 'friendships'
+    AND referenced_table_name IS NOT NULL;
+")"
+assert_equals \
+  "added_by_id->users.id,user1_id->users.id,user2_id->users.id" \
+  "${friendship_foreign_keys}" \
+  "friendship participants must reference users(id)"
+
+query "
+  INSERT INTO users (user_id, user_name, profile_url)
+  VALUES ('friendship-third-user', '第三ユーザー', '/assets/profiles/human3.png');
+
+  INSERT INTO friendships (user1_id, user2_id, added_by_id)
+  SELECT
+    IF(adder.id < friend.id, adder.id, friend.id),
+    IF(adder.id < friend.id, friend.id, adder.id),
+    adder.id
+  FROM users AS adder
+  CROSS JOIN users AS friend
+  WHERE adder.user_id = 'auto-id-test'
+    AND friend.user_id = 'recipient-test';
+" >/dev/null
+
+saved_friendship="$(query "
+  SELECT CONCAT(
+    IS_UUID(BIN_TO_UUID(friendships.id)), ':',
+    adder.user_id
+  )
+  FROM friendships
+  JOIN users AS adder ON adder.id = friendships.added_by_id;
+")"
+assert_equals \
+  "1:auto-id-test" \
+  "${saved_friendship}" \
+  "friendship must generate a UUID and preserve who added it"
+
+if query "
+  INSERT INTO friendships (user1_id, user2_id, added_by_id)
+  SELECT
+    IF(adder.id < friend.id, adder.id, friend.id),
+    IF(adder.id < friend.id, friend.id, adder.id),
+    adder.id
+  FROM users AS adder
+  CROSS JOIN users AS friend
+  WHERE adder.user_id = 'auto-id-test'
+    AND friend.user_id = 'recipient-test';
+" >/dev/null 2>&1; then
+  echo "FAIL: duplicate friendship must be rejected" >&2
+  exit 1
+fi
+
+if query "
+  INSERT INTO friendships (user1_id, user2_id, added_by_id)
+  SELECT id, id, id
+  FROM users
+  WHERE user_id = 'auto-id-test';
+" >/dev/null 2>&1; then
+  echo "FAIL: friendship participants must be different" >&2
+  exit 1
+fi
+
+if query "
+  INSERT INTO friendships (user1_id, user2_id, added_by_id)
+  SELECT
+    IF(adder.id < friend.id, adder.id, friend.id),
+    IF(adder.id < friend.id, friend.id, adder.id),
+    outsider.id
+  FROM users AS adder
+  CROSS JOIN users AS friend
+  CROSS JOIN users AS outsider
+  WHERE adder.user_id = 'auto-id-test'
+    AND friend.user_id = 'recipient-test'
+    AND outsider.user_id = 'friendship-third-user';
+" >/dev/null 2>&1; then
+  echo "FAIL: added_by_id must be a friendship participant" >&2
+  exit 1
+fi
+
+if query "
+  INSERT INTO friendships (user1_id, user2_id, added_by_id)
+  SELECT
+    IF(adder.id < friend.id, friend.id, adder.id),
+    IF(adder.id < friend.id, adder.id, friend.id),
+    adder.id
+  FROM users AS adder
+  CROSS JOIN users AS friend
+  WHERE adder.user_id = 'auto-id-test'
+    AND friend.user_id = 'friendship-third-user';
+" >/dev/null 2>&1; then
+  echo "FAIL: friendship pair must use canonical user order" >&2
+  exit 1
+fi
+
+friendship_note_columns="$(query "
+  SELECT GROUP_CONCAT(
+    CONCAT(column_name, ':', column_type, ':', is_nullable)
+    ORDER BY ordinal_position SEPARATOR ','
+  )
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'friendship_notes';
+")"
+assert_equals \
+  "friendship_id:binary(16):NO,user_id:binary(16):NO,message:varchar(255):NO,created_at:datetime(6):NO,updated_at:datetime(6):NO" \
+  "${friendship_note_columns}" \
+  "friendship_notes columns must match the migration"
+
+query "
+  INSERT INTO friendship_notes (friendship_id, user_id, message)
+  SELECT friendships.id, adder.id, '友達になりましょう'
+  FROM friendships
+  JOIN users AS adder ON adder.id = friendships.added_by_id;
+" >/dev/null
+
+adder_note="$(query "
+  SELECT CONCAT(users.user_id, ':', friendship_notes.message)
+  FROM friendship_notes
+  JOIN users ON users.id = friendship_notes.user_id;
+")"
+assert_equals \
+  "auto-id-test:友達になりましょう" \
+  "${adder_note}" \
+  "the adding user must have an independent friendship note"
+
+added_user_note_count="$(query "
+  SELECT COUNT(*)
+  FROM friendship_notes
+  JOIN users ON users.id = friendship_notes.user_id
+  WHERE users.user_id = 'recipient-test';
+")"
+assert_equals \
+  "0" \
+  "${added_user_note_count}" \
+  "the added user's friendship note must initially be null"
+
+if query "
+  INSERT INTO friendship_notes (friendship_id, user_id, message)
+  SELECT friendships.id, added_user.id, '   '
+  FROM friendships
+  JOIN users AS added_user
+    ON added_user.id = CASE
+      WHEN friendships.added_by_id = friendships.user1_id
+        THEN friendships.user2_id
+      ELSE friendships.user1_id
+    END;
+" >/dev/null 2>&1; then
+  echo "FAIL: blank friendship note must be rejected" >&2
+  exit 1
+fi
+
+query "
+  UPDATE friendship_notes
+  SET message = '編集後のメモ'
+  WHERE user_id = (
+    SELECT id
+    FROM users
+    WHERE user_id = 'auto-id-test'
+  );
+" >/dev/null
+
+updated_note="$(query "
+  SELECT message
+  FROM friendship_notes;
+")"
+assert_equals \
+  "編集後のメモ" \
+  "${updated_note}" \
+  "friendship note must be editable without changing the friendship"
+
+user_block_columns="$(query "
+  SELECT GROUP_CONCAT(
+    CONCAT(column_name, ':', column_type, ':', is_nullable)
+    ORDER BY ordinal_position SEPARATOR ','
+  )
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'user_blocks';
+")"
+assert_equals \
+  "blocker_id:binary(16):NO,blocked_user_id:binary(16):NO,created_at:datetime(6):NO" \
+  "${user_block_columns}" \
+  "user_blocks columns must match the migration"
+
+query "
+  INSERT INTO user_blocks (blocker_id, blocked_user_id)
+  SELECT blocker.id, blocked.id
+  FROM users AS blocker
+  CROSS JOIN users AS blocked
+  WHERE blocker.user_id = 'auto-id-test'
+    AND blocked.user_id = 'recipient-test';
+" >/dev/null
+
+saved_block="$(query "
+  SELECT CONCAT(blocker.user_id, '->', blocked.user_id)
+  FROM user_blocks
+  JOIN users AS blocker ON blocker.id = user_blocks.blocker_id
+  JOIN users AS blocked ON blocked.id = user_blocks.blocked_user_id;
+")"
+assert_equals \
+  "auto-id-test->recipient-test" \
+  "${saved_block}" \
+  "block direction must be preserved"
+
+friendship_count_after_block="$(query "
+  SELECT COUNT(*)
+  FROM friendships;
+")"
+assert_equals \
+  "1" \
+  "${friendship_count_after_block}" \
+  "blocking must preserve the friendship and its notes"
+
+if query "
+  INSERT INTO user_blocks (blocker_id, blocked_user_id)
+  SELECT id, id
+  FROM users
+  WHERE user_id = 'auto-id-test';
+" >/dev/null 2>&1; then
+  echo "FAIL: users must not block themselves" >&2
+  exit 1
+fi
+
+if query "
+  INSERT INTO user_blocks (blocker_id, blocked_user_id)
+  VALUES (
+    (SELECT id FROM users WHERE user_id = 'auto-id-test'),
+    UUID_TO_BIN('00000000-0000-0000-0000-000000000000')
+  );
+" >/dev/null 2>&1; then
+  echo "FAIL: blocked user must exist" >&2
+  exit 1
+fi
+
 echo "Database migration tests passed."
 bash database/scripts/seed.sh
 
