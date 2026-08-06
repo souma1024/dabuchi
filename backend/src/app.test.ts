@@ -20,8 +20,11 @@ import { encodePaymentRequestCursor } from './presentation/http/paymentRequestCu
 import { encodeRecipientCursor } from './presentation/http/recipientCursorCodec.js';
 import { encodeTransactionCursor } from './presentation/http/transactionCursorCodec.js';
 import type { TransactionRecord } from './domain/transaction.js';
+import { hashPassword } from './domain/password.js';
+import { hashSessionToken } from './domain/session.js';
 import { mysqlDateTimeToIso } from './shared/mysqlDateTime.js';
 import { createTestApp } from './test/factories/appFactory.js';
+import { createAuthRepository } from './test/factories/authRepositoryFactory.js';
 import { createCurrentUser } from './test/factories/currentUserFactory.js';
 import {
   createBlockedFriendQueryRecords,
@@ -50,6 +53,9 @@ import { createUserRecipientRepository } from './test/factories/userRecipientRep
 const CURRENT_USER_ID = '11111111-1111-4111-8111-111111111111';
 const MOCK_USER_ID = 'friend-001';
 const PAYMENT_REQUEST_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const PASSWORD = 'correct horse battery';
+// 毎回ハッシュ化すると遅くなるため、テスト内で一度だけ作る。
+const PASSWORD_HASH = await hashPassword(PASSWORD);
 
 class InMemoryTransferRepository implements TransferRepository {
   transfers: NewTransfer[] = [];
@@ -1143,5 +1149,127 @@ describe('backend application', () => {
     expect(asErrorBody(response.body).error.code).toBe(
       'CURRENT_USER_NOT_FOUND',
     );
+  });
+
+  it('user_idとパスワードが合えばセッションCookieを返す', async () => {
+    const { app } = createTestApp({
+      authRepository: createAuthRepository({
+        credential: { id: CURRENT_USER_ID, passwordHash: PASSWORD_HASH },
+      }),
+    });
+
+    const response = await request(app)
+      .post('/api/auth/login')
+      .send({ userId: MOCK_USER_ID, password: PASSWORD });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ authenticated: true });
+    // tokenはCookieでのみ渡し、bodyへは載せない。
+    const cookie = response.headers['set-cookie']?.[0] ?? '';
+    expect(cookie).toContain('dabuchi_session=');
+    expect(cookie).toContain('HttpOnly');
+    expect(cookie).toContain('SameSite=Lax');
+  });
+
+  it('パスワードが違えば401にし、Cookieを発行しない', async () => {
+    const { app } = createTestApp({
+      authRepository: createAuthRepository({
+        credential: { id: CURRENT_USER_ID, passwordHash: PASSWORD_HASH },
+      }),
+    });
+
+    const response = await request(app)
+      .post('/api/auth/login')
+      .send({ userId: MOCK_USER_ID, password: 'wrong password' });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({
+      error: {
+        code: 'INVALID_CREDENTIALS',
+        message: 'The user id or password is incorrect.',
+      },
+    });
+    expect(response.headers['set-cookie']).toBeUndefined();
+  });
+
+  it('存在しないuser_idもパスワード違いと同じ応答にする', async () => {
+    const { app } = createTestApp({
+      authRepository: createAuthRepository({ credential: null }),
+    });
+
+    const response = await request(app)
+      .post('/api/auth/login')
+      .send({ userId: 'unknown', password: PASSWORD });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({
+      error: {
+        code: 'INVALID_CREDENTIALS',
+        message: 'The user id or password is incorrect.',
+      },
+    });
+  });
+
+  it('新規登録すると201とセッションCookieを返す', async () => {
+    const { app, authRepository } = createTestApp();
+
+    const response = await request(app)
+      .post('/api/auth/signup')
+      .send({ userId: 'new-user', password: PASSWORD, name: '新井 太郎' });
+
+    expect(response.status).toBe(201);
+    expect(response.headers['set-cookie']?.[0]).toContain('dabuchi_session=');
+    expect(authRepository.createUser).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'new-user', name: '新井 太郎' }),
+    );
+  });
+
+  it('使われている公開user_idでの登録を409にする', async () => {
+    const { app } = createTestApp({
+      authRepository: createAuthRepository({ userCreated: false }),
+    });
+
+    const response = await request(app)
+      .post('/api/auth/signup')
+      .send({ userId: 'friend-001', password: PASSWORD, name: '新井 太郎' });
+
+    expect(response.status).toBe(409);
+    expect(response.body).toMatchObject({
+      error: { code: 'USER_ID_ALREADY_TAKEN' },
+    });
+  });
+
+  it('短すぎるパスワードでの登録を400にする', async () => {
+    const { app } = createTestApp();
+
+    const response = await request(app)
+      .post('/api/auth/signup')
+      .send({ userId: 'new-user', password: 'short', name: '新井 太郎' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({ error: { code: 'INVALID_REQUEST' } });
+  });
+
+  it('ログアウトでセッションを消し、Cookieも消す', async () => {
+    const { app, authRepository } = createTestApp();
+
+    const response = await request(app)
+      .post('/api/auth/logout')
+      .set('Cookie', 'dabuchi_session=abc123');
+
+    expect(response.status).toBe(204);
+    expect(authRepository.deleteSession).toHaveBeenCalledWith(
+      hashSessionToken('abc123'),
+    );
+    expect(response.headers['set-cookie']?.[0]).toContain('dabuchi_session=;');
+  });
+
+  it('Cookieが無くてもログアウトは成功する', async () => {
+    const { app, authRepository } = createTestApp();
+
+    const response = await request(app).post('/api/auth/logout');
+
+    expect(response.status).toBe(204);
+    expect(authRepository.deleteSession).not.toHaveBeenCalled();
   });
 });

@@ -6,6 +6,9 @@ import type { BlockFriend } from './application/usecases/blockFriend.js';
 import type { CreateFriendshipNote } from './application/usecases/createFriendshipNote.js';
 import type { DeleteFriendshipNote } from './application/usecases/deleteFriendshipNote.js';
 import type { GetCurrentUser } from './application/usecases/getCurrentUser.js';
+import type { LogIn } from './application/usecases/logIn.js';
+import type { LogOut } from './application/usecases/logOut.js';
+import type { SignUp } from './application/usecases/signUp.js';
 import type { GetFriendshipDetail } from './application/usecases/getFriendshipDetail.js';
 import type { ListBlockedFriends } from './application/usecases/listBlockedFriends.js';
 import type { ListFriends } from './application/usecases/listFriends.js';
@@ -18,6 +21,7 @@ import type { UnblockFriend } from './application/usecases/unblockFriend.js';
 import type { UpdateFriendshipNote } from './application/usecases/updateFriendshipNote.js';
 import type { TransferRepository } from './domain/transferRepository.js';
 import { createAddFriendRouter } from './presentation/http/addFriendRouter.js';
+import { createAuthRouter } from './presentation/http/authRouter.js';
 import { createCurrentUserRouter } from './presentation/http/currentUserRouter.js';
 import { errorHandler } from './presentation/http/errorHandler.js';
 import { createFriendBlockRouter } from './presentation/http/friendBlockRouter.js';
@@ -31,6 +35,9 @@ import { createTransferRouter } from './presentation/http/transferRouter.js';
 
 export interface AppDependencies {
   addFriend: AddFriend;
+  logIn: LogIn;
+  logOut: LogOut;
+  signUp: SignUp;
   blockFriend: BlockFriend;
   createFriendshipNote: CreateFriendshipNote;
   createPaymentRequests: CreatePaymentRequests;
@@ -57,6 +64,14 @@ export function createApp(dependencies: AppDependencies) {
   app.disable('x-powered-by');
   app.use(express.json({ limit: '100kb' }));
   app.use('/health', healthRouter);
+  app.use(
+    '/api/auth',
+    createAuthRouter({
+      logIn: dependencies.logIn,
+      logOut: dependencies.logOut,
+      signUp: dependencies.signUp,
+    }),
+  );
   app.use(
     '/api/me',
     createCurrentUserRouter(
