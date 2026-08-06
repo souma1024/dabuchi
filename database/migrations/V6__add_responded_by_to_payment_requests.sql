@@ -11,9 +11,16 @@ ALTER TABLE payment_requests
     FOREIGN KEY (responded_by) REFERENCES users (id),
   ADD CONSTRAINT chk_payment_requests_responded_by
     CHECK (
+      -- 応答前は誰も終わらせていない。
       (status = 'pending' AND responded_by IS NULL)
+      -- 承認できるのは被請求者だけ。請求者が自分の請求を承認することはありえない。
       OR (
-        status IN ('accepted', 'rejected')
+        status = 'accepted'
+        AND (responded_by IS NULL OR responded_by = recipient_id)
+      )
+      -- rejectedは被請求者の拒否と請求者の取り消しの両方を表すため、双方を許す。
+      OR (
+        status = 'rejected'
         AND (
           responded_by IS NULL
           OR responded_by IN (requester_id, recipient_id)
