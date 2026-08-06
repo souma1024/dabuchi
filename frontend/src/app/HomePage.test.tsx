@@ -25,6 +25,7 @@ describe('HomePage', () => {
     mockedFetchCurrentUser.mockReset();
     mockedFetchCurrentUser.mockResolvedValue({
       id: '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001',
+      userId: 'friend-001',
       name: '山田 太郎',
       profileUrl: '/assets/profiles/human1.png',
       balance: 120000,
@@ -49,6 +50,12 @@ describe('HomePage', () => {
       'ユーザー情報の取得に失敗しました (HTTP 500)',
     );
     expect(screen.getByRole('link', { name: '送金する' })).toBeInTheDocument();
+  });
+
+  it('友達追加で伝えるための自分のuser_idを表示する', async () => {
+    renderHomePage();
+
+    expect(await screen.findByText('ID: friend-001')).toBeInTheDocument();
   });
 
   it.each([

@@ -96,7 +96,9 @@ describe('backend application', () => {
     const response = await request(app).get('/api/me');
 
     expect(response.status).toBe(200);
+    // 友達追加で使う公開user_idも返す。
     expect(response.body).toEqual({ user: currentUser });
+    expect(response.body).toMatchObject({ user: { userId: 'friend-001' } });
     expect(currentUserRepository.findByUserId).toHaveBeenCalledWith(
       MOCK_USER_ID,
     );
