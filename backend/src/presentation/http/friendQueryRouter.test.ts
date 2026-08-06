@@ -1,4 +1,4 @@
-import express, { type ErrorRequestHandler } from 'express';
+import express from 'express';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 
@@ -13,11 +13,9 @@ import {
   createFriendshipDetailQueryRecord,
 } from '../../test/factories/friendQueryFactory.js';
 import { createFriendQueryRepository } from '../../test/factories/friendQueryRepositoryFactory.js';
+import { errorHandler } from './errorHandler.js';
 import { decodeFriendCursor } from './friendCursorCodec.js';
-import {
-  createFriendQueryRouter,
-  InvalidFriendRequestError,
-} from './friendQueryRouter.js';
+import { createFriendQueryRouter } from './friendQueryRouter.js';
 
 const CURRENT_USER_PUBLIC_ID = '001';
 const FRIENDSHIP_ID = '10000000-0000-4000-8000-000000000001';
@@ -97,13 +95,56 @@ describe('friend query router', () => {
       });
     },
   );
+
+  it('存在しない友達関係の詳細を404にする', async () => {
+    const { app } = createTestApp({ detail: null });
+
+    const response = await request(app).get(`/api/friends/${FRIENDSHIP_ID}`);
+
+    expect(response.status).toBe(404);
+    expect(response.body).toMatchObject({
+      error: { code: 'FRIENDSHIP_NOT_FOUND' },
+    });
+  });
+
+  it('相手からブロックされている友達関係の詳細を404にする', async () => {
+    const detail = createFriendshipDetailQueryRecord(1, {
+      friendshipId: FRIENDSHIP_ID,
+      blocksCurrentUser: true,
+      blockedByCurrentUser: false,
+    });
+    const { app } = createTestApp({ detail });
+
+    const response = await request(app).get(`/api/friends/${FRIENDSHIP_ID}`);
+
+    expect(response.status).toBe(404);
+    expect(response.body).toMatchObject({
+      error: { code: 'FRIENDSHIP_NOT_FOUND' },
+    });
+  });
+
+  it('自分がブロックした友達関係の詳細は返す', async () => {
+    const detail = createFriendshipDetailQueryRecord(1, {
+      friendshipId: FRIENDSHIP_ID,
+      blockedByCurrentUser: true,
+      blocksCurrentUser: true,
+    });
+    const { app } = createTestApp({ detail });
+
+    const response = await request(app).get(`/api/friends/${FRIENDSHIP_ID}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      friend: { friendshipId: FRIENDSHIP_ID },
+    });
+  });
 });
 
 function createTestApp(
   options: {
     friends?: ReturnType<typeof createFriendQueryRecords>;
     blockedFriends?: ReturnType<typeof createBlockedFriendQueryRecords>;
-    detail?: ReturnType<typeof createFriendshipDetailQueryRecord>;
+    detail?: ReturnType<typeof createFriendshipDetailQueryRecord> | null;
   } = {},
 ) {
   const friendQueryRepository = createFriendQueryRepository({
@@ -132,30 +173,11 @@ function createTestApp(
       ),
     }),
   );
-  app.use(testErrorHandler);
+  // 本番と同じerrorHandlerを使い、statusとcodeの対応をテストでも保証する。
+  app.use(errorHandler);
 
   return { app, friendQueryRepository };
 }
-
-const testErrorHandler: ErrorRequestHandler = (
-  error: unknown,
-  _request,
-  response,
-  _next,
-) => {
-  void _next;
-
-  if (error instanceof InvalidFriendRequestError) {
-    response.status(400).json({
-      error: { code: 'INVALID_REQUEST', message: error.message },
-    });
-    return;
-  }
-
-  response.status(500).json({
-    error: { code: 'INTERNAL_SERVER_ERROR', message: 'Unexpected error.' },
-  });
-};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

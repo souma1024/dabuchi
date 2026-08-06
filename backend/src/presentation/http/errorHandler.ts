@@ -9,6 +9,8 @@ import {
   TransferParticipantNotFoundError,
 } from '../../application/createTransfer.js';
 import { CurrentUserNotFoundError } from '../../application/errors/currentUserNotFoundError.js';
+import { FriendshipNotFoundError } from '../../application/errors/friendshipNotFoundError.js';
+import { InvalidFriendRequestError } from './friendQueryRouter.js';
 import { InvalidRecipientRequestError } from './userRecipientRouter.js';
 import { InvalidTransactionRequestError } from './userTransactionRouter.js';
 
@@ -48,6 +50,13 @@ export const errorHandler: ErrorRequestHandler = (
     return;
   }
 
+  if (error instanceof InvalidFriendRequestError) {
+    response.status(400).json({
+      error: { code: 'INVALID_REQUEST', message: error.message },
+    });
+    return;
+  }
+
   if (error instanceof CurrentUserNotFoundError) {
     response.status(404).json({
       error: {
@@ -64,6 +73,14 @@ export const errorHandler: ErrorRequestHandler = (
         code: 'TRANSFER_PARTICIPANT_NOT_FOUND',
         message: error.message,
       },
+    });
+    return;
+  }
+
+  // 相手からブロックされている友達関係も、存在しない場合と区別せず404にする。
+  if (error instanceof FriendshipNotFoundError) {
+    response.status(404).json({
+      error: { code: 'FRIENDSHIP_NOT_FOUND', message: error.message },
     });
     return;
   }
