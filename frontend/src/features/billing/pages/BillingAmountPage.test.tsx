@@ -97,6 +97,24 @@ describe('BillingAmountPage', () => {
       expect(amountInput('佐藤次郎')).toBeInTheDocument();
     });
 
+    it('左上の戻るボタンで請求相手の選択画面へ戻る', async () => {
+      const user = userEvent.setup();
+      renderWithRecipients([jiro, saburo]);
+
+      await user.click(screen.getByRole('button', { name: '戻る' }));
+
+      expect(screen.getByText(RECIPIENT_SELECTION_MARKER)).toBeInTheDocument();
+    });
+
+    // 左上の戻るボタンが同じ役割を担うため、画面末尾のリンクは置かない。
+    it('「請求相手を選び直す」ボタンは表示しない', () => {
+      renderWithRecipients([jiro]);
+
+      expect(
+        screen.queryByRole('button', { name: '請求相手を選び直す' }),
+      ).not.toBeInTheDocument();
+    });
+
     it('送信されないメッセージ欄は表示しない', () => {
       renderWithRecipients([jiro]);
 

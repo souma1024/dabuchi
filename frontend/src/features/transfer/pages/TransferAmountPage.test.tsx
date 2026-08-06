@@ -1,10 +1,12 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TransferAmountPage } from './TransferAmountPage';
+
+const RECIPIENT_SELECTION_MARKER = '送金相手選択画面';
 
 describe('TransferAmountPage', () => {
   beforeEach(() => {
@@ -42,6 +44,25 @@ describe('TransferAmountPage', () => {
     );
 
     expect(screen.getByText('テスト花子')).toBeInTheDocument();
+  });
+
+  it('左上の戻るボタンで送金相手の選択画面へ戻る', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/transfer']}>
+        <Routes>
+          <Route path="/transfer" element={<TransferAmountPage />} />
+          <Route
+            path="/recipients"
+            element={<div>{RECIPIENT_SELECTION_MARKER}</div>}
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByRole('button', { name: '戻る' }));
+
+    expect(screen.getByText(RECIPIENT_SELECTION_MARKER)).toBeInTheDocument();
   });
 
   it('送金上限額を超える金額を入力すると送金ボタンが無効になる', async () => {

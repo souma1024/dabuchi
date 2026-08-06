@@ -1,3 +1,5 @@
+import { useNavigate } from 'react-router-dom';
+
 import { RecipientAmountPage } from '../../../components/RecipientAmountPage';
 import { useRecipientFromLocationState } from '../../../hooks/useRecipientFromLocationState';
 import { currentUser, recipients } from '../../../lib/mockUsers';
@@ -7,12 +9,22 @@ import { sendTransfer } from '../api/transferClient';
 // 送金相手の選択画面は別担当が実装するため、遷移元から渡されなかった場合はモックの相手にフォールバックする。
 const defaultRecipient: Recipient = recipients[0] ?? currentUser;
 
+/** 送金相手を選び直すための画面。相手選択画面はpurpose未指定なら送金フローとして動く。 */
+const RECIPIENT_SELECTION_PATH = '/recipients';
+
 export function TransferAmountPage() {
   const recipient = useRecipientFromLocationState(defaultRecipient);
+  const navigate = useNavigate();
+
+  // 戻るは送金相手の選択画面へ。金額入力の履歴を残さないようreplaceで置き換え、
+  // 相手選択→送金→戻るを繰り返しても履歴が積み上がらないようにする。
+  const handleBack = () =>
+    void navigate(RECIPIENT_SELECTION_PATH, { replace: true });
 
   return (
     <RecipientAmountPage
       recipient={recipient}
+      onBack={handleBack}
       heading="送金先"
       amountLabel="送金金額"
       submitLabel="送金"

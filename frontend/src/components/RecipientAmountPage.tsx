@@ -7,6 +7,7 @@ import {
   isSubmittableAmount,
 } from '../lib/amount';
 import type { Recipient } from '../types/user';
+import { ScreenHeader } from './ScreenHeader';
 import { UserAvatar } from './UserAvatar';
 
 export interface MaxAmountConfig {
@@ -17,6 +18,7 @@ export interface MaxAmountConfig {
 
 export interface RecipientAmountPageProps {
   recipient: Recipient;
+  /** ヘッダー中央に表示する画面名。 */
   heading: string;
   amountLabel: string;
   submitLabel: string;
@@ -28,6 +30,8 @@ export interface RecipientAmountPageProps {
   completeNote?: string;
   onSubmit: (amount: number) => Promise<void>;
   maxAmount?: MaxAmountConfig;
+  /** ヘッダー左上の戻る操作。未指定なら戻るボタンは表示しない。 */
+  onBack?: () => void;
 }
 
 // 送金画面・請求画面共通の「相手表示＋金額入力＋バリデーション＋送信＋完了表示」UI。
@@ -48,6 +52,7 @@ export function RecipientAmountPage({
   completeNote,
   onSubmit,
   maxAmount,
+  onBack,
 }: RecipientAmountPageProps) {
   const navigate = useNavigate();
   const [amount, setAmount] = useState('');
@@ -115,64 +120,66 @@ export function RecipientAmountPage({
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 bg-slate-50 px-5 py-8">
-      <h1 className="text-lg font-bold text-slate-900">{heading}</h1>
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-slate-50">
+      <ScreenHeader title={heading} onBack={onBack} />
 
-      <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <UserAvatar name={recipient.name} profileUrl={recipient.profileUrl} />
-        <span className="text-base font-medium text-slate-800">
-          {recipient.name}
-        </span>
-      </div>
-
-      {maxAmount !== undefined && (
-        <div>
-          <p className="text-sm font-semibold text-slate-600">
-            {maxAmount.label}
-          </p>
-          <p className="mt-1 text-base text-slate-900">
-            {maxAmount.value.toLocaleString()}円
-          </p>
+      <div className="flex flex-1 flex-col gap-6 px-5 py-8">
+        <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <UserAvatar name={recipient.name} profileUrl={recipient.profileUrl} />
+          <span className="text-base font-medium text-slate-800">
+            {recipient.name}
+          </span>
         </div>
-      )}
 
-      <div>
-        <label
-          htmlFor="amount"
-          className="text-sm font-semibold text-slate-600"
-        >
-          {amountLabel}
-        </label>
-        <div className="mt-2 flex items-center rounded-2xl border border-slate-300 bg-white px-4 py-3 shadow-sm focus-within:border-blue-400">
-          <input
-            id="amount"
-            type="text"
-            inputMode="numeric"
-            placeholder="金額"
-            value={amount}
-            onChange={handleAmountChange}
-            disabled={isSubmitting}
-            className="w-full text-right text-2xl font-semibold text-slate-900 outline-none disabled:opacity-60"
-          />
-          <span className="ml-2 text-lg text-slate-600">円</span>
-        </div>
-        {errorMessage !== '' && (
-          <p className="mt-2 text-sm text-red-600">{errorMessage}</p>
+        {maxAmount !== undefined && (
+          <div>
+            <p className="text-sm font-semibold text-slate-600">
+              {maxAmount.label}
+            </p>
+            <p className="mt-1 text-base text-slate-900">
+              {maxAmount.value.toLocaleString()}円
+            </p>
+          </div>
         )}
+
+        <div>
+          <label
+            htmlFor="amount"
+            className="text-sm font-semibold text-slate-600"
+          >
+            {amountLabel}
+          </label>
+          <div className="mt-2 flex items-center rounded-2xl border border-slate-300 bg-white px-4 py-3 shadow-sm focus-within:border-blue-400">
+            <input
+              id="amount"
+              type="text"
+              inputMode="numeric"
+              placeholder="金額"
+              value={amount}
+              onChange={handleAmountChange}
+              disabled={isSubmitting}
+              className="w-full text-right text-2xl font-semibold text-slate-900 outline-none disabled:opacity-60"
+            />
+            <span className="ml-2 text-lg text-slate-600">円</span>
+          </div>
+          {errorMessage !== '' && (
+            <p className="mt-2 text-sm text-red-600">{errorMessage}</p>
+          )}
+        </div>
+
+        {submitError !== '' && (
+          <p className="text-sm text-red-600">{submitError}</p>
+        )}
+
+        <button
+          type="button"
+          disabled={!canSubmit || isSubmitting}
+          onClick={() => void handleSubmit()}
+          className="rounded-2xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+          {isSubmitting ? submittingLabel : submitLabel}
+        </button>
       </div>
-
-      {submitError !== '' && (
-        <p className="text-sm text-red-600">{submitError}</p>
-      )}
-
-      <button
-        type="button"
-        disabled={!canSubmit || isSubmitting}
-        onClick={() => void handleSubmit()}
-        className="rounded-2xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-      >
-        {isSubmitting ? submittingLabel : submitLabel}
-      </button>
     </div>
   );
 }
