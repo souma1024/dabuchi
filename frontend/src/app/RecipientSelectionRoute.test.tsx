@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchRecipients } from '../features/recipientSelection/api/fetchRecipients';
-import type { Recipient } from '../features/recipientSelection/types';
+import { fetchFriends } from '../features/friends/api/friendsClient';
+import { createFriend } from '../features/friends/testing/friendFactory';
 import { RecipientSelectionRoute } from './RecipientSelectionRoute';
 
 const navigateMock = vi.hoisted(() => vi.fn());
@@ -13,30 +13,37 @@ vi.mock('react-router-dom', () => ({
   useSearchParams: () => [searchParams],
 }));
 
-vi.mock('../features/recipientSelection/api/fetchRecipients', () => ({
-  fetchRecipients: vi.fn(),
+vi.mock('../features/friends/api/friendsClient', () => ({
+  addFriend: vi.fn(),
+  fetchFriends: vi.fn(),
 }));
 
-const mockedFetchRecipients = vi.mocked(fetchRecipients);
+const mockedFetchFriends = vi.mocked(fetchFriends);
 
-const taro: Recipient = {
-  id: 'uuid-1',
-  name: '山田 太郎',
-  imageUrl: '/assets/profiles/human1.png',
-};
-const hanako: Recipient = {
-  id: 'uuid-2',
-  name: '佐藤 花子',
-  imageUrl: '/assets/profiles/human2.png',
-};
+const taro = createFriend(1, {
+  friend: {
+    id: 'uuid-1',
+    userId: 'friend-001',
+    name: '山田 太郎',
+    profileUrl: '/assets/profiles/human1.png',
+  },
+});
+const hanako = createFriend(2, {
+  friend: {
+    id: 'uuid-2',
+    userId: 'friend-002',
+    name: '佐藤 花子',
+    profileUrl: '/assets/profiles/human2.png',
+  },
+});
 
 describe('RecipientSelectionRoute', () => {
   beforeEach(() => {
     navigateMock.mockReset();
     searchParams = new URLSearchParams();
-    mockedFetchRecipients.mockReset();
-    mockedFetchRecipients.mockResolvedValue({
-      recipients: [],
+    mockedFetchFriends.mockReset();
+    mockedFetchFriends.mockResolvedValue({
+      friends: [],
       nextCursor: null,
     });
   });
@@ -50,8 +57,8 @@ describe('RecipientSelectionRoute', () => {
   });
 
   it('相手を選ぶと選択相手を載せて送金画面へ遷移する', async () => {
-    mockedFetchRecipients.mockResolvedValue({
-      recipients: [taro],
+    mockedFetchFriends.mockResolvedValue({
+      friends: [taro],
       nextCursor: null,
     });
 
@@ -73,8 +80,8 @@ describe('RecipientSelectionRoute', () => {
   // 請求は複数人へまとめて出せる。選んでから「次へ」で確定し、配列で渡す。
   it('purpose=billingのときは選んだ相手全員を配列で請求画面へ渡す', async () => {
     searchParams = new URLSearchParams({ purpose: 'billing' });
-    mockedFetchRecipients.mockResolvedValue({
-      recipients: [taro, hanako],
+    mockedFetchFriends.mockResolvedValue({
+      friends: [taro, hanako],
       nextCursor: null,
     });
 
@@ -108,8 +115,8 @@ describe('RecipientSelectionRoute', () => {
 
   it('purpose=billingで1人も選んでいない間は次へ進めない', async () => {
     searchParams = new URLSearchParams({ purpose: 'billing' });
-    mockedFetchRecipients.mockResolvedValue({
-      recipients: [taro],
+    mockedFetchFriends.mockResolvedValue({
+      friends: [taro],
       nextCursor: null,
     });
 

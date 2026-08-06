@@ -1,30 +1,38 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchRecipients } from '../features/recipientSelection/api/fetchRecipients';
+import { fetchFriends } from '../features/friends/api/friendsClient';
+import { createFriend } from '../features/friends/testing/friendFactory';
 import { App } from './App';
 
-vi.mock('../features/recipientSelection/api/fetchRecipients', () => ({
-  fetchRecipients: vi.fn(),
+vi.mock('../features/friends/api/friendsClient', () => ({
+  addFriend: vi.fn(),
+  fetchFriends: vi.fn(),
 }));
 
-const mockedFetchRecipients = vi.mocked(fetchRecipients);
+const mockedFetchFriends = vi.mocked(fetchFriends);
 
 describe('送金フローの結合', () => {
   beforeEach(() => {
-    mockedFetchRecipients.mockReset();
-    mockedFetchRecipients.mockResolvedValue({
-      recipients: [
-        {
-          id: 'uuid-1',
-          name: '山田 太郎',
-          imageUrl: '/assets/profiles/human1.png',
-        },
-        {
-          id: 'uuid-2',
-          name: '佐藤 花子',
-          imageUrl: '/assets/profiles/human2.png',
-        },
+    mockedFetchFriends.mockReset();
+    mockedFetchFriends.mockResolvedValue({
+      friends: [
+        createFriend(1, {
+          friend: {
+            id: 'uuid-1',
+            userId: 'friend-001',
+            name: '山田 太郎',
+            profileUrl: '/assets/profiles/human1.png',
+          },
+        }),
+        createFriend(2, {
+          friend: {
+            id: 'uuid-2',
+            userId: 'friend-002',
+            name: '佐藤 花子',
+            profileUrl: '/assets/profiles/human2.png',
+          },
+        }),
       ],
       nextCursor: null,
     });

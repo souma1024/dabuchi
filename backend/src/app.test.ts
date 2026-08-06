@@ -14,6 +14,11 @@ import { mysqlDateTimeToIso } from './shared/mysqlDateTime.js';
 import { createTestApp } from './test/factories/appFactory.js';
 import { createCurrentUser } from './test/factories/currentUserFactory.js';
 import {
+  createBlockedFriendQueryRecords,
+  createFriendQueryRecords,
+} from './test/factories/friendQueryFactory.js';
+import { createFriendQueryRepository } from './test/factories/friendQueryRepositoryFactory.js';
+import {
   createTransactionRecord,
   createTransactionRecords,
 } from './test/factories/transactionFactory.js';
@@ -353,6 +358,80 @@ describe('backend application', () => {
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ error: 'Not Found' });
+  });
+
+  it('友達一覧をログイン中ユーザーの内部UUIDで検索して返す', async () => {
+    const records = createFriendQueryRecords(1);
+    const { app, friendQueryRepository } = createTestApp({
+      friendQueryRepository: createFriendQueryRepository({ friends: records }),
+    });
+
+    const response = await request(app).get('/api/friends');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      friends: [
+        {
+          friendshipId: records[0]?.friendshipId,
+          friend: records[0]?.friend,
+          addedBy: records[0]?.addedBy,
+          addedAt: '2026-08-06T10:00:01.000Z',
+          note: records[0]?.note,
+        },
+      ],
+      pageInfo: { nextCursor: null, hasNextPage: false },
+    });
+    // clientはユーザーを指定できず、server解決の内部UUIDで検索される
+    expect(friendQueryRepository.findFriends).toHaveBeenCalledWith({
+      currentUserId: CURRENT_USER_ID,
+      cursor: null,
+      limit: 21,
+    });
+  });
+
+  it('ブロック中の友達一覧を返す', async () => {
+    const records = createBlockedFriendQueryRecords(1);
+    const { app } = createTestApp({
+      friendQueryRepository: createFriendQueryRepository({
+        blockedFriends: records,
+      }),
+    });
+
+    const response = await request(app).get('/api/friends/blocked');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      friends: [{ friendshipId: records[0]?.friendshipId }],
+      pageInfo: { hasNextPage: false },
+    });
+  });
+
+  it('友達を追加して201を返す', async () => {
+    const { app } = createTestApp();
+
+    const response = await request(app)
+      .post('/api/friends')
+      .send({ friendUserId: 'friend-002' });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({
+      friendship: { friend: { userId: 'friend-002' } },
+    });
+  });
+
+  it('存在しない友達関係の詳細を404にする', async () => {
+    const { app } = createTestApp({
+      friendQueryRepository: createFriendQueryRepository({ detail: null }),
+    });
+
+    const response = await request(app).get(
+      '/api/friends/10000000-0000-4000-8000-000000000001',
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.body).toMatchObject({
+      error: { code: 'FRIENDSHIP_NOT_FOUND' },
+    });
   });
 
   it('送信者ID、受取人IDと金額を保存する', async () => {

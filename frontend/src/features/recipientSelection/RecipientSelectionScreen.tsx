@@ -1,13 +1,13 @@
 import { useState } from 'react';
 
+import { ScreenHeader } from '../../components/ScreenHeader';
+import { AddFriendForm } from '../friends/components/AddFriendForm';
 import { RecipientListItem } from './components/RecipientListItem';
 import { useRecipients } from './hooks/useRecipients';
 import type { Recipient } from './types';
 import { useInfiniteScrollSentinel } from '../../hooks/useInfiniteScrollSentinel';
 
 interface RecipientSelectionScreenBaseProps {
-  /** 現在ログイン中のユーザーID（暫定。認証導入後はトークンから取得する）。 */
-  currentUserId: string;
   /** 戻る操作。未指定なら戻るボタンは表示しない。 */
   onBack?: () => void;
   /** ヘッダー見出し。送金・請求で呼び出し側から文言を切り替える。 */
@@ -41,7 +41,6 @@ type RecipientSelectionScreenProps =
  */
 export function RecipientSelectionScreen(props: RecipientSelectionScreenProps) {
   const {
-    currentUserId,
     onBack,
     title = '送金相手を選ぶ',
     emptyMessage = '送金できる相手がいません。',
@@ -53,7 +52,8 @@ export function RecipientSelectionScreen(props: RecipientSelectionScreenProps) {
     error,
     hasMore,
     loadMore,
-  } = useRecipients(currentUserId);
+    reload,
+  } = useRecipients();
   const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore, []);
   // 選択済みの相手そのものを持つ。追加読み込みで一覧が伸びても選択が消えない。
   const [selected, setSelected] = useState<Recipient[]>([]);
@@ -87,24 +87,10 @@ export function RecipientSelectionScreen(props: RecipientSelectionScreenProps) {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white">
-      <header className="grid grid-cols-[40px_1fr_40px] items-center border-b border-slate-200 px-3 py-3.5">
-        {onBack ? (
-          <button
-            type="button"
-            onClick={onBack}
-            aria-label="戻る"
-            className="h-10 w-10 border-none bg-transparent text-xl text-slate-500"
-          >
-            ←
-          </button>
-        ) : (
-          <span />
-        )}
-        <h1 className="m-0 text-center text-base font-semibold text-slate-900">
-          {title}
-        </h1>
-        <span />
-      </header>
+      <ScreenHeader title={title} onBack={onBack} />
+
+      {/* 候補が0件でも詰まないよう、一覧の前に友達追加を置く。 */}
+      <AddFriendForm onAdded={reload} />
 
       {isLoadingInitial && (
         <p className="px-4 py-8 text-center text-slate-500">読み込み中…</p>
