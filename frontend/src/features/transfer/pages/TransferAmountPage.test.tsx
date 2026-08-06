@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TransferAmountPage } from './TransferAmountPage';
@@ -58,7 +58,10 @@ function renderPage(recipient?: { id: string; name: string }) {
     : ['/transfer'];
   return render(
     <MemoryRouter initialEntries={entries}>
-      <TransferAmountPage />
+      <Routes>
+        <Route path="/transfer" element={<TransferAmountPage />} />
+        <Route path="/recipients" element={<div>相手選択画面へ移動</div>} />
+      </Routes>
     </MemoryRouter>,
   );
 }
@@ -80,7 +83,7 @@ describe('TransferAmountPage', () => {
   beforeEach(() => {
     uuidCounter = 0;
     vi.stubGlobal('fetch', vi.fn());
-    // 冪等キーを決定的にし、生成が「マウント毎に1回」であることを検証できるようにする。
+    // 冪等キーを決定的にし、内容ごとに1回だけ生成されることを検証できるようにする。
     vi.stubGlobal('crypto', {
       randomUUID: () => `test-key-${(uuidCounter += 1)}`,
     });
@@ -92,23 +95,25 @@ describe('TransferAmountPage', () => {
 
   it('現在ユーザーの取得中はローディングを表示する', () => {
     mockApi({ me: () => new Promise<Response>(() => undefined) });
-    renderPage();
+    renderPage(RECIPIENT);
 
     expect(screen.getByText('読み込み中...')).toBeInTheDocument();
   });
 
   it('現在ユーザーの取得に失敗したらエラーを表示する', async () => {
     mockApi({ me: () => new Response(null, { status: 500 }) });
-    renderPage();
+    renderPage(RECIPIENT);
 
     expect(await screen.findByRole('alert')).toBeInTheDocument();
   });
 
-  it('遷移元から相手が渡されない場合はモックの相手を表示する', async () => {
+  it('相手が渡されていなければ相手選択画面へリダイレクトする', async () => {
     mockApi({});
     renderPage();
 
-    expect(await screen.findByText('佐藤次郎')).toBeInTheDocument();
+    expect(await screen.findByText('相手選択画面へ移動')).toBeInTheDocument();
+    // 送金フォーム（＝モック相手へのフォールバック）は表示しない。
+    expect(screen.queryByLabelText('送金金額')).not.toBeInTheDocument();
   });
 
   it('遷移元から渡された相手を表示する', async () => {
@@ -228,6 +233,34 @@ describe('TransferAmountPage', () => {
 
     const keys = transferCalls().map(([, init]) => idempotencyKeyOf(init));
     expect(keys).toEqual(['test-key-1', 'test-key-1']);
+  });
+
+  it('金額を変えて再送すると新しいIdempotency-Keyを使う', async () => {
+    let attempt = 0;
+    mockApi({
+      transfer: () => {
+        attempt += 1;
+        return new Response(null, { status: attempt === 1 ? 500 : 201 });
+      },
+    });
+    const user = userEvent.setup();
+    renderPage(RECIPIENT);
+
+    const input = await screen.findByLabelText('送金金額');
+    await user.type(input, '1000');
+    await user.click(screen.getByRole('button', { name: '送金' }));
+    await screen.findByText(
+      '送金に失敗しました。時間をおいて再度お試しください。',
+    );
+
+    // 金額を変更してから再送 → 別内容なので新しいキーになる。
+    await user.clear(input);
+    await user.type(input, '2000');
+    await user.click(screen.getByRole('button', { name: '送金' }));
+    await screen.findByText('送金しました');
+
+    const keys = transferCalls().map(([, init]) => idempotencyKeyOf(init));
+    expect(keys).toEqual(['test-key-1', 'test-key-2']);
   });
 
   it('送信されないメッセージ欄は表示しない', async () => {

@@ -1,26 +1,39 @@
-import { useState } from 'react';
+import { useRef } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
 
 import { RecipientAmountPage } from '../../../components/RecipientAmountPage';
-import { useRecipientFromLocationState } from '../../../hooks/useRecipientFromLocationState';
-import {
-  currentUser as fallbackUser,
-  recipients,
-} from '../../../lib/mockUsers';
+import { isRecipient } from '../../../hooks/useRecipientFromLocationState';
 import type { Recipient } from '../../../types/user';
 import { useCurrentUser } from '../../currentUser/hooks/useCurrentUser';
 import { sendTransfer } from '../api/transferClient';
-
-// 送金相手の選択画面は別担当が実装するため、遷移元から渡されなかった場合はモックの相手にフォールバックする。
-const defaultRecipient: Recipient = recipients[0] ?? fallbackUser;
 
 const containerStyle =
   'mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center bg-slate-50 px-5 py-8 text-center';
 
 export function TransferAmountPage() {
-  const recipient = useRecipientFromLocationState(defaultRecipient);
+  const location = useLocation();
+  const stateRecipient = (location.state as { recipient?: unknown } | null)
+    ?.recipient;
+
+  // 相手が渡されていない（画面更新などで location.state が失われた）場合、モックへ
+  // フォールバックしない。実残高を動かすため、意図しない相手への送金を防ぎ、相手選択へ戻す。
+  if (!isRecipient(stateRecipient)) {
+    return <Navigate to="/recipients" replace />;
+  }
+
+  return <TransferAmountForm recipient={stateRecipient} />;
+}
+
+interface LastAttempt {
+  recipientId: string;
+  amount: number;
+  key: string;
+}
+
+function TransferAmountForm({ recipient }: { recipient: Recipient }) {
   const { currentUser, isLoading, error } = useCurrentUser();
-  // 送金1件につき冪等キーを1つ生成し、失敗後の再送でも同じキーを使う（二重送金防止）。
-  const [idempotencyKey] = useState(() => crypto.randomUUID());
+  // 直前の送金内容(相手・金額)と冪等キーを保持する。
+  const lastAttemptRef = useRef<LastAttempt | null>(null);
 
   if (isLoading) {
     return (
@@ -40,6 +53,18 @@ export function TransferAmountPage() {
     );
   }
 
+  // 同一内容(相手・金額)の再送は同じ冪等キーを使い、内容が変わったら新しいキーを生成する。
+  // これにより失敗後の再送は重複排除され、金額を変えた送金は別取引として409にならない。
+  const idempotencyKeyFor = (amount: number): string => {
+    const last = lastAttemptRef.current;
+    if (last && last.recipientId === recipient.id && last.amount === amount) {
+      return last.key;
+    }
+    const key = crypto.randomUUID();
+    lastAttemptRef.current = { recipientId: recipient.id, amount, key };
+    return key;
+  };
+
   return (
     <RecipientAmountPage
       recipient={recipient}
@@ -57,7 +82,7 @@ export function TransferAmountPage() {
           senderId: currentUser.id,
           recipientId: recipient.id,
           amount,
-          idempotencyKey,
+          idempotencyKey: idempotencyKeyFor(amount),
         })
       }
       maxAmount={{
