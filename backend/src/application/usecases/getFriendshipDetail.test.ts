@@ -41,7 +41,8 @@ describe('GetFriendshipDetail', () => {
       friendshipId: detail.friendshipId,
       friend: detail.friend,
       addedBy: detail.addedBy,
-      addedAt: detail.addedAt,
+      // 結果の日時はISO 8601へ変換される。
+      addedAt: '2026-08-06T10:00:01.000Z',
       note: '大学の友達',
     });
     expect(friendQueryRepository.findFriendshipDetail).toHaveBeenCalledWith({

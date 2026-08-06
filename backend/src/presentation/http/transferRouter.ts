@@ -9,7 +9,11 @@ export function createTransferRouter(repository: TransferRepository) {
 
   router.post('/', async (request, response, next) => {
     try {
-      const transfer = await createTransfer.execute(request.body);
+      const idempotencyKey = request.header('Idempotency-Key');
+      const transfer = await createTransfer.execute(
+        request.body,
+        idempotencyKey,
+      );
       response.status(201).json(transfer);
     } catch (error) {
       next(error);
