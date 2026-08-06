@@ -61,3 +61,223 @@ ON DUPLICATE KEY UPDATE
   recipient_id = VALUES(recipient_id),
   amount = VALUES(amount),
   created_at = VALUES(created_at);
+
+
+-- 送金・請求の相手候補は友達一覧から引くため、MOCK_USER_ID既定のfriend-001に友達を用意する。
+-- 1ページ20件のページングを開発環境でも確認できるよう25人分を入れる。
+-- 再実行しても増えないよう、idを固定してupsertする。
+-- friendshipsはuser1_id < user2_idが制約のため、UUIDが最小のfriend-001を常にuser1へ置く。
+INSERT INTO friendships (id, user1_id, user2_id, added_by_id, created_at)
+VALUES
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000002'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf002'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:00.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000003'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf003'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:01.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000004'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf004'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:02.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000005'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf005'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:03.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000006'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf006'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:04.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000007'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf007'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:05.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000008'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf008'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:06.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000009'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf009'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:07.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000010'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf010'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:08.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000011'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf011'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:09.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000012'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf012'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:10.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000013'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf013'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:11.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000014'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf014'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:12.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000015'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf015'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:13.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000016'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf016'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:14.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000017'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf017'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:15.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000018'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf018'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:16.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000019'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf019'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:17.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000020'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf020'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:18.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000021'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf021'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:19.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000022'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf022'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:20.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000023'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf023'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:21.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000024'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf024'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:22.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000025'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf025'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:23.000000'
+  ),
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000026'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf026'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '2026-08-06 09:00:24.000000'
+  )
+ON DUPLICATE KEY UPDATE
+  added_by_id = VALUES(added_by_id),
+  created_at = VALUES(created_at);
+
+
+-- 友達詳細の自分用メモ表示を確認するための開発用データ。
+INSERT INTO friendship_notes (friendship_id, user_id, message, created_at, updated_at)
+VALUES
+  (
+    UUID_TO_BIN('7f000000-0000-4000-8000-000000000002'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    '大学の友人',
+    '2026-08-06 09:30:00.000000',
+    '2026-08-06 09:30:00.000000'
+  )
+ON DUPLICATE KEY UPDATE
+  message = VALUES(message),
+  created_at = VALUES(created_at),
+  updated_at = VALUES(updated_at);
+
+
+-- ブロックリスト画面を確認するための開発用データ。
+-- ブロック中の友達は送金・請求の候補には出ず、ブロック一覧にだけ出る。
+INSERT INTO user_blocks (blocker_id, blocked_user_id, created_at)
+VALUES
+  (
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf025'),
+    '2026-08-06 10:00:00.000000'
+  ),
+  (
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf026'),
+    '2026-08-06 10:05:00.000000'
+  )
+ON DUPLICATE KEY UPDATE
+  created_at = VALUES(created_at);

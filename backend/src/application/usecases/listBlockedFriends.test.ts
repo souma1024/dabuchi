@@ -33,10 +33,12 @@ describe('ListBlockedFriends', () => {
       friendshipId: records[0]?.friendshipId,
       friend: records[0]?.friend,
       addedBy: records[0]?.addedBy,
-      addedAt: records[0]?.addedAt,
+      // 結果の日時はISO 8601。record由来のMySQL DATETIME形式のままにはしない。
+      addedAt: '2026-08-06T10:00:01.000Z',
       note: records[0]?.note,
-      blockedAt: records[0]?.blockedAt,
+      blockedAt: '2026-08-06T11:00:01.000Z',
     });
+    // カーソルはDBへ渡す値なのでMySQL DATETIME形式のまま。
     expect(result.nextCursor).toEqual({
       blockedAt: records[19]?.blockedAt,
       friendshipId: records[19]?.friendshipId,
