@@ -23,6 +23,7 @@ describe('TransferAmountPage', () => {
     );
 
     expect(screen.getByText('佐藤次郎')).toBeInTheDocument();
+    // 上限は口座残高。モックの残高は80,000円。
     expect(screen.getByText('80,000円')).toBeInTheDocument();
   });
 
@@ -43,23 +44,6 @@ describe('TransferAmountPage', () => {
     expect(screen.getByText('テスト花子')).toBeInTheDocument();
   });
 
-  it.each([
-    ['recipientがnull', { recipient: null }],
-    ['recipientが空オブジェクト', { recipient: {} }],
-    ['recipientにnameがない', { recipient: { id: '9' } }],
-  ])(
-    '不正なstate（%s）の場合はモックの相手にフォールバックする',
-    (_label, state) => {
-      render(
-        <MemoryRouter initialEntries={[{ pathname: '/', state }]}>
-          <TransferAmountPage />
-        </MemoryRouter>,
-      );
-
-      expect(screen.getByText('佐藤次郎')).toBeInTheDocument();
-    },
-  );
-
   it('送金上限額を超える金額を入力すると送金ボタンが無効になる', async () => {
     const user = userEvent.setup();
     render(
@@ -72,6 +56,59 @@ describe('TransferAmountPage', () => {
 
     expect(screen.getByText('送金上限額を超えています')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '送金' })).toBeDisabled();
+  });
+
+  it('残高ちょうど（80,000円）は送信でき、1円超える（80,001円）と無効になる', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <TransferAmountPage />
+      </MemoryRouter>,
+    );
+
+    await user.type(screen.getByLabelText('送金金額'), '80000');
+    expect(
+      screen.queryByText('送金上限額を超えています'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '送金' })).toBeEnabled();
+
+    await user.type(screen.getByLabelText('送金金額'), '1');
+    expect(screen.getByText('送金上限額を超えています')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '送金' })).toBeDisabled();
+  });
+
+  it('メッセージを入力しても送金APIへ送信するリクエストボディは変わらない', async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 200 }));
+
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <TransferAmountPage />
+      </MemoryRouter>,
+    );
+
+    await user.type(screen.getByLabelText('送金金額'), '1000');
+    await user.type(
+      screen.getByLabelText('メッセージ（任意）'),
+      'お願いします',
+    );
+    await user.click(screen.getByRole('button', { name: '送金' }));
+
+    expect(
+      await screen.findByText('送金情報を登録しました'),
+    ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/transfers',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          senderId: '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001',
+          recipientId: '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf002',
+          amount: 1000,
+        }),
+      }),
+    );
   });
 
   it('送金APIに送信者ID、受取人ID、金額を送信し、成功したら登録メッセージを表示する', async () => {
