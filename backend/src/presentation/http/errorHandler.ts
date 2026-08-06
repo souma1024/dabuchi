@@ -5,6 +5,8 @@ import {
   PaymentRequestParticipantNotFoundError,
 } from '../../application/createPaymentRequests.js';
 import {
+  IdempotencyKeyConflictError,
+  InsufficientBalanceError,
   InvalidTransferError,
   TransferParticipantNotFoundError,
 } from '../../application/createTransfer.js';
@@ -62,6 +64,26 @@ export const errorHandler: ErrorRequestHandler = (
     response.status(422).json({
       error: {
         code: 'TRANSFER_PARTICIPANT_NOT_FOUND',
+        message: error.message,
+      },
+    });
+    return;
+  }
+
+  if (error instanceof InsufficientBalanceError) {
+    response.status(422).json({
+      error: {
+        code: 'INSUFFICIENT_BALANCE',
+        message: error.message,
+      },
+    });
+    return;
+  }
+
+  if (error instanceof IdempotencyKeyConflictError) {
+    response.status(409).json({
+      error: {
+        code: 'IDEMPOTENCY_KEY_CONFLICT',
         message: error.message,
       },
     });
