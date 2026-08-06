@@ -30,6 +30,11 @@ export interface FriendshipNoteKey {
   userId: string;
 }
 
+export interface UserBlockKey {
+  blockerId: string;
+  blockedUserId: string;
+}
+
 export interface FriendCommandRepository {
   findUserByPublicId: (userId: string) => Promise<FriendProfile | null>;
   friendshipExists: (pair: FriendshipPair) => Promise<boolean>;
@@ -41,4 +46,6 @@ export interface FriendCommandRepository {
   createNote: (note: NewFriendshipNote) => Promise<FriendshipNote | null>;
   updateNote: (note: NewFriendshipNote) => Promise<FriendshipNote | null>;
   deleteNote: (key: FriendshipNoteKey) => Promise<void>;
+  blockUser: (key: UserBlockKey) => Promise<void>;
+  unblockUser: (key: UserBlockKey) => Promise<void>;
 }

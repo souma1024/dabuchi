@@ -20,7 +20,7 @@
 - [未着手] 請求承認時の残高更新・送金履歴作成・状態更新をDB transactionで実装する
 - [未着手] 被請求者向けpending一覧と承認・拒否APIを設計する
 - [未着手] 友達一覧・追加・個別メモ編集・ブロック・解除APIを実装する
-- [未着手] ブロック・解除のapplication usecaseを実装する
+- [未着手] 友達管理のMySQL query/command repositoryを実装する
 - [未着手] 友達管理MySQL repositoryとprepared query unit testを実装する
 - [未着手] 友達管理HTTP router・共通error形式・API testを実装する
 - [未着手] 友達管理の依存をapp.tsとserver.tsへ配線する
@@ -69,6 +69,7 @@
 - [完了] 公開user_idによる友達追加application usecaseとfactory-based unit testを追加する
 - [完了] 友達固有note作成application usecaseとブロック方向別の認可テストを追加する
 - [完了] 友達固有note更新・空文字削除・明示削除のapplication usecaseを追加する
+- [完了] 友達ブロック・解除の冪等application usecaseとunit testを追加する
 
 ## 保留・要確認
 
@@ -85,4 +86,4 @@
 
 ## 次回最初に着手するタスク
 
-ブロック・解除のapplication usecaseを、note更新・削除PRへ積む。
+友達管理MySQL command repositoryとprepared query unit testを実装する。
