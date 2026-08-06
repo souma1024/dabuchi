@@ -9,7 +9,6 @@ const NUMERIC_ID_PATTERN = /^\d+$/;
 export function isTransactionSort(value: string): value is TransactionSort {
   return value === 'created-asc' || value === 'created-desc';
 }
-
 export function encodeTransactionCursor(cursor: TransactionCursor): string {
   return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url');
 }

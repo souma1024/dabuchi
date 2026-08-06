@@ -3,6 +3,8 @@ import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 
 import { CreatePaymentRequests } from '../../application/createPaymentRequests.js';
+import { ListPaymentRequests } from '../../application/usecases/listPaymentRequests.js';
+import { createPaymentRequestListRepository } from '../../test/factories/paymentRequestListFactory.js';
 import { createCurrentUser } from '../../test/factories/currentUserFactory.js';
 import { createCurrentUserRepository } from '../../test/factories/currentUserRepositoryFactory.js';
 import { createPaymentRequestRepository } from '../../test/factories/paymentRequestRepositoryFactory.js';
@@ -28,7 +30,14 @@ function createRouterTestApp() {
   app.use(express.json());
   app.use(
     '/api/payment-requests',
-    createPaymentRequestRouter(createPaymentRequests, CURRENT_USER_PUBLIC_ID),
+    createPaymentRequestRouter(
+      createPaymentRequests,
+      CURRENT_USER_PUBLIC_ID,
+      new ListPaymentRequests(
+        currentUserRepository,
+        createPaymentRequestListRepository(),
+      ),
+    ),
   );
   app.use(
     (

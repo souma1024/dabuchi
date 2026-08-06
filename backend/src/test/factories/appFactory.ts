@@ -7,6 +7,7 @@ import {
 import type { CurrentUserRepository } from '../../application/ports/currentUserRepository.js';
 import type { FriendCommandRepository } from '../../application/ports/friendCommandRepository.js';
 import type { FriendQueryRepository } from '../../application/ports/friendQueryRepository.js';
+import type { PaymentRequestListRepository } from '../../application/ports/paymentRequestListRepository.js';
 import type { TransactionRepository } from '../../application/ports/transactionRepository.js';
 import type { UserRecipientRepository } from '../../application/ports/userRecipientRepository.js';
 import { AddFriend } from '../../application/usecases/addFriend.js';
@@ -17,17 +18,20 @@ import { GetCurrentUser } from '../../application/usecases/getCurrentUser.js';
 import { GetFriendshipDetail } from '../../application/usecases/getFriendshipDetail.js';
 import { ListBlockedFriends } from '../../application/usecases/listBlockedFriends.js';
 import { ListFriends } from '../../application/usecases/listFriends.js';
+import { ListPaymentRequests } from '../../application/usecases/listPaymentRequests.js';
 import { ListUserRecipients } from '../../application/usecases/listUserRecipients.js';
 import { ListUserTransactions } from '../../application/usecases/listUserTransactions.js';
 import { UnblockFriend } from '../../application/usecases/unblockFriend.js';
 import { UpdateFriendshipNote } from '../../application/usecases/updateFriendshipNote.js';
 import type { CurrentUser } from '../../domain/currentUser.js';
+import type { PaymentRequestRecord } from '../../domain/paymentRequest.js';
 import type { PaymentRequestRepository } from '../../domain/paymentRequestRepository.js';
 import type { TransactionRecord } from '../../domain/transaction.js';
 import type { UserRecipientRecord } from '../../domain/userRecipient.js';
 import { createCurrentUserRepository } from './currentUserRepositoryFactory.js';
 import { createFriendCommandRepository } from './friendCommandRepositoryFactory.js';
 import { createFriendQueryRepository } from './friendQueryRepositoryFactory.js';
+import { createPaymentRequestListRepository } from './paymentRequestListFactory.js';
 import { createPaymentRequestRepository } from './paymentRequestRepositoryFactory.js';
 import { createTransactionRepository } from './transactionRepositoryFactory.js';
 import { createUserRecipientRepository } from './userRecipientRepositoryFactory.js';
@@ -40,6 +44,8 @@ interface AppFactoryOptions {
   friendCommandRepository?: FriendCommandRepository;
   friendQueryRepository?: FriendQueryRepository;
   paymentRequestIdGenerator?: PaymentRequestIdGenerator;
+  paymentRequestListRepository?: PaymentRequestListRepository;
+  paymentRequestRecords?: PaymentRequestRecord[];
   paymentRequestRepository?: PaymentRequestRepository;
   recipients?: UserRecipientRecord[];
   repository?: UserRecipientRepository;
@@ -78,6 +84,15 @@ export function createTestApp(options: AppFactoryOptions = {}) {
   const listUserTransactions = new ListUserTransactions(
     currentUserRepository,
     transactionRepository,
+  );
+  const paymentRequestListRepository =
+    options.paymentRequestListRepository ??
+    createPaymentRequestListRepository({
+      records: options.paymentRequestRecords,
+    });
+  const listPaymentRequests = new ListPaymentRequests(
+    currentUserRepository,
+    paymentRequestListRepository,
   );
   const transferRepository: TransferRepository =
     options.transferRepository ??
@@ -126,6 +141,7 @@ export function createTestApp(options: AppFactoryOptions = {}) {
         currentUserRepository,
         friendQueryRepository,
       ),
+      listPaymentRequests,
       listUserRecipients,
       listUserTransactions,
       transferRepository,
@@ -141,6 +157,7 @@ export function createTestApp(options: AppFactoryOptions = {}) {
     currentUserRepository,
     friendCommandRepository,
     friendQueryRepository,
+    paymentRequestListRepository,
     paymentRequestRepository,
     repository,
     transactionRepository,

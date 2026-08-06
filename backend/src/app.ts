@@ -9,6 +9,7 @@ import type { GetCurrentUser } from './application/usecases/getCurrentUser.js';
 import type { GetFriendshipDetail } from './application/usecases/getFriendshipDetail.js';
 import type { ListBlockedFriends } from './application/usecases/listBlockedFriends.js';
 import type { ListFriends } from './application/usecases/listFriends.js';
+import type { ListPaymentRequests } from './application/usecases/listPaymentRequests.js';
 import type { ListUserRecipients } from './application/usecases/listUserRecipients.js';
 import type { ListUserTransactions } from './application/usecases/listUserTransactions.js';
 import type { UnblockFriend } from './application/usecases/unblockFriend.js';
@@ -38,6 +39,7 @@ export interface AppDependencies {
   currentUserId: string;
   listBlockedFriends: ListBlockedFriends;
   listFriends: ListFriends;
+  listPaymentRequests: ListPaymentRequests;
   listUserRecipients: ListUserRecipients;
   listUserTransactions: ListUserTransactions;
   transferRepository: TransferRepository;
@@ -100,6 +102,7 @@ export function createApp(dependencies: AppDependencies) {
     createPaymentRequestRouter(
       dependencies.createPaymentRequests,
       dependencies.currentUserId,
+      dependencies.listPaymentRequests,
     ),
   );
 

@@ -11,6 +11,7 @@ import type {
   NewTransfer,
   TransferRepository,
 } from './domain/transferRepository.js';
+import { encodePaymentRequestCursor } from './presentation/http/paymentRequestCursorCodec.js';
 import { encodeRecipientCursor } from './presentation/http/recipientCursorCodec.js';
 import { encodeTransactionCursor } from './presentation/http/transactionCursorCodec.js';
 import type { TransactionRecord } from './domain/transaction.js';
@@ -22,6 +23,11 @@ import {
   createFriendQueryRecords,
 } from './test/factories/friendQueryFactory.js';
 import { createFriendQueryRepository } from './test/factories/friendQueryRepositoryFactory.js';
+import {
+  createPaymentRequestListRepository,
+  createPaymentRequestRecord,
+  createPaymentRequestRecords,
+} from './test/factories/paymentRequestListFactory.js';
 import {
   createTransactionRecord,
   createTransactionRecords,
@@ -723,6 +729,158 @@ describe('backend application', () => {
       error: {
         code: 'PAYMENT_REQUEST_PARTICIPANT_NOT_FOUND',
         message: 'One or more recipients were not found.',
+      },
+    });
+  });
+  // response.bodyはanyのため、unknown経由で必要な形だけに絞ってから参照する。
+  function asPaymentRequestListBody(body: unknown) {
+    return body as {
+      requests: unknown[];
+      pageInfo: { nextCursor: string | null; hasNextPage: boolean };
+    };
+  }
+
+  it('請求一覧を20件と次ページ情報で返す', async () => {
+    const { app } = createTestApp({
+      currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
+      paymentRequestRecords: createPaymentRequestRecords(21),
+    });
+
+    const response = await request(app).get(
+      '/api/payment-requests?direction=received',
+    );
+    const body = asPaymentRequestListBody(response.body);
+
+    expect(response.status).toBe(200);
+    expect(body.requests).toHaveLength(20);
+    expect(body.pageInfo.hasNextPage).toBe(true);
+    expect(typeof body.pageInfo.nextCursor).toBe('string');
+  });
+
+  it('請求1件を相手・金額・状態・日時で返す', async () => {
+    const record = createPaymentRequestRecord(1, {
+      amount: 3000,
+      status: 'accepted',
+      createdAt: '2026-08-03 01:00:00.000000',
+      respondedAt: '2026-08-04 02:30:00.500000',
+    });
+    const { app } = createTestApp({
+      currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
+      paymentRequestRecords: [record],
+    });
+
+    const response = await request(app).get(
+      '/api/payment-requests?direction=received',
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      requests: [
+        {
+          id: record.id,
+          counterparty: {
+            id: record.counterpartyId,
+            name: record.counterpartyName,
+            profileUrl: record.counterpartyProfileUrl,
+          },
+          amount: 3000,
+          status: 'accepted',
+          createdAt: '2026-08-03T01:00:00.000Z',
+          respondedAt: '2026-08-04T02:30:00.500Z',
+        },
+      ],
+      pageInfo: { nextCursor: null, hasNextPage: false },
+    });
+  });
+
+  it('最終ページでは次ページ情報を空にする', async () => {
+    const { app } = createTestApp({
+      currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
+      paymentRequestRecords: createPaymentRequestRecords(20),
+    });
+
+    const response = await request(app).get(
+      '/api/payment-requests?direction=received',
+    );
+    const body = asPaymentRequestListBody(response.body);
+
+    expect(body.requests).toHaveLength(20);
+    expect(body.pageInfo).toEqual({ nextCursor: null, hasNextPage: false });
+  });
+
+  it('次ページのカーソルを検索条件として使う', async () => {
+    const cursor = {
+      createdAt: '2026-08-04 12:00:20.000000',
+      id: '00000000-0000-4000-8000-000000000020',
+    };
+    const paymentRequestListRepository = createPaymentRequestListRepository();
+    const { app } = createTestApp({
+      currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
+      paymentRequestListRepository,
+    });
+
+    const response = await request(app)
+      .get('/api/payment-requests')
+      .query({
+        direction: 'sent',
+        status: 'pending',
+        cursor: encodePaymentRequestCursor(cursor),
+      });
+
+    expect(response.status).toBe(200);
+    expect(
+      paymentRequestListRepository.findPaymentRequests,
+    ).toHaveBeenCalledWith({
+      currentUserInternalId: CURRENT_USER_ID,
+      direction: 'sent',
+      status: 'pending',
+      cursor,
+      limit: 21,
+    });
+  });
+
+  it.each([
+    ['directionを指定しない', '', 'direction must be "received" or "sent"'],
+    [
+      'directionが不正',
+      '?direction=both',
+      'direction must be "received" or "sent"',
+    ],
+    [
+      'statusが不正',
+      '?direction=received&status=bogus',
+      'status must be "pending", "accepted" or "rejected"',
+    ],
+    [
+      'カーソルが復号できない',
+      '?direction=received&cursor=not-base64url',
+      'cursor is invalid',
+    ],
+  ])('請求一覧で%sときは400にする', async (_name, query, message) => {
+    const { app } = createTestApp({
+      currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
+    });
+
+    const response = await request(app).get(`/api/payment-requests${query}`);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: { code: 'INVALID_REQUEST', message },
+    });
+  });
+
+  it('請求一覧で現在ユーザーが存在しなければ404にする', async () => {
+    const { app } = createTestApp({ currentUser: null });
+
+    const response = await request(app).get(
+      '/api/payment-requests?direction=received',
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({
+      error: {
+        code: 'CURRENT_USER_NOT_FOUND',
+        message: 'Current user was not found.',
       },
     });
   });
