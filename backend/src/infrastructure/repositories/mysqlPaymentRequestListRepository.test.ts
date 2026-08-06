@@ -1,3 +1,4 @@
+import type { Pool } from 'mysql2/promise';
 import { describe, expect, it } from 'vitest';
 
 import { createMysqlPool } from '../../test/factories/mysqlPoolFactory.js';
@@ -158,5 +159,62 @@ describe('MysqlPaymentRequestListRepository', () => {
     await expect(
       repository.findPaymentRequests(createBaseInput()),
     ).resolves.toEqual([record]);
+  });
+
+  describe('findPaymentRequestById', () => {
+    const PAYMENT_REQUEST_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+
+    function findById(pool: Pool) {
+      return new MysqlPaymentRequestListRepository(pool).findPaymentRequestById(
+        {
+          paymentRequestId: PAYMENT_REQUEST_ID,
+          currentUserInternalId: CURRENT_USER_INTERNAL_ID,
+        },
+      );
+    }
+
+    it('現在ユーザーでない側を相手として結合する', async () => {
+      const { pool, execute } = createMysqlPool([[]]);
+
+      await findById(pool);
+
+      // directionを受け取らないため、請求者か被請求者かを行ごとに判定する。
+      expect(execute).toHaveBeenCalledWith(
+        expect.stringContaining('WHEN pr.requester_id = UUID_TO_BIN(?)'),
+        expect.anything(),
+      );
+    });
+
+    // 当事者でなければSQLの段階で弾き、存在の有無を呼び出し側へ漏らさない。
+    it('当事者だけを対象にする条件を含む', async () => {
+      const { pool, execute } = createMysqlPool([[]]);
+
+      await findById(pool);
+
+      const [sql, values] = execute.mock.calls[0] ?? [];
+
+      expect(String(sql)).toContain('pr.requester_id = UUID_TO_BIN(?)');
+      expect(String(sql)).toContain('pr.recipient_id = UUID_TO_BIN(?)');
+      // 相手の判定用に1回、WHEREの請求ID、当事者判定に2回。
+      expect(values).toEqual([
+        CURRENT_USER_INTERNAL_ID,
+        PAYMENT_REQUEST_ID,
+        CURRENT_USER_INTERNAL_ID,
+        CURRENT_USER_INTERNAL_ID,
+      ]);
+    });
+
+    it('取得した行をrecordへ写す', async () => {
+      const record = createPaymentRequestRecord(1);
+      const { pool } = createMysqlPool([[record]]);
+
+      await expect(findById(pool)).resolves.toEqual(record);
+    });
+
+    it('該当が無ければnullを返す', async () => {
+      const { pool } = createMysqlPool([[]]);
+
+      await expect(findById(pool)).resolves.toBeNull();
+    });
   });
 });

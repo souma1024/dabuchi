@@ -2,6 +2,7 @@ import { Router, type RequestHandler } from 'express';
 
 import type { CreatePaymentRequests } from '../../application/createPaymentRequests.js';
 import type { PaymentRequestCursor } from '../../application/ports/paymentRequestListRepository.js';
+import type { GetPaymentRequest } from '../../application/usecases/getPaymentRequest.js';
 import type { ListPaymentRequests } from '../../application/usecases/listPaymentRequests.js';
 import type { RespondToPaymentRequest } from '../../application/usecases/respondToPaymentRequest.js';
 import type {
@@ -70,13 +71,20 @@ interface PaymentRequestRouterDependencies {
   createPaymentRequests: CreatePaymentRequests;
   /** mock認証で決まる現在ユーザーの公開user_id。内部UUIDはusecase側で解決する。 */
   currentUserPublicId: string;
+  getPaymentRequest: GetPaymentRequest;
   listPaymentRequests: ListPaymentRequests;
   respondToPaymentRequest: RespondToPaymentRequest;
+}
+
+/** 単一のpath parameterだが型上は配列もありうる。配列ならusecase側のUUID検証で400にする。 */
+function parsePathId(value: string | string[] | undefined): string {
+  return typeof value === 'string' ? value : '';
 }
 
 export function createPaymentRequestRouter({
   createPaymentRequests,
   currentUserPublicId,
+  getPaymentRequest,
   listPaymentRequests,
   respondToPaymentRequest,
 }: PaymentRequestRouterDependencies) {
@@ -90,10 +98,7 @@ export function createPaymentRequestRouter({
       try {
         const result = await respondToPaymentRequest.execute({
           currentUserId: currentUserPublicId,
-          // 単一のpath parameterだが、型上は配列もありうる。
-          // 配列なら空文字にしてusecase側のUUID検証で400にする。
-          paymentRequestId:
-            typeof request.params.id === 'string' ? request.params.id : '',
+          paymentRequestId: parsePathId(request.params.id),
           response,
         });
 
@@ -112,6 +117,22 @@ export function createPaymentRequestRouter({
 
   router.post('/:id/accept', respond('accepted'));
   router.post('/:id/reject', respond('rejected'));
+
+  // 確認画面を開いた時点の状態を取り直す用途（Issue #61）。
+  // 一覧を読んでからタップするまでに状態が変わりうるため、古い情報のまま
+  // 承認ボタンを出さないようにする。
+  router.get('/:id', async (request, response, next) => {
+    try {
+      const paymentRequest = await getPaymentRequest.execute({
+        currentUserId: currentUserPublicId,
+        paymentRequestId: parsePathId(request.params.id),
+      });
+
+      response.status(200).json({ request: paymentRequest });
+    } catch (error) {
+      next(error);
+    }
+  });
 
   router.get('/', async (request, response, next) => {
     try {
