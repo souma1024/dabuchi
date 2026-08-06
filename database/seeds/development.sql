@@ -35,3 +35,29 @@ ON DUPLICATE KEY UPDATE
   user_name = VALUES(user_name),
   profile_url = VALUES(profile_url);
 
+
+-- 取引履歴の「受取」表示を確認するための開発用データ。
+-- アプリからは自分が送る取引しか作れず、他ユーザーから自分への送金を用意できないため、
+-- MOCK_USER_ID既定のfriend-001宛の取引をシードで用意する。
+-- 再実行しても増えないよう、idを固定してupsertする。
+INSERT INTO transfers (id, sender_id, recipient_id, amount, created_at)
+VALUES
+  (
+    9001,
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf002'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    5000,
+    '2026-08-05 12:30:00.000000'
+  ),
+  (
+    9002,
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf003'),
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001'),
+    12000,
+    '2026-08-04 19:05:00.000000'
+  )
+ON DUPLICATE KEY UPDATE
+  sender_id = VALUES(sender_id),
+  recipient_id = VALUES(recipient_id),
+  amount = VALUES(amount),
+  created_at = VALUES(created_at);

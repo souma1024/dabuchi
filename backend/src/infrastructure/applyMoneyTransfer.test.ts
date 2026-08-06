@@ -4,7 +4,7 @@ import {
   InsufficientBalanceError,
   TransferParticipantNotFoundError,
 } from '../application/createTransfer.js';
-import { createTransactionalMysqlPool } from '../test/factories/mysqlPoolFactory.js';
+import { createMysqlPool } from '../test/factories/mysqlPoolFactory.js';
 import { applyMoneyTransfer } from './applyMoneyTransfer.js';
 
 const PAYER = '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001';
@@ -14,10 +14,16 @@ function balanceRow(id: string, balance: number | string) {
   return { id, balance };
 }
 
+async function setup(results: readonly unknown[]) {
+  const { pool, execute } = createMysqlPool(results);
+  const connection = await pool.getConnection();
+  return { connection, execute };
+}
+
 describe('applyMoneyTransfer', () => {
   describe('成功', () => {
     it('両者をロックし、支払人を減算・受取人を加算し、履歴を記録する', async () => {
-      const { connection, execute } = createTransactionalMysqlPool([
+      const { connection, execute } = await setup([
         [balanceRow(PAYER, 5000), balanceRow(PAYEE, 200)],
         { affectedRows: 1 },
         { affectedRows: 1 },
@@ -55,7 +61,7 @@ describe('applyMoneyTransfer', () => {
     });
 
     it('idempotencyKey 未指定なら NULL で履歴を記録する', async () => {
-      const { connection, execute } = createTransactionalMysqlPool([
+      const { connection, execute } = await setup([
         [balanceRow(PAYER, 5000), balanceRow(PAYEE, 200)],
         { affectedRows: 1 },
         { affectedRows: 1 },
@@ -72,7 +78,7 @@ describe('applyMoneyTransfer', () => {
     });
 
     it('残高がちょうど送金額と等しくても成功する（境界値）', async () => {
-      const { connection } = createTransactionalMysqlPool([
+      const { connection } = await setup([
         [balanceRow(PAYER, 1500), balanceRow(PAYEE, 0)],
         { affectedRows: 1 },
         { affectedRows: 1 },
@@ -89,7 +95,7 @@ describe('applyMoneyTransfer', () => {
     });
 
     it('SELECT結果が逆順で返っても支払人/受取人を正しく解決する', async () => {
-      const { connection } = createTransactionalMysqlPool([
+      const { connection } = await setup([
         [balanceRow(PAYEE, 200), balanceRow(PAYER, 5000)],
         { affectedRows: 1 },
         { affectedRows: 1 },
@@ -106,7 +112,7 @@ describe('applyMoneyTransfer', () => {
     });
 
     it('BIN_TO_UUIDが大文字のUUIDを返しても大小無視で解決する', async () => {
-      const { connection } = createTransactionalMysqlPool([
+      const { connection } = await setup([
         [balanceRow(PAYER.toUpperCase(), 5000), balanceRow(PAYEE, 200)],
         { affectedRows: 1 },
         { affectedRows: 1 },
@@ -123,7 +129,7 @@ describe('applyMoneyTransfer', () => {
     });
 
     it('残高がBIGINT文字列で返っても数値として比較して成功する', async () => {
-      const { connection } = createTransactionalMysqlPool([
+      const { connection } = await setup([
         [balanceRow(PAYER, '5000'), balanceRow(PAYEE, '200')],
         { affectedRows: 1 },
         { affectedRows: 1 },
@@ -142,9 +148,7 @@ describe('applyMoneyTransfer', () => {
 
   describe('検証エラー（残高を一切変更しない）', () => {
     it('受取人が見つからなければ TransferParticipantNotFoundError', async () => {
-      const { connection, execute } = createTransactionalMysqlPool([
-        [balanceRow(PAYER, 5000)],
-      ]);
+      const { connection, execute } = await setup([[balanceRow(PAYER, 5000)]]);
 
       await expect(
         applyMoneyTransfer(connection, {
@@ -157,9 +161,7 @@ describe('applyMoneyTransfer', () => {
     });
 
     it('支払人が見つからなければ TransferParticipantNotFoundError', async () => {
-      const { connection, execute } = createTransactionalMysqlPool([
-        [balanceRow(PAYEE, 200)],
-      ]);
+      const { connection, execute } = await setup([[balanceRow(PAYEE, 200)]]);
 
       await expect(
         applyMoneyTransfer(connection, {
@@ -172,7 +174,7 @@ describe('applyMoneyTransfer', () => {
     });
 
     it('両者とも見つからなければ TransferParticipantNotFoundError', async () => {
-      const { connection, execute } = createTransactionalMysqlPool([[]]);
+      const { connection, execute } = await setup([[]]);
 
       await expect(
         applyMoneyTransfer(connection, {
@@ -185,7 +187,7 @@ describe('applyMoneyTransfer', () => {
     });
 
     it('残高が不足していれば InsufficientBalanceError', async () => {
-      const { connection, execute } = createTransactionalMysqlPool([
+      const { connection, execute } = await setup([
         [balanceRow(PAYER, 1499), balanceRow(PAYEE, 200)],
       ]);
 
@@ -200,7 +202,7 @@ describe('applyMoneyTransfer', () => {
     });
 
     it('残高がBIGINT文字列でも不足を検出する', async () => {
-      const { connection, execute } = createTransactionalMysqlPool([
+      const { connection, execute } = await setup([
         [balanceRow(PAYER, '1000'), balanceRow(PAYEE, '200')],
       ]);
 

@@ -1,4 +1,4 @@
-import type { Pool, PoolConnection } from 'mysql2/promise';
+import type { Pool } from 'mysql2/promise';
 import { vi } from 'vitest';
 
 type MysqlExecuteResult = unknown;
@@ -21,44 +21,20 @@ function createResultRunner(
   };
 }
 
+// pool.execute と pool.getConnection() の双方を備えたモック。
+// getConnection() は beginTransaction / commit / rollback / release を持つコネクションを返すため、
+// トランザクションを張るリポジトリのテストにも使える。
 export function createMysqlPool(results: readonly MysqlExecuteResult[]) {
   const execute = vi.fn(createResultRunner(results));
-  const pool = { execute } as unknown as Pool;
-
-  return { pool, execute };
-}
-
-/**
- * `pool.getConnection()` でトランザクション用コネクションを払い出すpoolのモック。
- * `execute` は `results` を順に返す（`Error` を渡すと reject）。
- * `beginTransaction` / `commit` / `rollback` / `release` は spy として検証できる。
- */
-export function createTransactionalMysqlPool(
-  results: readonly MysqlExecuteResult[],
-) {
-  const execute = vi.fn(createResultRunner(results));
-  const beginTransaction = vi.fn(() => Promise.resolve());
-  const commit = vi.fn(() => Promise.resolve());
-  const rollback = vi.fn(() => Promise.resolve());
-  const release = vi.fn();
   const connection = {
     execute,
-    beginTransaction,
-    commit,
-    rollback,
-    release,
-  } as unknown as PoolConnection;
-  const getConnection = vi.fn(() => Promise.resolve(connection));
-  const pool = { getConnection } as unknown as Pool;
-
-  return {
-    pool,
-    connection,
-    getConnection,
-    execute,
-    beginTransaction,
-    commit,
-    rollback,
-    release,
+    beginTransaction: vi.fn().mockResolvedValue(undefined),
+    commit: vi.fn().mockResolvedValue(undefined),
+    rollback: vi.fn().mockResolvedValue(undefined),
+    release: vi.fn(),
   };
+  const getConnection = vi.fn().mockResolvedValue(connection);
+  const pool = { execute, getConnection } as unknown as Pool;
+
+  return { pool, execute, connection, getConnection };
 }

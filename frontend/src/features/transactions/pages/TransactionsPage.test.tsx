@@ -1,67 +1,81 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  fetchMockTransactionPage,
-  mockTransactions,
-} from '../mockTransactions';
+import { fetchTransactions } from '../api/transactionsClient';
+import type { Transaction } from '../types';
 import { TransactionsPage } from './TransactionsPage';
 
-vi.mock('../mockTransactions', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../mockTransactions')>();
-  return { ...actual, fetchMockTransactionPage: vi.fn() };
-});
+vi.mock('../api/transactionsClient', () => ({
+  fetchTransactions: vi.fn(),
+}));
 
-const mockedFetch = vi.mocked(fetchMockTransactionPage);
+const mockedFetch = vi.mocked(fetchTransactions);
+
+/** 表示件数の検証用に、必要な分だけ取引を作る。 */
+function makeTransactions(count: number, offset = 0): Transaction[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: String(offset + index + 1),
+    counterparty: {
+      id: `0198fb84-b222-7abc-8def-${String(offset + index).padStart(12, '0')}`,
+      name: `相手${offset + index + 1}`,
+      profileUrl: '/assets/profiles/human1.png',
+    },
+    amount: 1200,
+    direction: 'sent' as const,
+    createdAt: '2026-08-05T01:00:00.000Z',
+  }));
+}
 
 // IntersectionObserverはjsdomに無いため、observe対象を保持して手動で発火させる。
 let triggerIntersection: (() => void) | null = null;
 
+class ManualIntersectionObserver {
+  constructor(private readonly callback: IntersectionObserverCallback) {}
+  observe() {
+    triggerIntersection = () => {
+      this.callback(
+        [{ isIntersecting: true } as IntersectionObserverEntry],
+        this as unknown as IntersectionObserver,
+      );
+    };
+  }
+  disconnect() {}
+  unobserve() {}
+}
+
+// setup.tsの既定スタブをこのファイル全体で差し替える。
+// テストごとにunstubすると、前テストの残りeffectがflushされる際に
+// IntersectionObserverが未定義となり、後続テストのeffectごと失敗する。
+vi.stubGlobal('IntersectionObserver', ManualIntersectionObserver);
+
 beforeEach(() => {
   mockedFetch.mockReset();
   triggerIntersection = null;
-
-  vi.stubGlobal(
-    'IntersectionObserver',
-    class {
-      constructor(private readonly callback: IntersectionObserverCallback) {}
-      observe() {
-        triggerIntersection = () => {
-          this.callback(
-            [{ isIntersecting: true } as IntersectionObserverEntry],
-            this as unknown as IntersectionObserver,
-          );
-        };
-      }
-      disconnect() {}
-      unobserve() {}
-    },
-  );
 });
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
+function renderPage(onBack?: () => void) {
+  return render(<TransactionsPage onBack={onBack} />);
+}
 
 describe('TransactionsPage', () => {
-  it('取得した取引を一覧表示する', async () => {
+  it('取引を一覧表示する', async () => {
     mockedFetch.mockResolvedValue({
-      transactions: mockTransactions.slice(0, 3),
+      transactions: makeTransactions(3),
       nextCursor: null,
     });
 
-    render(<TransactionsPage />);
+    renderPage();
 
-    // mockTransactionsの先頭はシード同様「佐藤 花子」から始まる。
-    expect(await screen.findByText('佐藤 花子')).toBeInTheDocument();
+    expect(await screen.findByText('相手1')).toBeInTheDocument();
     expect(screen.getAllByRole('listitem')).toHaveLength(3);
+    expect(mockedFetch).toHaveBeenCalledWith(null);
   });
 
   it('取引が無いときは次の行動を示す空状態を表示する', async () => {
     mockedFetch.mockResolvedValue({ transactions: [], nextCursor: null });
 
-    render(<TransactionsPage />);
+    renderPage();
 
     expect(await screen.findByText('まだ取引がありません')).toBeInTheDocument();
     expect(
@@ -73,48 +87,59 @@ describe('TransactionsPage', () => {
   it('末尾に到達したら次のページを追加で読み込む', async () => {
     mockedFetch
       .mockResolvedValueOnce({
-        transactions: mockTransactions.slice(0, 20),
-        nextCursor: '20',
+        transactions: makeTransactions(20),
+        nextCursor: 'next-cursor',
       })
       .mockResolvedValueOnce({
-        transactions: mockTransactions.slice(20, 32),
+        transactions: makeTransactions(12, 20),
         nextCursor: null,
       });
 
-    render(<TransactionsPage />);
+    renderPage();
 
     // 1ページ目の20件。追加読み込み用のsentinelはaria-hiddenのため件数に含まれない。
     await waitFor(() => {
       expect(screen.getAllByRole('listitem')).toHaveLength(20);
     });
 
+    expect(triggerIntersection).not.toBeNull();
     triggerIntersection?.();
 
+    // 2回目の取得が走ったことを先に確認する。
+    // 32件の描画完了だけを待つと、他ワーカーと並行実行された際に既定の1秒を超えることがある。
     await waitFor(() => {
-      expect(screen.getAllByRole('listitem')).toHaveLength(32);
+      expect(mockedFetch).toHaveBeenCalledTimes(2);
     });
-    expect(mockedFetch).toHaveBeenCalledTimes(2);
-    expect(mockedFetch).toHaveBeenLastCalledWith('20');
+    expect(mockedFetch).toHaveBeenLastCalledWith('next-cursor');
+
+    await waitFor(
+      () => {
+        expect(screen.getAllByRole('listitem')).toHaveLength(32);
+      },
+      { timeout: 5000 },
+    );
   });
 
   it('取得に失敗したらエラーを表示する', async () => {
-    mockedFetch.mockRejectedValue(new Error('取得に失敗しました'));
+    mockedFetch.mockRejectedValue(
+      new Error('取引履歴の取得に失敗しました (HTTP 500)'),
+    );
 
-    render(<TransactionsPage />);
+    renderPage();
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      '取得に失敗しました',
+      '取引履歴の取得に失敗しました (HTTP 500)',
     );
   });
 
   it('onBackを渡すと戻るボタンから通知する', async () => {
     mockedFetch.mockResolvedValue({
-      transactions: mockTransactions.slice(0, 1),
+      transactions: makeTransactions(1),
       nextCursor: null,
     });
     const onBack = vi.fn();
 
-    render(<TransactionsPage onBack={onBack} />);
+    renderPage(onBack);
 
     fireEvent.click(await screen.findByRole('button', { name: '戻る' }));
 

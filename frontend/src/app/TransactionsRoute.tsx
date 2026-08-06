@@ -2,7 +2,10 @@ import { useNavigate } from 'react-router-dom';
 
 import { TransactionsPage } from '../features/transactions/pages/TransactionsPage';
 
-/** 取引履歴画面をルーティングへ接続するラッパー。戻る→ホーム。 */
+/**
+ * 取引履歴画面をルーティングへ接続するラッパー。戻る→ホーム。
+ * 対象ユーザーはserver側のログイン中ユーザーから決まるため、ここでは渡さない。
+ */
 export function TransactionsRoute() {
   const navigate = useNavigate();
 
