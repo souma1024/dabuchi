@@ -66,6 +66,23 @@ describe('GetFriendshipDetail', () => {
     ).resolves.toMatchObject({ friendshipId: FRIENDSHIP_ID });
   });
 
+  it('相互ブロック中でも自分のブロックリスト用に詳細を返す', async () => {
+    const { useCase } = createUseCase(
+      createFriendshipDetailQueryRecord(1, {
+        friendshipId: FRIENDSHIP_ID,
+        blockedByCurrentUser: true,
+        blocksCurrentUser: true,
+      }),
+    );
+
+    await expect(
+      useCase.execute({
+        currentUserPublicId: CURRENT_USER_PUBLIC_ID,
+        friendshipId: FRIENDSHIP_ID,
+      }),
+    ).resolves.toMatchObject({ friendshipId: FRIENDSHIP_ID });
+  });
+
   it('相手からブロックされている場合は詳細を公開しない', async () => {
     const { useCase } = createUseCase(
       createFriendshipDetailQueryRecord(1, {

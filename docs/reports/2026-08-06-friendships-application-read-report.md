@@ -19,7 +19,7 @@
 - 友達一覧を20件単位で取得するusecaseを追加した。
 - 友達、追加者、追加日時、自分のnoteを返す詳細usecaseを追加した。
 - 自分がブロックしている友達だけを20件単位で返すusecaseを追加した。
-- 相手からブロックされている場合は詳細を公開せず、自分がブロックした場合は詳細を許可する認可ルールを追加した。
+- 相手からのみブロックされている場合は詳細を公開せず、自分からのブロックまたは相互ブロックでは詳細を許可する認可ルールを追加した。
 - factory-based unit testを追加した。
 
 ## 変更したファイル
@@ -54,17 +54,17 @@ application層はrepository interfaceへだけ依存し、MySQL queryとExpress 
 ## 追加・更新したテスト
 
 - 友達一覧の20件境界、次カーソル、カーソル引き継ぎ、current user不在
-- 詳細の正常系、自分からのブロック許可、相手からのブロック拒否、関係不在
+- 詳細の正常系、自分からのブロック許可、相互ブロック許可、相手からのみのブロック拒否、関係不在
 - ブロック一覧の20件境界、次カーソル、カーソル引き継ぎ、current user不在
 
-追加したapplication testは3ファイル12件。
+追加したapplication testは3ファイル13件。
 
 ## 実行した確認コマンド
 
 - `npm run format`: 成功
 - `npm run lint`: 成功
 - `npm run typecheck`: 成功
-- application参照系3ファイルの`vitest`: 12件成功
+- application参照系3ファイルの`vitest`: 13件成功
 - `npm test`: frontend 42件、backend 97件成功
 - `npm run build`: frontend/backendとも成功
 - `git diff --check`: 成功
@@ -96,7 +96,7 @@ GitHub Actionsのquality jobでformatter、lint、typecheck、unit test、build�
 - APIへ任意ユーザーIDを公開せず、全usecaseでserver側current userの公開IDを受け取る。
 - 友達一覧は双方どちらかのブロックがあればrepositoryで除外する。
 - 自分がブロックした一覧だけを公開し、自分をブロックした一覧は公開しない。
-- 相手からブロックされている詳細はnot found扱いにする。
-- 自分がブロックした詳細はnote編集のため参照を許可する。
+- 相手からのみブロックされている詳細はnot found扱いにする。
+- 自分がブロックした詳細は、相互ブロックを含めてnote編集のため参照を許可する。
 - application更新系もfactory-based unit testを同じコミットに含める。
 - `app.ts`と`server.ts`は最後の共通配線PRまで変更しない。

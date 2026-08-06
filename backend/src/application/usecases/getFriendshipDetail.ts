@@ -25,7 +25,10 @@ export class GetFriendshipDetail {
       friendshipId: input.friendshipId,
     });
 
-    if (!record || record.blocksCurrentUser) {
+    if (
+      !record ||
+      (record.blocksCurrentUser && !record.blockedByCurrentUser)
+    ) {
       throw new FriendshipNotFoundError();
     }
 
