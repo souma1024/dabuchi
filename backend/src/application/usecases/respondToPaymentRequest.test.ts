@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { createCurrentUser } from '../../test/factories/currentUserFactory.js';
 import { createCurrentUserRepository } from '../../test/factories/currentUserRepositoryFactory.js';
 import {
   createPaymentRequestCommandRepository,
@@ -18,12 +19,7 @@ const PAYMENT_REQUEST_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 function createUsecase(repository: PaymentRequestCommandRepository) {
   return new RespondToPaymentRequest(
     createCurrentUserRepository({
-      user: {
-        id: CURRENT_USER_INTERNAL_ID,
-        name: '山田 太郎',
-        profileUrl: '/assets/profiles/human1.png',
-        balance: 120000,
-      },
+      user: createCurrentUser({ id: CURRENT_USER_INTERNAL_ID }),
     }),
     repository,
   );
