@@ -30,7 +30,7 @@ const notice: MenuItem = {
 
 // 見る・管理する。
 const links: MenuItem[] = [
-  { label: '履歴一覧', to: null, tone: 'quiet' },
+  { label: '履歴一覧', to: '/transactions', tone: 'quiet' },
   { label: '友達管理', to: null, tone: 'quiet' },
 ];
 
