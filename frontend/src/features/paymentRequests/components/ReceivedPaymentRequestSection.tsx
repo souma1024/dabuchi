@@ -38,9 +38,11 @@ export function ReceivedPaymentRequestSection() {
   return (
     <section
       aria-labelledby="received-payment-requests-title"
-      className="border-t-8 border-slate-100"
+      /* min-h-0が無いとflexの子が縮まず、overflow-y-autoが効かない。 */
+      className="flex min-h-0 flex-1 flex-col border-t-8 border-slate-100"
     >
-      <div className="flex items-baseline justify-between px-5 pt-4 pb-2">
+      {/* 見出し・件数・請求履歴への導線は、一覧をスクロールしても残す。 */}
+      <div className="flex flex-none items-baseline justify-between border-b border-slate-100 bg-white px-5 pt-4 pb-2">
         <h2
           id="received-payment-requests-title"
           className="m-0 flex items-center gap-2 text-sm font-bold text-slate-800"
@@ -75,7 +77,7 @@ export function ReceivedPaymentRequestSection() {
       ) : requests.length === 0 ? (
         <p className={noticeStyle}>請求はありません</p>
       ) : (
-        <ul className="m-0 list-none p-0">
+        <ul className="m-0 min-h-0 flex-1 list-none overflow-y-auto p-0">
           {requests.map((request) => (
             <PaymentRequestListItem
               key={request.id}

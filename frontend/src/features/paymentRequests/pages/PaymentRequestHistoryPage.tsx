@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
+import { ScreenHeader } from '../../../components/ScreenHeader';
 import { PaymentRequestListItem } from '../components/PaymentRequestListItem';
 import { usePaymentRequestHistory } from '../hooks/usePaymentRequestHistory';
 import type { PaymentRequestDirection } from '../types';
 import { useInfiniteScrollSentinel } from '../../../hooks/useInfiniteScrollSentinel';
+import { useScrollToTop } from '../../../hooks/useScrollToTop';
 
 const TABS: readonly { direction: PaymentRequestDirection; label: string }[] = [
   { direction: 'received', label: '受けた請求' },
@@ -31,8 +33,17 @@ interface PaymentRequestHistoryPageProps {
 export function PaymentRequestHistoryPage({
   onBack,
 }: PaymentRequestHistoryPageProps) {
-  const [direction, setDirection] =
-    useState<PaymentRequestDirection>('received');
+  // タブをURLに持たせる。stateだと確認画面から戻ったとき再マウントで初期値へ
+  // 戻ってしまい、出した請求を見ていたのに受けた請求へ切り替わる。
+  const [searchParams, setSearchParams] = useSearchParams();
+  const direction: PaymentRequestDirection =
+    searchParams.get('direction') === 'sent' ? 'sent' : 'received';
+  const selectDirection = (next: PaymentRequestDirection) => {
+    // タブの切り替えで履歴を積むと、戻るがタブ間を行き来してしまう。
+    setSearchParams(next === 'sent' ? { direction: 'sent' } : {}, {
+      replace: true,
+    });
+  };
   const {
     requests,
     isLoadingInitial,
@@ -45,56 +56,48 @@ export function PaymentRequestHistoryPage({
     requests.length,
   ]);
 
+  // タブを切り替えたときも先頭から見せる。
+  useScrollToTop([direction]);
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white">
-      <header className="grid grid-cols-[40px_1fr_40px] items-center border-b border-slate-200 px-3 py-3.5">
-        {onBack ? (
-          <button
-            type="button"
-            onClick={onBack}
-            aria-label="戻る"
-            className="h-10 w-10 border-none bg-transparent text-xl text-slate-500"
-          >
-            ←
-          </button>
-        ) : (
-          <span />
-        )}
-        <h1 className="m-0 text-center text-base font-semibold text-slate-900">
-          請求履歴
-        </h1>
-        <span />
-      </header>
-
       {/*
-        role="tab"は名乗らない。ARIAのタブは対応するtabpanelと矢印キー操作まで
-        揃えて初めて正しく伝わるため、中途半端に付けると支援技術を誤らせる。
-        押すと下の一覧が入れ替わるだけなので、aria-pressedを持つボタン2つで表す。
+        スクロールしてもヘッダーとタブを残す。一覧を下まで追ったときに
+        どちらのタブを見ているのか分からなくなり、戻る操作も遠くなるため。
       */}
-      <div
-        aria-label="請求の種類"
-        role="group"
-        className="flex border-b border-slate-200"
-      >
-        {TABS.map((tab) => {
-          const isSelected = tab.direction === direction;
+      <div className="sticky top-0 z-10 bg-white">
+        <ScreenHeader title="請求履歴" onBack={onBack} />
 
-          return (
-            <button
-              key={tab.direction}
-              type="button"
-              aria-pressed={isSelected}
-              onClick={() => setDirection(tab.direction)}
-              className={`min-h-[44px] flex-1 border-none bg-transparent py-3 text-sm active:bg-slate-50 ${
-                isSelected
-                  ? 'border-b-2 border-slate-800 font-bold text-slate-900'
-                  : 'text-slate-500'
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
+        {/*
+          role="tab"は名乗らない。ARIAのタブは対応するtabpanelと矢印キー操作まで
+          揃えて初めて正しく伝わるため、中途半端に付けると支援技術を誤らせる。
+          押すと下の一覧が入れ替わるだけなので、aria-pressedを持つボタン2つで表す。
+        */}
+        <div
+          aria-label="請求の種類"
+          role="group"
+          className="flex border-b border-slate-200"
+        >
+          {TABS.map((tab) => {
+            const isSelected = tab.direction === direction;
+
+            return (
+              <button
+                key={tab.direction}
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => selectDirection(tab.direction)}
+                className={`min-h-[44px] flex-1 border-none bg-transparent py-3 text-sm active:bg-slate-50 ${
+                  isSelected
+                    ? 'border-b-2 border-slate-800 font-bold text-slate-900'
+                    : 'text-slate-500'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {isLoadingInitial && (

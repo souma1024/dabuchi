@@ -38,9 +38,12 @@ afterEach(() => {
 });
 
 // 行が確認画面へのLinkを持つため、Router配下で描画する。
-function renderPage(props: { onBack?: () => void } = {}) {
+function renderPage(
+  props: { onBack?: () => void } = {},
+  initialEntry = '/payment-requests',
+) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <PaymentRequestHistoryPage {...props} />
     </MemoryRouter>,
   );
@@ -93,6 +96,19 @@ describe('PaymentRequestHistoryPage', () => {
         .map((item) => item.textContent ?? '')
         .join(' '),
     ).not.toContain('未払い');
+  });
+
+  // stateで持つと確認画面から戻ったとき初期値へ戻ってしまうため、URLに持たせる。
+  it('URLのdirectionで開くタブが決まる', async () => {
+    const spy = vi.spyOn(mockModule, 'fetchMockPaymentRequestHistoryPage');
+
+    renderPage({}, '/payment-requests?direction=sent');
+
+    await screen.findAllByRole('listitem');
+    expect(
+      screen.getByRole('button', { name: '出した請求', pressed: true }),
+    ).toBeInTheDocument();
+    expect(spy).toHaveBeenCalledWith('sent', null);
   });
 
   it('タブを切り替えると1ページ目から読み直す', async () => {

@@ -6,6 +6,7 @@ import { RecipientListItem } from './components/RecipientListItem';
 import { useRecipients } from './hooks/useRecipients';
 import type { Recipient } from './types';
 import { useInfiniteScrollSentinel } from '../../hooks/useInfiniteScrollSentinel';
+import { useScrollToTop } from '../../hooks/useScrollToTop';
 
 interface RecipientSelectionScreenBaseProps {
   /** 戻る操作。未指定なら戻るボタンは表示しない。 */
@@ -55,6 +56,8 @@ export function RecipientSelectionScreen(props: RecipientSelectionScreenProps) {
     reload,
   } = useRecipients();
   const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore, []);
+
+  useScrollToTop();
   // 選択済みの相手そのものを持つ。追加読み込みで一覧が伸びても選択が消えない。
   const [selected, setSelected] = useState<Recipient[]>([]);
 
