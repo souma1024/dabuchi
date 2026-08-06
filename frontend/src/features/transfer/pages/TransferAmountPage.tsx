@@ -1,6 +1,5 @@
 import { RecipientAmountPage } from '../../../components/RecipientAmountPage';
 import { useRecipientFromLocationState } from '../../../hooks/useRecipientFromLocationState';
-import { MAX_TRANSACTION_AMOUNT } from '../../../lib/amountLimits';
 import { currentUser, recipients } from '../../../lib/mockUsers';
 import type { Recipient } from '../../../types/user';
 import { sendTransfer } from '../api/transferClient';
@@ -32,7 +31,8 @@ export function TransferAmountPage() {
         })
       }
       maxAmount={{
-        value: MAX_TRANSACTION_AMOUNT,
+        // 口座残高を超える送金はできない。
+        value: currentUser.zandaka,
         label: '送金上限額',
         exceededMessage: '送金上限額を超えています',
       }}
