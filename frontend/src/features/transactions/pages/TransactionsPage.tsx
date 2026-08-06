@@ -8,7 +8,10 @@ interface TransactionsPageProps {
   onBack?: () => void;
 }
 
-/** 取引履歴の一覧画面。スクロール末尾で次ページを追加取得する。 */
+/**
+ * 取引履歴の一覧画面。スクロール末尾で次ページを追加取得する。
+ * 対象ユーザーはserver側のログイン中ユーザーから決まるため、画面からは指定しない。
+ */
 export function TransactionsPage({ onBack }: TransactionsPageProps) {
   const {
     transactions,
