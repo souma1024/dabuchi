@@ -12,8 +12,6 @@ vi.mock('../api/transactionsClient', () => ({
 
 const mockedFetch = vi.mocked(fetchTransactions);
 
-const CURRENT_USER_ID = '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001';
-
 /** 表示件数の検証用に、必要な分だけ取引を作る。 */
 function makeTransactions(count: number, offset = 0): Transaction[] {
   return Array.from({ length: count }, (_, index) => ({
@@ -59,13 +57,11 @@ afterEach(() => {
 });
 
 function renderPage(onBack?: () => void) {
-  return render(
-    <TransactionsPage currentUserId={CURRENT_USER_ID} onBack={onBack} />,
-  );
+  return render(<TransactionsPage onBack={onBack} />);
 }
 
 describe('TransactionsPage', () => {
-  it('現在ユーザーの取引を一覧表示する', async () => {
+  it('取引を一覧表示する', async () => {
     mockedFetch.mockResolvedValue({
       transactions: makeTransactions(3),
       nextCursor: null,
@@ -75,7 +71,7 @@ describe('TransactionsPage', () => {
 
     expect(await screen.findByText('相手1')).toBeInTheDocument();
     expect(screen.getAllByRole('listitem')).toHaveLength(3);
-    expect(mockedFetch).toHaveBeenCalledWith(CURRENT_USER_ID, null);
+    expect(mockedFetch).toHaveBeenCalledWith(null);
   });
 
   it('取引が無いときは次の行動を示す空状態を表示する', async () => {
@@ -111,13 +107,18 @@ describe('TransactionsPage', () => {
     expect(triggerIntersection).not.toBeNull();
     triggerIntersection?.();
 
+    // 2回目の取得が走ったことを先に確認する。
+    // 32件の描画完了だけを待つと、他ワーカーと並行実行された際に既定の1秒を超えることがある。
     await waitFor(() => {
-      expect(screen.getAllByRole('listitem')).toHaveLength(32);
+      expect(mockedFetch).toHaveBeenCalledTimes(2);
     });
-    expect(mockedFetch).toHaveBeenCalledTimes(2);
-    expect(mockedFetch).toHaveBeenLastCalledWith(
-      CURRENT_USER_ID,
-      'next-cursor',
+    expect(mockedFetch).toHaveBeenLastCalledWith('next-cursor');
+
+    await waitFor(
+      () => {
+        expect(screen.getAllByRole('listitem')).toHaveLength(32);
+      },
+      { timeout: 5000 },
     );
   });
 

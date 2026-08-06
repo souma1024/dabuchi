@@ -23,7 +23,7 @@ function toErrorMessage(caught: unknown): string {
  * 取引履歴をカーソルページングで取得するフック。
  * 初回に1ページ目（最大20件）を読み込み、loadMoreで次ページを追記する。
  */
-export function useTransactions(currentUserId: string): UseTransactionsResult {
+export function useTransactions(): UseTransactionsResult {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoadingInitial, setIsLoadingInitial] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -48,7 +48,7 @@ export function useTransactions(currentUserId: string): UseTransactionsResult {
     let active = true;
     loadingRef.current = true;
 
-    void fetchTransactions(currentUserId, null)
+    void fetchTransactions(null)
       .then((page) => {
         if (!active) {
           return;
@@ -73,7 +73,7 @@ export function useTransactions(currentUserId: string): UseTransactionsResult {
     return () => {
       active = false;
     };
-  }, [currentUserId]);
+  }, []);
 
   // 追加ロード（次ページ）。スクロール到達などのイベントから呼ぶ。
   const loadMore = useCallback(() => {
@@ -83,7 +83,7 @@ export function useTransactions(currentUserId: string): UseTransactionsResult {
     loadingRef.current = true;
     setIsLoadingMore(true);
 
-    void fetchTransactions(currentUserId, cursorRef.current)
+    void fetchTransactions(cursorRef.current)
       .then((page) => {
         // カーソルは次回のリクエストに使うため、アンマウント後でも進めておく。
         cursorRef.current = page.nextCursor;
@@ -105,7 +105,7 @@ export function useTransactions(currentUserId: string): UseTransactionsResult {
           setIsLoadingMore(false);
         }
       });
-  }, [currentUserId]);
+  }, []);
 
   return {
     transactions,

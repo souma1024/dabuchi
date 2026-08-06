@@ -56,11 +56,8 @@ describe('取引履歴への導線', () => {
     expect(
       await screen.findByRole('heading', { name: '取引履歴' }),
     ).toBeInTheDocument();
-    // 現在ユーザーのIDでAPIを呼び、取得した取引が表示される。
-    expect(mockedFetchTransactions).toHaveBeenCalledWith(
-      '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001',
-      null,
-    );
+    // 対象ユーザーはserver側で決まるため、フロントはカーソルだけを渡す。
+    expect(mockedFetchTransactions).toHaveBeenCalledWith(null);
     expect(await screen.findByText('佐藤 花子')).toBeInTheDocument();
     expect(screen.getByText('1,200円')).toBeInTheDocument();
 

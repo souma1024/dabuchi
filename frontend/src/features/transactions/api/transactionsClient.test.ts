@@ -2,8 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { fetchTransactions } from './transactionsClient';
 
-const CURRENT_USER_ID = '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001';
-
 const validTransaction = {
   id: '1024',
   counterparty: {
@@ -47,22 +45,21 @@ describe('fetchTransactions', () => {
       body: pageBody([validTransaction], 'next-cursor'),
     });
 
-    await expect(fetchTransactions(CURRENT_USER_ID)).resolves.toEqual({
+    await expect(fetchTransactions()).resolves.toEqual({
       transactions: [validTransaction],
       nextCursor: 'next-cursor',
     });
 
     const requestedUrl = mockFetch.mock.calls[0]?.[0] as URL;
-    expect(requestedUrl.pathname).toBe(
-      `/api/users/${CURRENT_USER_ID}/transactions`,
-    );
+    // URLでユーザーを指定しない（server側のログインユーザーを対象にする）。
+    expect(requestedUrl.pathname).toBe('/api/transactions');
     expect(requestedUrl.searchParams.get('cursor')).toBeNull();
   });
 
   it('カーソルを指定すると次ページとしてクエリに載せる', async () => {
     const mockFetch = stubFetch({ ok: true, body: pageBody([]) });
 
-    await fetchTransactions(CURRENT_USER_ID, 'eyJjcmVhdGVkQXQi');
+    await fetchTransactions('eyJjcmVhdGVkQXQi');
 
     const requestedUrl = mockFetch.mock.calls[0]?.[0] as URL;
     expect(requestedUrl.searchParams.get('cursor')).toBe('eyJjcmVhdGVkQXQi');
@@ -71,7 +68,7 @@ describe('fetchTransactions', () => {
   it('最終ページはnextCursorをnullで返す', async () => {
     stubFetch({ ok: true, body: pageBody([validTransaction], null) });
 
-    await expect(fetchTransactions(CURRENT_USER_ID)).resolves.toMatchObject({
+    await expect(fetchTransactions()).resolves.toMatchObject({
       nextCursor: null,
     });
   });
@@ -79,7 +76,7 @@ describe('fetchTransactions', () => {
   it('取引が0件でも正常な結果として扱う', async () => {
     stubFetch({ ok: true, body: pageBody([]) });
 
-    await expect(fetchTransactions(CURRENT_USER_ID)).resolves.toEqual({
+    await expect(fetchTransactions()).resolves.toEqual({
       transactions: [],
       nextCursor: null,
     });
@@ -92,7 +89,7 @@ describe('fetchTransactions', () => {
   ])('HTTP %s はステータス付きのエラーにする', async (_label, status) => {
     stubFetch({ ok: false, status });
 
-    await expect(fetchTransactions(CURRENT_USER_ID)).rejects.toThrow(
+    await expect(fetchTransactions()).rejects.toThrow(
       `取引履歴の取得に失敗しました (HTTP ${status})`,
     );
   });
@@ -107,9 +104,7 @@ describe('fetchTransactions', () => {
   ])('%s レスポンスは不正として扱う', async (_label, body) => {
     stubFetch({ ok: true, body });
 
-    await expect(fetchTransactions(CURRENT_USER_ID)).rejects.toThrow(
-      '不正なレスポンス',
-    );
+    await expect(fetchTransactions()).rejects.toThrow('不正なレスポンス');
   });
 
   it.each([
@@ -129,8 +124,6 @@ describe('fetchTransactions', () => {
   ])('取引の%s なら不正として扱う', async (_label, transaction) => {
     stubFetch({ ok: true, body: pageBody([transaction]) });
 
-    await expect(fetchTransactions(CURRENT_USER_ID)).rejects.toThrow(
-      '不正なレスポンス',
-    );
+    await expect(fetchTransactions()).rejects.toThrow('不正なレスポンス');
   });
 });

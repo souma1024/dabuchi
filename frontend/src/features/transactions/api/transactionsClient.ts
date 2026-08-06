@@ -78,15 +78,9 @@ function parseTransactionsResponse(data: unknown): TransactionPage {
   return { transactions, nextCursor };
 }
 
-function buildTransactionsUrl(
-  currentUserId: string,
-  cursor: string | null,
-): URL {
+function buildTransactionsUrl(cursor: string | null): URL {
   const base = API_BASE_URL || window.location.origin;
-  const url = new URL(
-    `/api/users/${encodeURIComponent(currentUserId)}/transactions`,
-    base,
-  );
+  const url = new URL('/api/transactions', base);
   if (cursor) {
     url.searchParams.set('cursor', cursor);
   }
@@ -95,15 +89,16 @@ function buildTransactionsUrl(
 
 /**
  * 取引履歴を1ページ分（20件）取得する。
+ * 対象ユーザーはserver側のログイン中ユーザーから決まるため、URLやクエリで指定しない
+ * （他人の履歴を取得させないため）。
  * 送受金の統合と「相手」の算出、並び順、ページングはバックエンドの責務。
  * 追加ページは呼び出し側(useTransactions)がnextCursorを使って取得する。
  */
 export async function fetchTransactions(
-  currentUserId: string,
   cursor: string | null = null,
   signal?: AbortSignal,
 ): Promise<TransactionPage> {
-  const response = await fetch(buildTransactionsUrl(currentUserId, cursor), {
+  const response = await fetch(buildTransactionsUrl(cursor), {
     signal,
   });
   if (!response.ok) {
