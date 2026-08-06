@@ -92,6 +92,17 @@ describe('ListPaymentRequests', () => {
     expect(result.nextCursor).toBeNull();
   });
 
+  it('1件も無ければ空配列と次ページなしを返す', async () => {
+    const usecase = createUsecase(
+      createPaymentRequestListRepository({ records: [] }),
+    );
+
+    const result = await usecase.execute(createInput());
+
+    expect(result.requests).toEqual([]);
+    expect(result.nextCursor).toBeNull();
+  });
+
   it('相手をネストし、日時をISO 8601へ変換する', async () => {
     const record = createPaymentRequestRecord(1, {
       amount: 3000,
