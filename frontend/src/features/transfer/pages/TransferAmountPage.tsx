@@ -36,7 +36,6 @@ export function TransferAmountPage() {
         label: '送金上限額',
         exceededMessage: '送金上限額を超えています',
       }}
-      showMessageField
     />
   );
 }

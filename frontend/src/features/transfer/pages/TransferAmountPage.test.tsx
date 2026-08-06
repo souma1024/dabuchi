@@ -77,38 +77,18 @@ describe('TransferAmountPage', () => {
     expect(screen.getByRole('button', { name: '送金' })).toBeDisabled();
   });
 
-  it('メッセージを入力しても送金APIへ送信するリクエストボディは変わらない', async () => {
-    const fetchMock = vi.mocked(fetch);
-    fetchMock.mockResolvedValueOnce(new Response(null, { status: 200 }));
-
-    const user = userEvent.setup();
+  // 送金APIはmessageを受け付けず、transfersテーブルにもmessage列が無い。
+  // 入力しても破棄されるだけなので欄自体を置かない。
+  it('送信されないメッセージ欄は表示しない', () => {
     render(
       <MemoryRouter>
         <TransferAmountPage />
       </MemoryRouter>,
     );
 
-    await user.type(screen.getByLabelText('送金金額'), '1000');
-    await user.type(
-      screen.getByLabelText('メッセージ（任意）'),
-      'お願いします',
-    );
-    await user.click(screen.getByRole('button', { name: '送金' }));
-
     expect(
-      await screen.findByText('送金情報を登録しました'),
-    ).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/transfers',
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({
-          senderId: '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001',
-          recipientId: '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf002',
-          amount: 1000,
-        }),
-      }),
-    );
+      screen.queryByLabelText('メッセージ（任意）'),
+    ).not.toBeInTheDocument();
   });
 
   it('送金APIに送信者ID、受取人ID、金額を送信し、成功したら登録メッセージを表示する', async () => {

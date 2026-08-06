@@ -1,5 +1,6 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
+import { MAX_BILLING_RECIPIENTS } from '../features/billing/api/billingClient';
 import { RecipientSelectionScreen } from '../features/recipientSelection/RecipientSelectionScreen';
 import type { Recipient } from '../features/recipientSelection/types';
 
@@ -9,25 +10,70 @@ const CURRENT_USER_ID: string =
   import.meta.env.VITE_CURRENT_USER_ID ??
   '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001';
 
-/** 相手選択画面をルーティングへ接続するラッパー。選択→送金画面、戻る→ホーム。 */
+// ?purpose=billingのときだけ請求フロー、それ以外（未指定含む）は送金フローとして扱う。
+type Purpose = 'transfer' | 'billing';
+
+const PURPOSE_CONFIG: Record<
+  Purpose,
+  { path: string; title: string; emptyMessage: string }
+> = {
+  transfer: {
+    path: '/transfer',
+    title: '送金相手を選ぶ',
+    emptyMessage: '送金できる相手がいません。',
+  },
+  billing: {
+    path: '/billing',
+    title: '請求相手を選ぶ',
+    emptyMessage: '請求できる相手がいません。',
+  },
+};
+
+/** 送金・請求画面が読むlocation.state用の形へ変換する。 */
+function toStateRecipient({ id, name, imageUrl }: Recipient) {
+  return { id, name, profileUrl: imageUrl };
+}
+
+/** 相手選択画面をルーティングへ接続するラッパー。選択→送金/請求画面、戻る→ホーム。 */
 export function RecipientSelectionRoute() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const purpose: Purpose =
+    searchParams.get('purpose') === 'billing' ? 'billing' : 'transfer';
+  const { path, title, emptyMessage } = PURPOSE_CONFIG[purpose];
 
+  // 戻るは常にホームへ。履歴を積まないようreplaceし、ブラウザの戻る操作で相手選択画面へ戻らないようにする。
+  const handleBack = () => void navigate('/', { replace: true });
+
+  // 請求は複数人へまとめて出せる。BillingAmountPageはlocation.state.recipientsを配列で読む。
+  if (purpose === 'billing') {
+    return (
+      <RecipientSelectionScreen
+        currentUserId={CURRENT_USER_ID}
+        title={title}
+        emptyMessage={emptyMessage}
+        onBack={handleBack}
+        selectionMode="multiple"
+        maxSelectionCount={MAX_BILLING_RECIPIENTS}
+        onConfirmSelection={(recipients: Recipient[]) =>
+          void navigate(path, {
+            state: { recipients: recipients.map(toStateRecipient) },
+          })
+        }
+      />
+    );
+  }
+
+  // 送金は1人へ送るため、行タップで即座に金額入力へ進む。
   return (
     <RecipientSelectionScreen
       currentUserId={CURRENT_USER_ID}
-      // 戻るは常にホームへ。履歴を積まないようreplaceし、ブラウザの戻る操作で相手選択画面へ戻らないようにする。
-      onBack={() => void navigate('/', { replace: true })}
+      title={title}
+      emptyMessage={emptyMessage}
+      onBack={handleBack}
       onSelectRecipient={(recipient: Recipient) =>
-        // TransferAmountPage は location.state.recipient({id,name,profileUrl}) を読む。
-        void navigate('/transfer', {
-          state: {
-            recipient: {
-              id: recipient.id,
-              name: recipient.name,
-              profileUrl: recipient.imageUrl,
-            },
-          },
+        void navigate(path, {
+          state: { recipient: toStateRecipient(recipient) },
         })
       }
     />
