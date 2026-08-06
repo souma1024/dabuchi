@@ -51,14 +51,17 @@ describe('HomePage', () => {
     expect(screen.getByRole('link', { name: '送金する' })).toBeInTheDocument();
   });
 
-  it('「送金する」から相手選択画面のパスへ遷移できる', async () => {
+  it.each([
+    ['送金する', '/recipients'],
+    ['履歴一覧', '/transactions'],
+  ])('「%s」から%sへ遷移できる', async (label, path) => {
     renderHomePage();
 
     await screen.findByText('山田 太郎 さん');
 
-    expect(screen.getByRole('link', { name: '送金する' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: label })).toHaveAttribute(
       'href',
-      '/recipients',
+      path,
     );
   });
 
@@ -67,12 +70,7 @@ describe('HomePage', () => {
 
     await screen.findByText('山田 太郎 さん');
 
-    for (const label of [
-      '請求する',
-      '請求されている',
-      '履歴一覧',
-      '友達管理',
-    ]) {
+    for (const label of ['請求する', '請求されている', '友達管理']) {
       const button = screen.getByText(label).closest('button');
 
       expect(button).toBeInTheDocument();
