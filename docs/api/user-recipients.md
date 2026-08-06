@@ -7,13 +7,17 @@
 ## Endpoint
 
 ```http
-GET /api/users/:currentUserId/recipients?cursor=<opaque cursor>
+GET /api/users/:currentUserId/recipients?cursor=<opaque cursor>&sort=<sort>
 ```
 
 - `currentUserId`: `users.id`の内部UUID。友達追加に使う公開`user_id`ではない
 - `cursor`: 次ページ取得時だけ指定する不透明な文字列
+- `sort`: 省略時は`created-asc`。`created-asc` / `created-desc` / `name-asc`
 - 取得件数: 20件固定
-- 並び順: `created_at`、内部UUIDの昇順
+- 並び順:
+  - `created-asc`: `created_at`、内部UUIDの昇順
+  - `created-desc`: `created_at`、内部UUIDの降順
+  - `name-asc`: `user_name`、内部UUIDの昇順
 - 除外条件: `currentUserId`と同じユーザー
 
 認証が未実装のため、現時点では現在ユーザーの内部UUIDをパスで受け取る。認証導入後は、認証情報から現在ユーザーを特定するAPIへ変更する。
@@ -38,7 +42,7 @@ GET /api/users/:currentUserId/recipients?cursor=<opaque cursor>
 }
 ```
 
-`hasNextPage`が`true`なら、次回リクエストの`cursor`へ`nextCursor`をそのまま渡す。最終ページでは`nextCursor`は`null`になる。
+`hasNextPage`が`true`なら、次回リクエストの`cursor`へ`nextCursor`をそのまま渡す。`sort`を指定した場合は次ページ取得でも同じ`sort`を渡す。最終ページでは`nextCursor`は`null`になる。
 
 PR #2の送金金額入力画面へは、選択したユーザーの`id`、`name`、`profileUrl`を渡す。フロントエンド側の`iconSrc`には`profileUrl`を対応させる。残高と公開`user_id`は候補一覧では返さない。
 

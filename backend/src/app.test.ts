@@ -96,8 +96,11 @@ describe('backend application', () => {
         .map(({ id, name, profileUrl }) => ({ id, name, profileUrl })),
       pageInfo: {
         nextCursor: encodeRecipientCursor({
-          createdAt: createUserRecipientRecord(20).createdAt,
-          id: createUserRecipientRecord(20).id,
+          sort: 'created-asc',
+          value: {
+            createdAt: createUserRecipientRecord(20).createdAt,
+            id: createUserRecipientRecord(20).id,
+          },
         }),
         hasNextPage: true,
       },
@@ -106,8 +109,11 @@ describe('backend application', () => {
 
   it('次ページのカーソルを検索条件として使う', async () => {
     const cursor = {
-      createdAt: '2026-08-04 12:00:20.000000',
-      id: '00000000-0000-4000-8000-000000000020',
+      sort: 'created-asc' as const,
+      value: {
+        createdAt: '2026-08-04 12:00:20.000000',
+        id: '00000000-0000-4000-8000-000000000020',
+      },
     };
     const { app, repository } = createTestApp();
 
@@ -120,6 +126,23 @@ describe('backend application', () => {
       currentUserId: CURRENT_USER_ID,
       cursor,
       limit: 21,
+      sort: 'created-asc',
+    });
+  });
+
+  it('sort=name-ascを検索条件として使う', async () => {
+    const { app, repository } = createTestApp();
+
+    const response = await request(app)
+      .get(`/api/users/${CURRENT_USER_ID}/recipients`)
+      .query({ sort: 'name-asc' });
+
+    expect(response.status).toBe(200);
+    expect(repository.findRecipients).toHaveBeenCalledWith({
+      currentUserId: CURRENT_USER_ID,
+      cursor: null,
+      limit: 21,
+      sort: 'name-asc',
     });
   });
 
@@ -143,6 +166,42 @@ describe('backend application', () => {
     const response = await request(app)
       .get(`/api/users/${CURRENT_USER_ID}/recipients`)
       .query({ cursor: 'invalid' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: { code: 'INVALID_REQUEST', message: 'cursor is invalid.' },
+    });
+  });
+
+  it('不正なsortを400にする', async () => {
+    const { app } = createTestApp();
+
+    const response = await request(app)
+      .get(`/api/users/${CURRENT_USER_ID}/recipients`)
+      .query({ sort: 'unknown' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: {
+        code: 'INVALID_REQUEST',
+        message: 'sort must be one of created-asc, created-desc or name-asc.',
+      },
+    });
+  });
+
+  it('sortと一致しないカーソルを400にする', async () => {
+    const { app } = createTestApp();
+    const cursor = {
+      sort: 'name-asc' as const,
+      value: {
+        name: '佐藤 花子',
+        id: '00000000-0000-4000-8000-000000000020',
+      },
+    };
+
+    const response = await request(app)
+      .get(`/api/users/${CURRENT_USER_ID}/recipients`)
+      .query({ sort: 'created-asc', cursor: encodeRecipientCursor(cursor) });
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
