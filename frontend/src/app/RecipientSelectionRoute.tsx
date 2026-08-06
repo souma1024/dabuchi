@@ -1,5 +1,6 @@
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
+import { MAX_BILLING_RECIPIENTS } from '../features/billing/api/billingClient';
 import { RecipientSelectionScreen } from '../features/recipientSelection/RecipientSelectionScreen';
 import type { Recipient } from '../features/recipientSelection/types';
 
@@ -28,6 +29,11 @@ const PURPOSE_CONFIG: Record<
   },
 };
 
+/** 送金・請求画面が読むlocation.state用の形へ変換する。 */
+function toStateRecipient({ id, name, imageUrl }: Recipient) {
+  return { id, name, profileUrl: imageUrl };
+}
+
 /** 相手選択画面をルーティングへ接続するラッパー。選択→送金/請求画面、戻る→ホーム。 */
 export function RecipientSelectionRoute() {
   const navigate = useNavigate();
@@ -36,23 +42,38 @@ export function RecipientSelectionRoute() {
     searchParams.get('purpose') === 'billing' ? 'billing' : 'transfer';
   const { path, title, emptyMessage } = PURPOSE_CONFIG[purpose];
 
+  // 戻るは常にホームへ。履歴を積まないようreplaceし、ブラウザの戻る操作で相手選択画面へ戻らないようにする。
+  const handleBack = () => void navigate('/', { replace: true });
+
+  // 請求は複数人へまとめて出せる。BillingAmountPageはlocation.state.recipientsを配列で読む。
+  if (purpose === 'billing') {
+    return (
+      <RecipientSelectionScreen
+        currentUserId={CURRENT_USER_ID}
+        title={title}
+        emptyMessage={emptyMessage}
+        onBack={handleBack}
+        selectionMode="multiple"
+        maxSelectionCount={MAX_BILLING_RECIPIENTS}
+        onConfirmSelection={(recipients: Recipient[]) =>
+          void navigate(path, {
+            state: { recipients: recipients.map(toStateRecipient) },
+          })
+        }
+      />
+    );
+  }
+
+  // 送金は1人へ送るため、行タップで即座に金額入力へ進む。
   return (
     <RecipientSelectionScreen
       currentUserId={CURRENT_USER_ID}
       title={title}
       emptyMessage={emptyMessage}
-      // 戻るは常にホームへ。履歴を積まないようreplaceし、ブラウザの戻る操作で相手選択画面へ戻らないようにする。
-      onBack={() => void navigate('/', { replace: true })}
+      onBack={handleBack}
       onSelectRecipient={(recipient: Recipient) =>
-        // TransferAmountPage / BillingAmountPage は共通してlocation.state.recipient({id,name,profileUrl})を読む。
         void navigate(path, {
-          state: {
-            recipient: {
-              id: recipient.id,
-              name: recipient.name,
-              profileUrl: recipient.imageUrl,
-            },
-          },
+          state: { recipient: toStateRecipient(recipient) },
         })
       }
     />
