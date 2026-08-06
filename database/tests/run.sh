@@ -167,6 +167,68 @@ if query "
   exit 1
 fi
 
+query "
+  INSERT INTO transfers (sender_id, recipient_id, amount, idempotency_key)
+  SELECT sender.id, recipient.id, 700, 'idem-key-001'
+  FROM users AS sender
+  CROSS JOIN users AS recipient
+  WHERE sender.user_id = 'auto-id-test'
+    AND recipient.user_id = 'recipient-test';
+" >/dev/null
+
+saved_idempotency_key="$(query "
+  SELECT idempotency_key
+  FROM transfers
+  WHERE idempotency_key = 'idem-key-001';
+")"
+assert_equals \
+  "idem-key-001" \
+  "${saved_idempotency_key}" \
+  "transfer must store the idempotency key"
+
+query "
+  INSERT INTO transfers (sender_id, recipient_id, amount)
+  SELECT sender.id, recipient.id, 650
+  FROM users AS sender
+  CROSS JOIN users AS recipient
+  WHERE sender.user_id = 'auto-id-test'
+    AND recipient.user_id = 'recipient-test';
+" >/dev/null
+
+null_idempotency_key_count="$(query "
+  SELECT COUNT(*)
+  FROM transfers
+  WHERE idempotency_key IS NULL;
+")"
+assert_equals \
+  "2" \
+  "${null_idempotency_key_count}" \
+  "unique idempotency key must allow multiple NULLs"
+
+if query "
+  INSERT INTO transfers (sender_id, recipient_id, amount, idempotency_key)
+  SELECT sender.id, recipient.id, 800, 'idem-key-001'
+  FROM users AS sender
+  CROSS JOIN users AS recipient
+  WHERE sender.user_id = 'auto-id-test'
+    AND recipient.user_id = 'recipient-test';
+" >/dev/null 2>&1; then
+  echo "FAIL: duplicate idempotency key must be rejected" >&2
+  exit 1
+fi
+
+if query "
+  INSERT INTO transfers (sender_id, recipient_id, amount, idempotency_key)
+  SELECT sender.id, recipient.id, 900, '   '
+  FROM users AS sender
+  CROSS JOIN users AS recipient
+  WHERE sender.user_id = 'auto-id-test'
+    AND recipient.user_id = 'recipient-test';
+" >/dev/null 2>&1; then
+  echo "FAIL: blank idempotency key must be rejected" >&2
+  exit 1
+fi
+
 payment_request_columns="$(query "
   SELECT GROUP_CONCAT(
     CONCAT(column_name, ':', column_type, ':', is_nullable)
