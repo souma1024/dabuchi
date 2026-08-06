@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { fetchMockTransactionPage } from '../mockTransactions';
+import { fetchTransactions } from '../api/transactionsClient';
 import type { Transaction } from '../types';
 
 /** 取引履歴一覧の取得結果と操作。 */
@@ -21,10 +21,9 @@ function toErrorMessage(caught: unknown): string {
 
 /**
  * 取引履歴をカーソルページングで取得するフック。
- * 現在の取得元はモック。API連携（Issue #20）でクライアントを差し替える想定で、
- * 返り値の形は変えない。
+ * 初回に1ページ目（最大20件）を読み込み、loadMoreで次ページを追記する。
  */
-export function useTransactions(): UseTransactionsResult {
+export function useTransactions(currentUserId: string): UseTransactionsResult {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoadingInitial, setIsLoadingInitial] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -39,7 +38,7 @@ export function useTransactions(): UseTransactionsResult {
     let active = true;
     loadingRef.current = true;
 
-    void fetchMockTransactionPage(null)
+    void fetchTransactions(currentUserId, null)
       .then((page) => {
         if (!active) {
           return;
@@ -64,7 +63,7 @@ export function useTransactions(): UseTransactionsResult {
     return () => {
       active = false;
     };
-  }, []);
+  }, [currentUserId]);
 
   // 追加ロード（次ページ）。スクロール到達などのイベントから呼ぶ。
   const loadMore = useCallback(() => {
@@ -74,7 +73,7 @@ export function useTransactions(): UseTransactionsResult {
     loadingRef.current = true;
     setIsLoadingMore(true);
 
-    void fetchMockTransactionPage(cursorRef.current)
+    void fetchTransactions(currentUserId, cursorRef.current)
       .then((page) => {
         setTransactions((prev) => [...prev, ...page.transactions]);
         cursorRef.current = page.nextCursor;
@@ -88,7 +87,7 @@ export function useTransactions(): UseTransactionsResult {
         loadingRef.current = false;
         setIsLoadingMore(false);
       });
-  }, []);
+  }, [currentUserId]);
 
   return {
     transactions,

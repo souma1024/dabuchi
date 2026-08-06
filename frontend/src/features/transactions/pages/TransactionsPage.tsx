@@ -4,12 +4,17 @@ import { TransactionListItem } from '../components/TransactionListItem';
 import { useTransactions } from '../hooks/useTransactions';
 
 interface TransactionsPageProps {
+  /** 現在ログイン中のユーザーID（暫定。認証導入後はトークンから取得する）。 */
+  currentUserId: string;
   /** 戻る操作。未指定なら戻るボタンは表示しない。 */
   onBack?: () => void;
 }
 
 /** 取引履歴の一覧画面。スクロール末尾で次ページを追加取得する。 */
-export function TransactionsPage({ onBack }: TransactionsPageProps) {
+export function TransactionsPage({
+  currentUserId,
+  onBack,
+}: TransactionsPageProps) {
   const {
     transactions,
     isLoadingInitial,
@@ -17,7 +22,7 @@ export function TransactionsPage({ onBack }: TransactionsPageProps) {
     error,
     hasMore,
     loadMore,
-  } = useTransactions();
+  } = useTransactions(currentUserId);
   const sentinelRef = useRef<HTMLLIElement | null>(null);
 
   useEffect(() => {
