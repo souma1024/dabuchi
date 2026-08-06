@@ -42,19 +42,29 @@ describe('BillingAmountPage', () => {
     expect(screen.getByText('テスト花子')).toBeInTheDocument();
   });
 
-  it('請求上限額（システム固定の上限額）とメッセージ欄を表示する', () => {
+  it('メッセージ欄を表示する', () => {
     render(
       <MemoryRouter>
         <BillingAmountPage />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('請求上限額')).toBeInTheDocument();
-    expect(screen.getByText('100,000円')).toBeInTheDocument();
     expect(screen.getByLabelText('メッセージ（任意）')).toBeInTheDocument();
   });
 
-  it('請求上限額を超える金額を入力すると請求ボタンが無効になる', async () => {
+  // 請求は自分の口座からお金が出ないため、残高による上限を設けない。
+  it('上限額は表示しない', () => {
+    render(
+      <MemoryRouter>
+        <BillingAmountPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByText('請求上限額')).not.toBeInTheDocument();
+  });
+
+  // 送金は残高（80,000円）で頭打ちになるが、請求はその制約を受けない。
+  it('送金の上限（残高80,000円）を超える金額でも請求できる', async () => {
     const user = userEvent.setup();
     render(
       <MemoryRouter>
@@ -64,27 +74,10 @@ describe('BillingAmountPage', () => {
 
     await user.type(screen.getByLabelText('請求金額'), '999999');
 
-    expect(screen.getByText('請求上限額を超えています')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '請求' })).toBeDisabled();
-  });
-
-  it('請求上限額ちょうど（100,000円）は送信でき、1円超える（100,001円）と無効になる', async () => {
-    const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <BillingAmountPage />
-      </MemoryRouter>,
-    );
-
-    await user.type(screen.getByLabelText('請求金額'), '100000');
     expect(
       screen.queryByText('請求上限額を超えています'),
     ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '請求' })).toBeEnabled();
-
-    await user.type(screen.getByLabelText('請求金額'), '1');
-    expect(screen.getByText('請求上限額を超えています')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '請求' })).toBeDisabled();
   });
 
   it('請求APIへrequests配列で被請求者IDと金額を送信し、成功したら完了メッセージを表示する', async () => {

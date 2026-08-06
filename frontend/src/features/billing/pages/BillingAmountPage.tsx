@@ -1,6 +1,5 @@
 import { RecipientAmountPage } from '../../../components/RecipientAmountPage';
 import { useRecipientFromLocationState } from '../../../hooks/useRecipientFromLocationState';
-import { MAX_TRANSACTION_AMOUNT } from '../../../lib/amountLimits';
 import { currentUser, recipients } from '../../../lib/mockUsers';
 import type { Recipient } from '../../../types/user';
 import { sendBillingRequest } from '../api/billingClient';
@@ -23,14 +22,11 @@ export function BillingAmountPage() {
       renderCompleteDescription={(recipient, amount) =>
         `${recipient.name}さんに${amount.toLocaleString()}円を請求しました。`
       }
+      // 請求は自分の口座からお金が出ないため、残高による上限を設けない。
+      // maxAmountを渡さないことで、上限表示と超過チェックの両方を行わない。
       onSubmit={(amount) =>
         sendBillingRequest({ recipientId: recipient.id, amount })
       }
-      maxAmount={{
-        value: MAX_TRANSACTION_AMOUNT,
-        label: '請求上限額',
-        exceededMessage: '請求上限額を超えています',
-      }}
       showMessageField
     />
   );
