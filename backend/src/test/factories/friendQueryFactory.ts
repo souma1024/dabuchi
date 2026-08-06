@@ -1,5 +1,6 @@
 import type { FriendProfile } from '../../domain/friendship.js';
 import type {
+  BlockedFriendQueryRecord,
   FriendQueryRecord,
   FriendshipDetailQueryRecord,
 } from '../../application/ports/friendQueryRepository.js';
@@ -49,4 +50,23 @@ export function createFriendshipDetailQueryRecord(
     blocksCurrentUser: false,
     ...overrides,
   };
+}
+
+export function createBlockedFriendQueryRecord(
+  index = 1,
+  overrides: Partial<BlockedFriendQueryRecord> = {},
+): BlockedFriendQueryRecord {
+  return {
+    ...createFriendQueryRecord(index),
+    blockedAt: `2026-08-06 11:00:${String(index).padStart(2, '0')}.000000`,
+    ...overrides,
+  };
+}
+
+export function createBlockedFriendQueryRecords(
+  count: number,
+): BlockedFriendQueryRecord[] {
+  return Array.from({ length: count }, (_, index) =>
+    createBlockedFriendQueryRecord(index + 1),
+  );
 }

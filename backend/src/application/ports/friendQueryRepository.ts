@@ -5,6 +5,11 @@ export interface FriendshipCursor {
   id: string;
 }
 
+export interface BlockedFriendCursor {
+  blockedAt: string;
+  friendshipId: string;
+}
+
 export interface FriendQueryRecord {
   friendshipId: string;
   friend: FriendProfile;
@@ -18,6 +23,10 @@ export interface FriendshipDetailQueryRecord extends FriendQueryRecord {
   blocksCurrentUser: boolean;
 }
 
+export interface BlockedFriendQueryRecord extends FriendQueryRecord {
+  blockedAt: string;
+}
+
 export interface FriendQueryRepository {
   findFriends: (input: {
     currentUserId: string;
@@ -28,4 +37,9 @@ export interface FriendQueryRepository {
     currentUserId: string;
     friendshipId: string;
   }) => Promise<FriendshipDetailQueryRecord | null>;
+  findBlockedFriends: (input: {
+    currentUserId: string;
+    cursor: BlockedFriendCursor | null;
+    limit: number;
+  }) => Promise<BlockedFriendQueryRecord[]>;
 }
