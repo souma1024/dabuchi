@@ -7,6 +7,17 @@ import { MysqlPaymentRequestListRepository } from './mysqlPaymentRequestListRepo
 
 const CURRENT_USER_INTERNAL_ID = '11111111-1111-4111-8111-111111111111';
 
+/** SQLの整形（改行・インデント）に依存せず構造だけを比較するため、空白を1つに潰す。 */
+function normalizeSql(sql: string): string {
+  return sql.replace(/\s+/g, ' ').trim();
+}
+
+function sqlOf(execute: { mock: { calls: unknown[][] } }): string {
+  const sql = execute.mock.calls[0]?.[0];
+
+  return typeof sql === 'string' ? sql : '';
+}
+
 function createBaseInput(overrides = {}) {
   return {
     currentUserInternalId: CURRENT_USER_INTERNAL_ID,
@@ -173,30 +184,43 @@ describe('MysqlPaymentRequestListRepository', () => {
       );
     }
 
-    it('現在ユーザーでない側を相手として結合する', async () => {
+    // 断片ごとの検証だとTHENとELSEの入れ替えを見逃し、相手が自分自身になる回帰を
+    // 検出できない。CASE式とWHERE句は括弧まで含めて丸ごと固定する。
+    it('現在ユーザーが請求者なら被請求者を、そうでなければ請求者を相手にする', async () => {
       const { pool, execute } = createMysqlPool([[]]);
 
       await findById(pool);
 
-      // directionを受け取らないため、請求者か被請求者かを行ごとに判定する。
-      expect(execute).toHaveBeenCalledWith(
-        expect.stringContaining('WHEN pr.requester_id = UUID_TO_BIN(?)'),
-        expect.anything(),
+      expect(normalizeSql(sqlOf(execute))).toContain(
+        'counterparty.id = CASE' +
+          ' WHEN pr.requester_id = UUID_TO_BIN(?) THEN pr.recipient_id' +
+          ' ELSE pr.requester_id' +
+          ' END',
       );
     });
 
     // 当事者でなければSQLの段階で弾き、存在の有無を呼び出し側へ漏らさない。
+    // 括弧が外れるとANDとORの優先順位が変わり、他人の請求まで返るため丸ごと固定する。
     it('当事者だけを対象にする条件を含む', async () => {
       const { pool, execute } = createMysqlPool([[]]);
 
       await findById(pool);
 
-      const [sql, values] = execute.mock.calls[0] ?? [];
+      expect(normalizeSql(sqlOf(execute))).toContain(
+        'WHERE pr.id = UUID_TO_BIN(?)' +
+          ' AND ( pr.requester_id = UUID_TO_BIN(?)' +
+          ' OR pr.recipient_id = UUID_TO_BIN(?) )',
+      );
+    });
 
-      expect(String(sql)).toContain('pr.requester_id = UUID_TO_BIN(?)');
-      expect(String(sql)).toContain('pr.recipient_id = UUID_TO_BIN(?)');
+    it('プレースホルダへ値を正しい順序で渡す', async () => {
+      const { pool, execute } = createMysqlPool([[]]);
+
+      await findById(pool);
+
       // 相手の判定用に1回、WHEREの請求ID、当事者判定に2回。
-      expect(values).toEqual([
+      // 順序がずれると他人の請求が読めてしまう。
+      expect(execute.mock.calls[0]?.[1]).toEqual([
         CURRENT_USER_INTERNAL_ID,
         PAYMENT_REQUEST_ID,
         CURRENT_USER_INTERNAL_ID,
