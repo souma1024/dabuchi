@@ -117,11 +117,15 @@ function BalanceSection() {
         profileUrl={currentUser.profileUrl}
         size="large"
       />
-      <div>
+      <div className="min-w-0">
         <p className="m-0 text-sm text-slate-500">{currentUser.name} さん</p>
         {/* 送金画面の残高表示と同じ「N円」形式に揃える。 */}
         <p className="m-0 text-4xl font-bold tracking-tight text-slate-900">
           {currentUser.balance.toLocaleString()}円
+        </p>
+        {/* 友達追加では相手にこのIDを伝えてもらうため、自分のIDをここから読めるようにする。 */}
+        <p className="m-0 mt-1 truncate text-sm text-slate-500">
+          ID: {currentUser.userId}
         </p>
       </div>
     </section>

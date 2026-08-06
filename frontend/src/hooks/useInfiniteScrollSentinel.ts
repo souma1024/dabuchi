@@ -1,44 +1,60 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+
+// 目印は高さ1pxで一覧の末尾に置くため、最下端まで送ってもviewportの境界と
+// 重なるだけで交差と判定されないことがある。手前から監視して確実に発火させる。
+const ROOT_MARGIN = '200px';
 
 /**
  * 一覧の末尾に置いた目印が画面に入ったら、続きを読み込むためのフック。
  *
- * カーソルページングの一覧（取引履歴・請求一覧・相手選択）で同じ処理が必要になるため、
- * useCursorPaginationと対で使えるように切り出している。
+ * カーソルページングの一覧（取引履歴・請求一覧・相手選択・友達管理）で同じ処理が
+ * 必要になるため、useCursorPaginationと対で使えるように切り出している。
  *
- * 返ったrefを、リストの最後の要素へ付ける。hasMoreがfalseのときは要素自体を描画しない
- * 想定のため、監視も始まらない。
+ * 返った関数を、リストの最後の要素のrefへ渡す。hasMoreがfalseのときは要素自体を
+ * 描画しない想定で、その間は監視も止まる。
  *
- * @param loadMore 目印が見えたときに呼ぶ。useCallbackで同一性を保つこと。
- * @param deps 監視をやり直す契機。読み込み済み件数などを渡す。
+ * refをオブジェクトではなく関数で返すのは、目印が「後から」現れるため。
+ * 1ページ目の取得が終わるまで目印は描画されないので、effectの依存配列で監視をやり直す
+ * 作りだと、依存の指定漏れでいつまでも監視が始まらない。
+ * 関数refなら、要素が付いた瞬間と外れた瞬間にReactが呼ぶため取りこぼさない。
+ *
+ * @param loadMore 目印が見えたときに呼ぶ。
  */
 export function useInfiniteScrollSentinel<T extends Element>(
   loadMore: () => void,
-  deps: readonly unknown[] = [],
-) {
-  const sentinelRef = useRef<T | null>(null);
+): (node: T | null) => void {
+  const loadMoreRef = useRef(loadMore);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
+  // 監視を作り直さずに済むよう、最新のloadMoreはrefから呼ぶ。
+  useEffect(() => {
+    loadMoreRef.current = loadMore;
+  }, [loadMore]);
 
   useEffect(() => {
-    const sentinel = sentinelRef.current;
+    return () => {
+      observerRef.current?.disconnect();
+    };
+  }, []);
 
-    if (!sentinel) {
+  return useCallback((node: T | null) => {
+    observerRef.current?.disconnect();
+
+    if (!node) {
+      observerRef.current = null;
       return;
     }
 
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        loadMore();
-      }
-    });
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          loadMoreRef.current();
+        }
+      },
+      { rootMargin: ROOT_MARGIN },
+    );
 
-    observer.observe(sentinel);
-
-    return () => {
-      observer.disconnect();
-    };
-    // depsは呼び出し側が決める（件数の変化などで監視をやり直す）。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadMore, ...deps]);
-
-  return sentinelRef;
+    observer.observe(node);
+    observerRef.current = observer;
+  }, []);
 }

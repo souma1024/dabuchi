@@ -52,9 +52,7 @@ export function PaymentRequestHistoryPage({
     hasMore,
     loadMore,
   } = usePaymentRequestHistory(direction);
-  const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore, [
-    requests.length,
-  ]);
+  const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore);
 
   // タブを切り替えたときも先頭から見せる。
   useScrollToTop([direction]);

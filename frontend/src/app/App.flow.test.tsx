@@ -54,6 +54,7 @@ describe('送金フローの結合', () => {
               JSON.stringify({
                 user: {
                   id: '11111111-1111-4111-8111-111111111111',
+                  userId: 'friend-001',
                   name: 'テスト送金者',
                   profileUrl: '/assets/profiles/human1.png',
                   balance: 50000,

@@ -22,9 +22,7 @@ export function TransactionsPage({ onBack }: TransactionsPageProps) {
     hasMore,
     loadMore,
   } = useTransactions();
-  const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore, [
-    transactions.length,
-  ]);
+  const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore);
 
   useScrollToTop();
 

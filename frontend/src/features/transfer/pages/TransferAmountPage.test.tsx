@@ -9,6 +9,7 @@ import { TransferAmountPage } from './TransferAmountPage';
 // /api/me が返す現在ユーザー（送金者）。残高で送金上限を判定する。
 const CURRENT_USER = {
   id: '11111111-1111-4111-8111-111111111111',
+  userId: 'friend-001',
   name: 'テスト送金者',
   profileUrl: '/assets/profiles/human1.png',
   balance: 50000,

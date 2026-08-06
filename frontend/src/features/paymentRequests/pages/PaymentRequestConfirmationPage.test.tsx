@@ -23,6 +23,7 @@ const request: PaymentRequest = {
 function stubCurrentUser(balance: number) {
   vi.spyOn(currentUserModule, 'fetchCurrentUser').mockResolvedValue({
     id: '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001',
+    userId: 'friend-001',
     name: '山田 太郎',
     profileUrl: '/assets/profiles/human1.png',
     balance,

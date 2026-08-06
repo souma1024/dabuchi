@@ -2,6 +2,8 @@
 
 複数の被請求者へ、被請求者ごとの金額で請求を作成するAPIです。請求者はrequest bodyから受け取らず、backendのcurrent userから決定します。
 
+# 請求の作成
+
 ## Endpoint
 
 ```http
@@ -98,3 +100,195 @@ Content-Type: application/json
 ### `500 Internal Server Error`
 
 DB接続失敗などの想定外エラーです。内部エラーの詳細はレスポンスへ含めません。
+
+# 請求の一覧取得
+
+自分が請求された（`received`）／自分が請求した（`sent`）請求を、作成日時の降順で20件ずつ返します。カーソルページングは[送る相手候補一覧API](user-recipients.md)を踏襲します。
+
+## Endpoint
+
+```http
+GET /api/payment-requests?direction=received&status=pending&cursor=<opaque cursor>
+```
+
+| クエリ      | 必須 | 内容                                                      |
+| ----------- | ---- | --------------------------------------------------------- |
+| `direction` | 必須 | `received`（自分が請求された） / `sent`（自分が請求した） |
+| `status`    | 任意 | `pending` / `accepted` / `rejected`。省略時は全件         |
+| `cursor`    | 任意 | 次ページ取得時だけ指定する不透明な文字列                  |
+
+- 取得件数: 20件固定
+- 並び順: `created_at` 降順、`payment_requests.id` 降順（新しい請求が先頭）
+- 現在ユーザーは request から受け取らず、`POST /api/payment-requests` と同じくbackendのcurrent userから決定します
+
+`direction=received` では `recipient_id`、`sent` では `requester_id` が現在ユーザーの行を返します。`counterparty` はその逆側のユーザーです。
+
+## Response
+
+### `200 OK`
+
+```json
+{
+  "requests": [
+    {
+      "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "counterparty": {
+        "id": "5e5a4a1e-3b42-4f47-8b1f-b77ef98bf002",
+        "name": "佐藤 花子",
+        "profileUrl": "/assets/profiles/human2.png"
+      },
+      "amount": 3000,
+      "status": "pending",
+      "createdAt": "2026-08-03T01:00:00.000Z",
+      "respondedAt": null
+    }
+  ],
+  "pageInfo": {
+    "nextCursor": "eyJjcmVhdGVkQXQiOi...",
+    "hasNextPage": true
+  }
+}
+```
+
+`hasNextPage` が `true` なら、次回リクエストの `cursor` へ `nextCursor` をそのまま渡します。最終ページでは `nextCursor` は `null` になります。
+
+**カーソルは、それを得たときと同じ `direction`・`status` に対してのみ再利用できます。** カーソルは `created_at` と `id` だけを持ち、検索条件を含みません。タブ切り替えなどで `direction` や `status` を変えるときは、カーソルを破棄して1ページ目から取得してください。条件をまたいで渡しても他のユーザーの請求が見えることはありませんが、返る範囲が期待とずれます。
+
+`createdAt` は請求日として表示に利用します。`respondedAt` は決着した日時で、`pending` のあいだは `null` です。
+
+### `status` の意味
+
+| 値         | 意味                         |
+| ---------- | ---------------------------- |
+| `pending`  | まだ決着していない           |
+| `accepted` | 被請求者が承認し、送金された |
+| `rejected` | 成立しなかった               |
+
+`rejected` は「被請求者が拒否した」と「請求者が取り消した」の**両方**を表します。`payment_requests.status` のCHECK制約を変えずに取り消しを扱うためで、DBは誰が終わらせたかを持ちません（Issue #61）。画面のラベルも行為者を示さない「キャンセル」とします。
+
+### `400 Bad Request`
+
+`direction` が未指定または不正、`status` が不正、`cursor` が復号できない場合です。
+
+```json
+{
+  "error": {
+    "code": "INVALID_REQUEST",
+    "message": "direction must be \"received\" or \"sent\""
+  }
+}
+```
+
+### `404 Not Found`
+
+現在ユーザーが `users` に存在しない場合です。
+
+```json
+{
+  "error": {
+    "code": "CURRENT_USER_NOT_FOUND",
+    "message": "Current user was not found."
+  }
+}
+```
+
+# 請求の承認・拒否
+
+`pending` の請求に対して、被請求者が承認または拒否します。承認すると残高が動き、取引履歴にも記録されます。
+
+## Endpoint
+
+```http
+POST /api/payment-requests/:id/accept
+POST /api/payment-requests/:id/reject
+```
+
+- `:id` は `payment_requests.id` の内部UUID
+- request body はありません
+- 現在ユーザーは request から受け取らず、backendのcurrent userから決定します
+- **応答できるのは被請求者だけです。** 請求者や第三者は `403` になります
+
+承認と拒否で経路を分けているのは、URLに動詞を出して意図を明示するためです。
+
+## 承認 `POST /:id/accept`
+
+以下を**単一のDB transaction**で実行します。
+
+1. 対象の請求行を `FOR UPDATE` でロックする
+2. 対象が `pending` か、現在ユーザーが被請求者かを確認する
+3. 被請求者の残高を `amount` 減らし、請求者の残高を `amount` 増やす
+4. `transfers` に1件記録する（取引履歴に表示されるようにする）
+5. `status='accepted'`、`responded_at=CURRENT_TIMESTAMP(6)` に更新する
+
+3〜4は送金API（[docs/api/transfers.md](transfers.md)）と同じ手続きを再利用しています。途中で失敗した場合は全体が巻き戻り、残高だけが動いた状態にはなりません。
+
+状態の確認と更新の間に別の実行が割り込むと二重送金になるため、確認から更新までを同じtransactionの内側で行っています。
+
+### `200 OK`
+
+```json
+{
+  "request": {
+    "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "amount": 3000,
+    "status": "accepted",
+    "respondedAt": "2026-08-06T02:00:00.000Z"
+  },
+  "balance": 117000
+}
+```
+
+`balance` は送金後の被請求者の残高です。画面側が `GET /api/me` を取り直さずに完了表示を出せます。
+
+## 拒否 `POST /:id/reject`
+
+1. 対象が `pending` か、現在ユーザーが被請求者かを確認する
+2. `status='rejected'`、`responded_at=CURRENT_TIMESTAMP(6)` に更新する
+
+残高は動きません。そのため `balance` は返しません。
+
+### `200 OK`
+
+```json
+{
+  "request": {
+    "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "amount": 3000,
+    "status": "rejected",
+    "respondedAt": "2026-08-06T02:00:00.000Z"
+  }
+}
+```
+
+## エラー
+
+| status | code                                | 条件                                     |
+| ------ | ----------------------------------- | ---------------------------------------- |
+| `400`  | `INVALID_REQUEST`                   | `:id` がUUIDでない                       |
+| `403`  | `PAYMENT_REQUEST_FORBIDDEN`         | 現在ユーザーが被請求者でない             |
+| `404`  | `PAYMENT_REQUEST_NOT_FOUND`         | 対象の請求が存在しない                   |
+| `404`  | `CURRENT_USER_NOT_FOUND`            | 現在ユーザーが `users` に存在しない      |
+| `409`  | `PAYMENT_REQUEST_ALREADY_RESPONDED` | 確定済みの状態と今回の応答が逆向き       |
+| `422`  | `INSUFFICIENT_BALANCE`              | 被請求者の残高が不足している（承認のみ） |
+
+`409` になるのは `accepted` の請求へ `reject`、`rejected` の請求へ `accept` した場合です。**同じ向きの再送（`accepted` へ `accept`）は `409` ではなく `200` になります**（後述）。
+
+**`409` は画面側の制御だけでは防げません。** 一覧を読み込んだ後に別端末で処理される、といったことが起こりえます。二重送金を防ぐのはserver側の責務です。
+
+### 同じ向きの再送は冪等です
+
+**すでに `accepted` の請求へ再度 `accept` すると、`409` ではなく `200` を返します。** 残高は動かさず、確定済みの結果をそのまま返します。`rejected` への `reject` も同じです。
+
+DBのCOMMITは完了したのに応答がclientへ届かない、ということが起こりえます。このとき `409` を返すと、「失敗表示なのにお金は動いている」状態から抜け出せません。同じ向きの再送を冪等にすることで、再送すれば必ず正しい結果へ収束します。
+
+`accepted` の請求へ `reject` するような**逆向きの操作は `409`** です。これは再送ではなく取り消しにあたるためです。
+
+冪等リプレイで返す `balance` は**現時点の残高**で、承認した瞬間の残高とは限りません。その後に別の送金があれば変わります。画面が必要とするのは最新の残高なので、これで問題ありません。
+
+存在しない請求（`404`）と被請求者でない請求（`403`）を区別しています。請求IDは一覧APIで被請求者へ渡しており、当てずっぽうで到達できるものではないためです。
+
+**残高不足は `422` です。** Issue #71 の記載は `400` ですが、送金API（`POST /api/transfers`）が同じ条件で `422 INSUFFICIENT_BALANCE` を返しており、同一のエラー型を再利用しています。形式は正しいが状態のせいで処理できない、という意味でも `422` が適切です。
+
+## 未対応
+
+**請求の取り消し（請求者自身によるキャンセル）は含みません。** `payment_requests.status` のCHECK制約が `('pending', 'accepted', 'rejected')` のため、`canceled` を足すには migration が必要です。また `responded_at` は「被請求者が応答した日時」の意味なので、請求者の操作で使うかは別途判断が必要です（Issue #61）。

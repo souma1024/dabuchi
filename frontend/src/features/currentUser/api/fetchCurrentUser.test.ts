@@ -14,6 +14,7 @@ function stubFetch(response: { ok: boolean; status?: number; body?: unknown }) {
 
 const validUser = {
   id: '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001',
+  userId: 'friend-001',
   name: '山田 太郎',
   profileUrl: '/assets/profiles/human1.png',
   balance: 120000,
@@ -43,6 +44,16 @@ describe('fetchCurrentUser', () => {
 
   it('userを含まないレスポンスは不正として扱う', async () => {
     stubFetch({ ok: true, body: {} });
+
+    await expect(fetchCurrentUser()).rejects.toThrow('不正なレスポンス');
+  });
+
+  // ホームで表示し、友達追加のときに相手へ伝えてもらう値なので欠けていたら困る。
+  it('userIdを含まないレスポンスは不正として扱う', async () => {
+    stubFetch({
+      ok: true,
+      body: { user: { ...validUser, userId: undefined } },
+    });
 
     await expect(fetchCurrentUser()).rejects.toThrow('不正なレスポンス');
   });
