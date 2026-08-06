@@ -14,7 +14,15 @@ export function createMysqlPool(results: readonly MysqlExecuteResult[]) {
 
     return Promise.resolve([nextResult, []] as const);
   });
-  const pool = { execute } as unknown as Pool;
+  const connection = {
+    execute,
+    beginTransaction: vi.fn().mockResolvedValue(undefined),
+    commit: vi.fn().mockResolvedValue(undefined),
+    rollback: vi.fn().mockResolvedValue(undefined),
+    release: vi.fn(),
+  };
+  const getConnection = vi.fn().mockResolvedValue(connection);
+  const pool = { execute, getConnection } as unknown as Pool;
 
-  return { pool, execute };
+  return { pool, execute, connection, getConnection };
 }

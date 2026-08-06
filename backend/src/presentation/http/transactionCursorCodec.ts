@@ -2,6 +2,7 @@ import type { TransactionCursor } from '../../application/ports/transactionRepos
 import { isRealMysqlDateTime } from '../../shared/mysqlDateTime.js';
 
 const NUMERIC_ID_PATTERN = /^\d+$/;
+
 export function encodeTransactionCursor(cursor: TransactionCursor): string {
   return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url');
 }
