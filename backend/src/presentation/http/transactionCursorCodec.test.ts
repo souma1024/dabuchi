@@ -30,4 +30,19 @@ describe('transaction cursor codec', () => {
   ])('不正なカーソルを拒否する: %s', (cursor) => {
     expect(decodeTransactionCursor(cursor)).toBeNull();
   });
+
+  it.each([
+    '2026-13-01 00:00:00.000000', // 月が不正
+    '2026-00-01 00:00:00.000000', // 月が不正(0)
+    '2026-02-30 00:00:00.000000', // 日が不正(2月30日)
+    '2026-08-05 24:00:00.000000', // 時が不正
+    '2026-08-05 00:60:00.000000', // 分が不正
+    '2026-08-05 00:00:60.000000', // 秒が不正
+  ])('実在しない日時のカーソルを拒否する: %s', (createdAt) => {
+    const encoded = Buffer.from(
+      JSON.stringify({ createdAt, id: '20' }),
+    ).toString('base64url');
+
+    expect(decodeTransactionCursor(encoded)).toBeNull();
+  });
 });
