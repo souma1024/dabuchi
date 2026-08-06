@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 
 import type {
+  BlockedFriendQueryRecord,
   FriendQueryRecord,
   FriendQueryRepository,
   FriendshipDetailQueryRecord,
@@ -9,6 +10,7 @@ import type {
 interface FriendQueryRepositoryFactoryOptions {
   friends?: FriendQueryRecord[];
   detail?: FriendshipDetailQueryRecord | null;
+  blockedFriends?: BlockedFriendQueryRecord[];
 }
 
 export function createFriendQueryRepository(
@@ -21,5 +23,8 @@ export function createFriendQueryRepository(
     findFriendshipDetail: vi
       .fn<FriendQueryRepository['findFriendshipDetail']>()
       .mockResolvedValue(options.detail ?? null),
+    findBlockedFriends: vi
+      .fn<FriendQueryRepository['findBlockedFriends']>()
+      .mockResolvedValue(options.blockedFriends ?? []),
   };
 }
