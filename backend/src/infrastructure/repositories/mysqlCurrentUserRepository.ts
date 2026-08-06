@@ -12,6 +12,7 @@ export class MysqlCurrentUserRepository implements CurrentUserRepository {
     const [rows] = await this.pool.execute<CurrentUserRow[]>(
       `SELECT
          BIN_TO_UUID(id) AS id,
+         user_id AS userId,
          user_name AS name,
          profile_url AS profileUrl,
          balance
@@ -25,6 +26,7 @@ export class MysqlCurrentUserRepository implements CurrentUserRepository {
     return user
       ? {
           id: user.id,
+          userId: user.userId,
           name: user.name,
           profileUrl: user.profileUrl,
           balance: user.balance,

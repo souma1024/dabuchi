@@ -18,6 +18,7 @@ request body、path parameter、query parameterはありません。
 {
   "user": {
     "id": "5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001",
+    "userId": "friend-001",
     "name": "山田 太郎",
     "profileUrl": "/assets/profiles/human1.png",
     "balance": 120000
@@ -28,6 +29,7 @@ request body、path parameter、query parameterはありません。
 | フィールド        | 型     | 説明                           |
 | ----------------- | ------ | ------------------------------ |
 | `user.id`         | string | 画面遷移などに使う内部UUID     |
+| `user.userId`     | string | 友達追加で相手へ伝える公開ID   |
 | `user.name`       | string | `users.user_name`              |
 | `user.profileUrl` | string | `users.profile_url`            |
 | `user.balance`    | number | 円単位の非負整数で表す現在残高 |
