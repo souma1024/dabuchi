@@ -2,6 +2,7 @@ import type { Pool, RowDataPacket } from 'mysql2/promise';
 
 import type {
   FindUserRecipientsInput,
+  RecipientCursor,
   UserRecipientRepository,
 } from '../../application/ports/userRecipientRepository.js';
 import type { UserRecipientRecord } from '../../domain/userRecipient.js';
@@ -37,29 +38,26 @@ export class MysqlUserRecipientRepository implements UserRecipientRepository {
   async findRecipients(
     input: FindUserRecipientsInput,
   ): Promise<UserRecipientRecord[]> {
-    const cursorClause = input.cursor
-      ? `AND (
-          created_at > ?
-          OR (created_at = ? AND id > UUID_TO_BIN(?))
-        )`
-      : '';
+    const { cursorClause, values: cursorValues } = buildCursorClause(
+      input.cursor,
+    );
     const values: string[] = [input.currentUserId];
-
-    if (input.cursor) {
-      values.push(
-        input.cursor.createdAt,
-        input.cursor.createdAt,
-        input.cursor.id,
-      );
-    }
+    values.push(...cursorValues);
 
     // mysql2 sends JavaScript numbers as DOUBLE values, which MySQL rejects for LIMIT.
     values.push(String(input.limit));
 
+    const orderByClause =
+      input.sort === 'created-desc'
+        ? 'created_at DESC, id DESC'
+        : input.sort === 'name-asc'
+          ? 'user_name ASC, id ASC'
+          : 'created_at ASC, id ASC';
+
     const [rows] = await this.pool.execute<RecipientRow[]>(
       `${BASE_RECIPIENT_QUERY}
        ${cursorClause}
-       ORDER BY created_at ASC, id ASC
+       ORDER BY ${orderByClause}
        LIMIT ?`,
       values,
     );
@@ -71,4 +69,41 @@ export class MysqlUserRecipientRepository implements UserRecipientRepository {
       createdAt,
     }));
   }
+}
+
+function buildCursorClause(cursor: RecipientCursor | null): {
+  cursorClause: string;
+  values: string[];
+} {
+  if (!cursor) {
+    return { cursorClause: '', values: [] };
+  }
+
+  if (cursor.sort === 'name-asc') {
+    return {
+      cursorClause: `AND (
+          user_name > ?
+          OR (user_name = ? AND id > UUID_TO_BIN(?))
+        )`,
+      values: [cursor.value.name, cursor.value.name, cursor.value.id],
+    };
+  }
+
+  if (cursor.sort === 'created-desc') {
+    return {
+      cursorClause: `AND (
+          created_at < ?
+          OR (created_at = ? AND id < UUID_TO_BIN(?))
+        )`,
+      values: [cursor.value.createdAt, cursor.value.createdAt, cursor.value.id],
+    };
+  }
+
+  return {
+    cursorClause: `AND (
+        created_at > ?
+        OR (created_at = ? AND id > UUID_TO_BIN(?))
+      )`,
+    values: [cursor.value.createdAt, cursor.value.createdAt, cursor.value.id],
+  };
 }
