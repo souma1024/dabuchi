@@ -268,8 +268,10 @@ POST /api/payment-requests/:id/reject
 | `403`  | `PAYMENT_REQUEST_FORBIDDEN`         | 現在ユーザーが被請求者でない             |
 | `404`  | `PAYMENT_REQUEST_NOT_FOUND`         | 対象の請求が存在しない                   |
 | `404`  | `CURRENT_USER_NOT_FOUND`            | 現在ユーザーが `users` に存在しない      |
-| `409`  | `PAYMENT_REQUEST_ALREADY_RESPONDED` | 対象が `pending` でない                  |
+| `409`  | `PAYMENT_REQUEST_ALREADY_RESPONDED` | 確定済みの状態と今回の応答が逆向き       |
 | `422`  | `INSUFFICIENT_BALANCE`              | 被請求者の残高が不足している（承認のみ） |
+
+`409` になるのは `accepted` の請求へ `reject`、`rejected` の請求へ `accept` した場合です。**同じ向きの再送（`accepted` へ `accept`）は `409` ではなく `200` になります**（後述）。
 
 **`409` は画面側の制御だけでは防げません。** 一覧を読み込んだ後に別端末で処理される、といったことが起こりえます。二重送金を防ぐのはserver側の責務です。
 
