@@ -8,8 +8,8 @@ export interface Recipient {
   imageUrl: string;
 }
 
-/** backendの送金相手一覧APIが受け付ける並び替え条件。 */
-export type RecipientSort = 'created-asc' | 'created-desc' | 'name-asc';
+/** frontendで送金相手一覧に使う並び替え条件。 */
+export type RecipientSort = 'created-asc' | 'created-desc';
 
 /** フロントエンドで使う既定の並び替え。backendの既定値と合わせる。 */
 export const DEFAULT_RECIPIENT_SORT: RecipientSort = 'created-asc';

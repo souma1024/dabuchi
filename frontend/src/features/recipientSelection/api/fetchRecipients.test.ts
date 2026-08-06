@@ -60,11 +60,11 @@ describe('fetchRecipients', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    await fetchRecipients(CURRENT_USER_ID, 'CURSOR_1', 'name-asc');
+    await fetchRecipients(CURRENT_USER_ID, 'CURSOR_1', 'created-desc');
 
     const url = String(fetchMock.mock.calls[0]?.[0]);
     expect(url).toContain('cursor=CURSOR_1');
-    expect(url).toContain('sort=name-asc');
+    expect(url).toContain('sort=created-desc');
   });
 
   it('HTTPエラーならエラーを投げる', async () => {

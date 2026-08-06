@@ -73,7 +73,7 @@ describe('RecipientSelectionRoute', () => {
     );
 
     fireEvent.change(screen.getByRole('combobox', { name: '並び替え' }), {
-      target: { value: 'name-asc' },
+      target: { value: 'created-desc' },
     });
 
     expect(
@@ -83,7 +83,7 @@ describe('RecipientSelectionRoute', () => {
       2,
       expect.any(String),
       null,
-      'name-asc',
+      'created-desc',
     );
   });
 

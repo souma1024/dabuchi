@@ -131,11 +131,11 @@ describe('RecipientSelectionScreen', () => {
     fireEvent.change(
       await screen.findByRole('combobox', { name: '並び替え' }),
       {
-        target: { value: 'name-asc' },
+        target: { value: 'created-desc' },
       },
     );
 
-    expect(onSortChange).toHaveBeenCalledWith('name-asc');
+    expect(onSortChange).toHaveBeenCalledWith('created-desc');
   });
 
   // 請求は複数人へまとめて出せるため、選んでから「次へ」で確定する。

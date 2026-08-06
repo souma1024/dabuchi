@@ -106,7 +106,7 @@ describe('useRecipients', () => {
     });
     expect(result.current.recipients).toEqual(page1.recipients);
 
-    rerender({ sort: 'name-asc' as const });
+    rerender({ sort: 'created-desc' as const });
 
     await waitFor(() => {
       expect(result.current.isLoadingInitial).toBe(false);
@@ -123,7 +123,7 @@ describe('useRecipients', () => {
       2,
       'me',
       null,
-      'name-asc',
+      'created-desc',
     );
   });
 });

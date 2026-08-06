@@ -8,7 +8,6 @@ interface RecipientSortSelectProps {
 const SORT_OPTIONS: ReadonlyArray<{ value: RecipientSort; label: string }> = [
   { value: 'created-asc', label: '登録が古い順' },
   { value: 'created-desc', label: '登録が新しい順' },
-  { value: 'name-asc', label: '名前順' },
 ];
 
 export function RecipientSortSelect({
