@@ -16,7 +16,7 @@ GET /api/transactions?cursor=<opaque cursor>
 - 並び順: `created_at`降順、`transfers.id`降順（新しい取引が先頭）
 - `direction`: 現在ユーザーが送信者なら`sent`（相手 = 受取人）、受取人なら`received`（相手 = 送信者）
 
-認証が未実装のため、現在ユーザーは mock authentication（`MOCK_USER_ID`）の公開 `user_id` から特定し、server 側で内部UUIDへ解決する。認証導入後は認証情報から現在ユーザーを特定するAPIへ移行する。
+現在ユーザーはセッションが示す公開 `user_id` から特定し、server 側で内部UUIDへ解決する。
 
 ## Response
 

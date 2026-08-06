@@ -63,4 +63,4 @@ POST /api/auth/logout
 
 開発用シードの30ユーザーには、共通のパスワード`dabuchi-dev`が入っている。`npm run db:seed`で投入され、すでにパスワードが設定されているユーザーは上書きしない。
 
-現時点では、既存APIの現在ユーザーはまだ`MOCK_USER_ID`から解決している。セッション由来へ切り替える変更は次のPRで行う。
+`/health`と`/api/auth/*`以外のAPIは、有効なセッションが無ければ`401 NOT_AUTHENTICATED`を返す。

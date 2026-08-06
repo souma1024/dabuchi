@@ -1,6 +1,7 @@
 import express from 'express';
 
 import type { CreatePaymentRequests } from './application/createPaymentRequests.js';
+import type { AuthRepository } from './application/ports/authRepository.js';
 import type { AddFriend } from './application/usecases/addFriend.js';
 import type { BlockFriend } from './application/usecases/blockFriend.js';
 import type { CreateFriendshipNote } from './application/usecases/createFriendshipNote.js';
@@ -22,6 +23,7 @@ import type { UpdateFriendshipNote } from './application/usecases/updateFriendsh
 import type { TransferRepository } from './domain/transferRepository.js';
 import { createAddFriendRouter } from './presentation/http/addFriendRouter.js';
 import { createAuthRouter } from './presentation/http/authRouter.js';
+import { createAuthentication } from './presentation/http/authentication.js';
 import { createCurrentUserRouter } from './presentation/http/currentUserRouter.js';
 import { errorHandler } from './presentation/http/errorHandler.js';
 import { createFriendBlockRouter } from './presentation/http/friendBlockRouter.js';
@@ -35,6 +37,7 @@ import { createTransferRouter } from './presentation/http/transferRouter.js';
 
 export interface AppDependencies {
   addFriend: AddFriend;
+  authRepository: AuthRepository;
   logIn: LogIn;
   logOut: LogOut;
   signUp: SignUp;
@@ -45,8 +48,6 @@ export interface AppDependencies {
   getCurrentUser: GetCurrentUser;
   getFriendshipDetail: GetFriendshipDetail;
   getPaymentRequest: GetPaymentRequest;
-  /** mock認証で決まる現在ユーザーの公開user_id。内部UUIDはserver側で解決する。 */
-  currentUserId: string;
   listBlockedFriends: ListBlockedFriends;
   listFriends: ListFriends;
   listPaymentRequests: ListPaymentRequests;
@@ -72,13 +73,9 @@ export function createApp(dependencies: AppDependencies) {
       signUp: dependencies.signUp,
     }),
   );
-  app.use(
-    '/api/me',
-    createCurrentUserRouter(
-      dependencies.getCurrentUser,
-      dependencies.currentUserId,
-    ),
-  );
+  // 以降のAPIはセッションから現在ユーザーを解決する。認証が要るかは各routerが決める。
+  app.use('/api', createAuthentication(dependencies.authRepository));
+  app.use('/api/me', createCurrentUserRouter(dependencies.getCurrentUser));
   app.use(
     '/api/users',
     createUserRecipientRouter(dependencies.listUserRecipients),
@@ -86,20 +83,17 @@ export function createApp(dependencies: AppDependencies) {
   // 友達APIは現在ユーザーを公開user_idからserver側で解決するため、pathにユーザーを含めない。
   app.use(
     '/api/friends',
-    createAddFriendRouter(dependencies.addFriend, dependencies.currentUserId),
+    createAddFriendRouter(dependencies.addFriend),
     createFriendshipNoteRouter({
       createFriendshipNote: dependencies.createFriendshipNote,
-      currentUserPublicId: dependencies.currentUserId,
       deleteFriendshipNote: dependencies.deleteFriendshipNote,
       updateFriendshipNote: dependencies.updateFriendshipNote,
     }),
     createFriendBlockRouter({
       blockFriend: dependencies.blockFriend,
-      currentUserPublicId: dependencies.currentUserId,
       unblockFriend: dependencies.unblockFriend,
     }),
     createFriendQueryRouter({
-      currentUserPublicId: dependencies.currentUserId,
       getFriendshipDetail: dependencies.getFriendshipDetail,
       listBlockedFriends: dependencies.listBlockedFriends,
       listFriends: dependencies.listFriends,
@@ -107,10 +101,7 @@ export function createApp(dependencies: AppDependencies) {
   );
   app.use(
     '/api/transactions',
-    createUserTransactionRouter(
-      dependencies.listUserTransactions,
-      dependencies.currentUserId,
-    ),
+    createUserTransactionRouter(dependencies.listUserTransactions),
   );
   app.use(
     '/api/transfers',
@@ -120,7 +111,6 @@ export function createApp(dependencies: AppDependencies) {
     '/api/payment-requests',
     createPaymentRequestRouter({
       createPaymentRequests: dependencies.createPaymentRequests,
-      currentUserPublicId: dependencies.currentUserId,
       getPaymentRequest: dependencies.getPaymentRequest,
       listPaymentRequests: dependencies.listPaymentRequests,
       respondToPaymentRequest: dependencies.respondToPaymentRequest,

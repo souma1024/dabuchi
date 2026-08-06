@@ -45,6 +45,15 @@ import { createPaymentRequestRepository } from './paymentRequestRepositoryFactor
 import { createTransactionRepository } from './transactionRepositoryFactory.js';
 import { createUserRecipientRepository } from './userRecipientRepositoryFactory.js';
 
+/** createTestAppが既定で認証済みとして扱うユーザー。 */
+export const TEST_SESSION_USER = {
+  id: '11111111-1111-4111-8111-111111111111',
+  userId: 'friend-001',
+};
+
+/** 認証済みとして送るためのCookie。tokenの値は何でもよい（repositoryがmockのため）。 */
+export const TEST_SESSION_COOKIE = 'dabuchi_session=test-session-token';
+
 interface AppFactoryOptions {
   currentUser?: CurrentUser | null;
   currentUserId?: string;
@@ -127,11 +136,20 @@ export function createTestApp(options: AppFactoryOptions = {}) {
   const friendQueryRepository =
     options.friendQueryRepository ?? createFriendQueryRepository();
   let generatedFriendshipId = 0;
-  const authRepository = options.authRepository ?? createAuthRepository();
+  // 既定では、テスト用のセッションCookieを送れば認証済みとして扱う。
+  const authRepository =
+    options.authRepository ??
+    createAuthRepository({
+      sessionUser: {
+        id: options.currentUser?.id ?? TEST_SESSION_USER.id,
+        userId: TEST_SESSION_USER.userId,
+      },
+    });
   let generatedUserId = 0;
 
   return {
     app: createApp({
+      authRepository,
       addFriend: new AddFriend(
         currentUserRepository,
         friendCommandRepository,
@@ -147,7 +165,6 @@ export function createTestApp(options: AppFactoryOptions = {}) {
         friendCommandRepository,
       ),
       createPaymentRequests,
-      currentUserId: options.currentUserId ?? 'friend-001',
       deleteFriendshipNote: new DeleteFriendshipNote(
         currentUserRepository,
         friendCommandRepository,

@@ -20,7 +20,6 @@ import { ListUserRecipients } from './application/usecases/listUserRecipients.js
 import { ListUserTransactions } from './application/usecases/listUserTransactions.js';
 import { UnblockFriend } from './application/usecases/unblockFriend.js';
 import { UpdateFriendshipNote } from './application/usecases/updateFriendshipNote.js';
-import { loadMockAuthenticationConfig } from './infrastructure/auth/mockAuthenticationConfig.js';
 import { createDatabasePool } from './infrastructure/database/createDatabasePool.js';
 import { loadDatabaseConfig } from './infrastructure/database/databaseConfig.js';
 import { MysqlPaymentRequestRepository } from './infrastructure/mysqlPaymentRequestRepository.js';
@@ -43,7 +42,6 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
 } else {
   try {
     const databaseConfig = loadDatabaseConfig(process.env);
-    const authenticationConfig = loadMockAuthenticationConfig(process.env);
     const pool = createDatabasePool(databaseConfig);
     const currentUserRepository = new MysqlCurrentUserRepository(pool);
     const userRecipientRepository = new MysqlUserRecipientRepository(pool);
@@ -121,10 +119,10 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
     );
     const server = createApp({
       addFriend,
+      authRepository,
       blockFriend,
       createFriendshipNote,
       createPaymentRequests,
-      currentUserId: authenticationConfig.currentUserId,
       deleteFriendshipNote,
       getCurrentUser,
       getFriendshipDetail,

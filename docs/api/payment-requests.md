@@ -36,7 +36,7 @@ Content-Type: application/json
 
 候補表示には既存の`GET /api/users/:currentUserId/recipients`を利用します。frontendのオートフィルは入力補助であり、backendへは最終的な個別金額を送ります。
 
-`requesterId`をrequest bodyへ含めても請求者の決定には使用しません。ログイン実装までは、開発環境の`MOCK_USER_ID`から解決したcurrent userが請求者です。
+`requesterId`をrequest bodyへ含めても請求者の決定には使用しません。請求者はセッションから解決したcurrent userです。
 
 ## Response
 

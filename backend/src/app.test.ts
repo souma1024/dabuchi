@@ -23,7 +23,10 @@ import type { TransactionRecord } from './domain/transaction.js';
 import { hashPassword } from './domain/password.js';
 import { hashSessionToken } from './domain/session.js';
 import { mysqlDateTimeToIso } from './shared/mysqlDateTime.js';
-import { createTestApp } from './test/factories/appFactory.js';
+import {
+  createTestApp,
+  TEST_SESSION_COOKIE,
+} from './test/factories/appFactory.js';
 import { createAuthRepository } from './test/factories/authRepositoryFactory.js';
 import { createCurrentUser } from './test/factories/currentUserFactory.js';
 import {
@@ -51,8 +54,10 @@ import {
 import { createUserRecipientRepository } from './test/factories/userRecipientRepositoryFactory.js';
 
 const CURRENT_USER_ID = '11111111-1111-4111-8111-111111111111';
+// セッションが指すユーザーの公開user_id。
 const MOCK_USER_ID = 'friend-001';
 const PAYMENT_REQUEST_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const FRIENDSHIP_ID = '10000000-0000-4000-8000-000000000001';
 const PASSWORD = 'correct horse battery';
 // 毎回ハッシュ化すると遅くなるため、テスト内で一度だけ作る。
 const PASSWORD_HASH = await hashPassword(PASSWORD);
@@ -115,7 +120,9 @@ describe('backend application', () => {
     const currentUser = createCurrentUser();
     const { app, currentUserRepository } = createTestApp({ currentUser });
 
-    const response = await request(app).get('/api/me');
+    const response = await request(app)
+      .get('/api/me')
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(200);
     // 友達追加で使う公開user_idも返す。
@@ -129,7 +136,9 @@ describe('backend application', () => {
   it('mockログインユーザーが存在しなければ404を返す', async () => {
     const { app } = createTestApp({ currentUser: null });
 
-    const response = await request(app).get('/api/me');
+    const response = await request(app)
+      .get('/api/me')
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({
@@ -144,9 +153,9 @@ describe('backend application', () => {
     const records = createUserRecipientRecords(21);
     const { app } = createTestApp({ recipients: records });
 
-    const response = await request(app).get(
-      `/api/users/${CURRENT_USER_ID}/recipients`,
-    );
+    const response = await request(app)
+      .get(`/api/users/${CURRENT_USER_ID}/recipients`)
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -178,6 +187,7 @@ describe('backend application', () => {
 
     const response = await request(app)
       .get(`/api/users/${CURRENT_USER_ID}/recipients`)
+      .set('Cookie', TEST_SESSION_COOKIE)
       .query({ cursor: encodeRecipientCursor(cursor) });
 
     expect(response.status).toBe(200);
@@ -194,6 +204,7 @@ describe('backend application', () => {
 
     const response = await request(app)
       .get(`/api/users/${CURRENT_USER_ID}/recipients`)
+      .set('Cookie', TEST_SESSION_COOKIE)
       .query({ sort: 'name-asc' });
 
     expect(response.status).toBe(200);
@@ -208,7 +219,9 @@ describe('backend application', () => {
   it('UUIDでない現在ユーザーIDを400にする', async () => {
     const { app } = createTestApp();
 
-    const response = await request(app).get('/api/users/not-a-uuid/recipients');
+    const response = await request(app)
+      .get('/api/users/not-a-uuid/recipients')
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
@@ -224,6 +237,7 @@ describe('backend application', () => {
 
     const response = await request(app)
       .get(`/api/users/${CURRENT_USER_ID}/recipients`)
+      .set('Cookie', TEST_SESSION_COOKIE)
       .query({ cursor: 'invalid' });
 
     expect(response.status).toBe(400);
@@ -237,6 +251,7 @@ describe('backend application', () => {
 
     const response = await request(app)
       .get(`/api/users/${CURRENT_USER_ID}/recipients`)
+      .set('Cookie', TEST_SESSION_COOKIE)
       .query({ sort: 'unknown' });
 
     expect(response.status).toBe(400);
@@ -260,6 +275,7 @@ describe('backend application', () => {
 
     const response = await request(app)
       .get(`/api/users/${CURRENT_USER_ID}/recipients`)
+      .set('Cookie', TEST_SESSION_COOKIE)
       .query({ sort: 'created-asc', cursor: encodeRecipientCursor(cursor) });
 
     expect(response.status).toBe(400);
@@ -271,9 +287,9 @@ describe('backend application', () => {
   it('現在ユーザーが存在しなければ404にする', async () => {
     const { app } = createTestApp({ currentUserExists: false });
 
-    const response = await request(app).get(
-      `/api/users/${CURRENT_USER_ID}/recipients`,
-    );
+    const response = await request(app)
+      .get(`/api/users/${CURRENT_USER_ID}/recipients`)
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({
@@ -294,9 +310,9 @@ describe('backend application', () => {
       .mockImplementation(() => undefined);
     const { app } = createTestApp({ repository });
 
-    const response = await request(app).get(
-      `/api/users/${CURRENT_USER_ID}/recipients`,
-    );
+    const response = await request(app)
+      .get(`/api/users/${CURRENT_USER_ID}/recipients`)
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({
@@ -316,7 +332,9 @@ describe('backend application', () => {
       transactions: records,
     });
 
-    const response = await request(app).get('/api/transactions');
+    const response = await request(app)
+      .get('/api/transactions')
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -343,6 +361,7 @@ describe('backend application', () => {
 
     const response = await request(app)
       .get('/api/transactions')
+      .set('Cookie', TEST_SESSION_COOKIE)
       .query({ cursor: encodeTransactionCursor(cursor) });
 
     expect(response.status).toBe(200);
@@ -358,6 +377,7 @@ describe('backend application', () => {
 
     const response = await request(app)
       .get('/api/transactions')
+      .set('Cookie', TEST_SESSION_COOKIE)
       .query({ cursor: 'invalid' });
 
     expect(response.status).toBe(400);
@@ -369,7 +389,9 @@ describe('backend application', () => {
   it('ログイン中ユーザーが存在しなければ取引履歴を404にする', async () => {
     const { app } = createTestApp({ currentUser: null });
 
-    const response = await request(app).get('/api/transactions');
+    const response = await request(app)
+      .get('/api/transactions')
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({
@@ -385,9 +407,9 @@ describe('backend application', () => {
       transactions: createTransactionRecords(1),
     });
 
-    const response = await request(app).get(
-      `/api/users/${CURRENT_USER_ID}/transactions`,
-    );
+    const response = await request(app)
+      .get(`/api/users/${CURRENT_USER_ID}/transactions`)
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ error: 'Not Found' });
@@ -399,7 +421,9 @@ describe('backend application', () => {
       friendQueryRepository: createFriendQueryRepository({ friends: records }),
     });
 
-    const response = await request(app).get('/api/friends');
+    const response = await request(app)
+      .get('/api/friends')
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -430,7 +454,9 @@ describe('backend application', () => {
       }),
     });
 
-    const response = await request(app).get('/api/friends/blocked');
+    const response = await request(app)
+      .get('/api/friends/blocked')
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
@@ -444,6 +470,7 @@ describe('backend application', () => {
 
     const response = await request(app)
       .post('/api/friends')
+      .set('Cookie', TEST_SESSION_COOKIE)
       .send({ friendUserId: 'friend-002' });
 
     expect(response.status).toBe(201);
@@ -457,9 +484,9 @@ describe('backend application', () => {
       friendQueryRepository: createFriendQueryRepository({ detail: null }),
     });
 
-    const response = await request(app).get(
-      '/api/friends/10000000-0000-4000-8000-000000000001',
-    );
+    const response = await request(app)
+      .get('/api/friends/10000000-0000-4000-8000-000000000001')
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(404);
     expect(response.body).toMatchObject({
@@ -467,40 +494,74 @@ describe('backend application', () => {
     });
   });
 
-  it('送信者ID、受取人IDと金額を保存する', async () => {
+  it('セッションのユーザーを送信者として保存する', async () => {
     const repository = new InMemoryTransferRepository();
-    const senderId = '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001';
     const recipientId = '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf002';
     const response = await request(createTransferTestApp(repository))
       .post('/api/transfers')
+      .set('Cookie', TEST_SESSION_COOKIE)
       .set('Idempotency-Key', 'idem-key-1')
-      .send({ senderId, recipientId, amount: 1500 });
+      .send({ recipientId, amount: 1500 });
 
     expect(response.status).toBe(201);
     expect(response.body).toEqual({
       id: 1,
-      senderId,
+      senderId: CURRENT_USER_ID,
       recipientId,
       amount: 1500,
     });
     expect(repository.transfers).toEqual([
-      { senderId, recipientId, amount: 1500, idempotencyKey: 'idem-key-1' },
+      {
+        senderId: CURRENT_USER_ID,
+        recipientId,
+        amount: 1500,
+        idempotencyKey: 'idem-key-1',
+      },
     ]);
   });
 
-  const senderId = '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001';
+  // bodyでsenderIdを指定できると、他人になりすまして送金できてしまう。
+  it('bodyのsenderIdを無視してセッションのユーザーで送金する', async () => {
+    const repository = new InMemoryTransferRepository();
+    const response = await request(createTransferTestApp(repository))
+      .post('/api/transfers')
+      .set('Cookie', TEST_SESSION_COOKIE)
+      .set('Idempotency-Key', 'idem-key-2')
+      .send({
+        senderId: '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf009',
+        recipientId: '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf002',
+        amount: 1500,
+      });
+
+    expect(response.status).toBe(201);
+    expect(repository.transfers[0]?.senderId).toBe(CURRENT_USER_ID);
+  });
+
+  it('セッション無しの送金を401にし、保存もしない', async () => {
+    const repository = new InMemoryTransferRepository();
+    const response = await request(createTransferTestApp(repository))
+      .post('/api/transfers')
+      .set('Idempotency-Key', 'idem-key-3')
+      .send({
+        recipientId: '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf002',
+        amount: 1500,
+      });
+
+    expect(response.status).toBe(401);
+    expect(repository.transfers).toEqual([]);
+  });
+
   const recipientId = '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf002';
   it.each([
-    [{ recipientId, amount: 1500 }, 'senderId'],
-    [{ senderId: 'invalid', recipientId, amount: 1500 }, 'senderId'],
-    [{ senderId, amount: 1500 }, 'recipientId'],
-    [{ senderId, recipientId: senderId, amount: 1500 }, 'different'],
-    [{ senderId, recipientId, amount: 0 }, 'amount'],
-    [{ senderId, recipientId, amount: 10.5 }, 'amount'],
+    [{ amount: 1500 }, 'recipientId'],
+    [{ recipientId: CURRENT_USER_ID, amount: 1500 }, 'different'],
+    [{ recipientId, amount: 0 }, 'amount'],
+    [{ recipientId, amount: 10.5 }, 'amount'],
   ])('不正な入力に400を返す: %j', async (body, expectedError) => {
     const repository = new InMemoryTransferRepository();
     const response = await request(createTransferTestApp(repository))
       .post('/api/transfers')
+      .set('Cookie', TEST_SESSION_COOKIE)
       .send(body);
 
     expect(response.status).toBe(400);
@@ -519,9 +580,9 @@ describe('backend application', () => {
 
     const response = await request(createTransferTestApp(repository))
       .post('/api/transfers')
+      .set('Cookie', TEST_SESSION_COOKIE)
       .set('Idempotency-Key', 'idem-key-1')
       .send({
-        senderId,
         recipientId,
         amount: 1500,
       });
@@ -539,7 +600,8 @@ describe('backend application', () => {
     const repository = new InMemoryTransferRepository();
     const response = await request(createTransferTestApp(repository))
       .post('/api/transfers')
-      .send({ senderId, recipientId, amount: 1500 });
+      .set('Cookie', TEST_SESSION_COOKIE)
+      .send({ recipientId, amount: 1500 });
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
@@ -557,8 +619,9 @@ describe('backend application', () => {
 
     const response = await request(createTransferTestApp(repository))
       .post('/api/transfers')
+      .set('Cookie', TEST_SESSION_COOKIE)
       .set('Idempotency-Key', 'idem-key-1')
-      .send({ senderId, recipientId, amount: 1500 });
+      .send({ recipientId, amount: 1500 });
 
     expect(response.status).toBe(422);
     expect(response.body).toEqual({
@@ -575,8 +638,9 @@ describe('backend application', () => {
 
     const response = await request(createTransferTestApp(repository))
       .post('/api/transfers')
+      .set('Cookie', TEST_SESSION_COOKIE)
       .set('Idempotency-Key', 'idem-key-1')
-      .send({ senderId, recipientId, amount: 1500 });
+      .send({ recipientId, amount: 1500 });
 
     expect(response.status).toBe(409);
     expect(response.body).toEqual({
@@ -592,6 +656,7 @@ describe('backend application', () => {
       createTestApp();
     const response = await request(app)
       .post('/api/payment-requests')
+      .set('Cookie', TEST_SESSION_COOKIE)
       .send({
         requesterId: '99999999-9999-4999-8999-999999999999',
         requests: [
@@ -648,6 +713,7 @@ describe('backend application', () => {
     const { app, paymentRequestRepository } = createTestApp();
     const response = await request(app)
       .post('/api/payment-requests')
+      .set('Cookie', TEST_SESSION_COOKIE)
       .send({ requests: [] });
 
     expect(response.status).toBe(400);
@@ -664,6 +730,7 @@ describe('backend application', () => {
     const { app } = createTestApp({ currentUser: null });
     const response = await request(app)
       .post('/api/payment-requests')
+      .set('Cookie', TEST_SESSION_COOKIE)
       .send({
         requests: [
           {
@@ -690,6 +757,7 @@ describe('backend application', () => {
 
     const response = await request(app)
       .post('/api/payment-requests')
+      .set('Cookie', TEST_SESSION_COOKIE)
       .send({
         requests: [
           {
@@ -729,9 +797,9 @@ describe('backend application', () => {
       paymentRequestRecords: createPaymentRequestRecords(21),
     });
 
-    const response = await request(app).get(
-      '/api/payment-requests?direction=received',
-    );
+    const response = await request(app)
+      .get('/api/payment-requests?direction=received')
+      .set('Cookie', TEST_SESSION_COOKIE);
     const body = asPaymentRequestListBody(response.body);
 
     expect(response.status).toBe(200);
@@ -752,9 +820,9 @@ describe('backend application', () => {
       paymentRequestRecords: [record],
     });
 
-    const response = await request(app).get(
-      '/api/payment-requests?direction=received',
-    );
+    const response = await request(app)
+      .get('/api/payment-requests?direction=received')
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -782,9 +850,9 @@ describe('backend application', () => {
       paymentRequestRecords: createPaymentRequestRecords(20),
     });
 
-    const response = await request(app).get(
-      '/api/payment-requests?direction=received',
-    );
+    const response = await request(app)
+      .get('/api/payment-requests?direction=received')
+      .set('Cookie', TEST_SESSION_COOKIE);
     const body = asPaymentRequestListBody(response.body);
 
     expect(body.requests).toHaveLength(20);
@@ -804,6 +872,7 @@ describe('backend application', () => {
 
     const response = await request(app)
       .get('/api/payment-requests')
+      .set('Cookie', TEST_SESSION_COOKIE)
       .query({
         direction: 'sent',
         status: 'pending',
@@ -855,7 +924,9 @@ describe('backend application', () => {
       currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
     });
 
-    const response = await request(app).get(`/api/payment-requests${query}`);
+    const response = await request(app)
+      .get(`/api/payment-requests${query}`)
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
@@ -866,9 +937,9 @@ describe('backend application', () => {
   it('請求一覧で現在ユーザーが存在しなければ404にする', async () => {
     const { app } = createTestApp({ currentUser: null });
 
-    const response = await request(app).get(
-      '/api/payment-requests?direction=received',
-    );
+    const response = await request(app)
+      .get('/api/payment-requests?direction=received')
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({
@@ -895,9 +966,9 @@ describe('backend application', () => {
       paymentRequestCommandRepository,
     });
 
-    const response = await request(app).post(
-      `/api/payment-requests/${PAYMENT_REQUEST_ID}/accept`,
-    );
+    const response = await request(app)
+      .post(`/api/payment-requests/${PAYMENT_REQUEST_ID}/accept`)
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -928,9 +999,9 @@ describe('backend application', () => {
       }),
     });
 
-    const response = await request(app).post(
-      `/api/payment-requests/${PAYMENT_REQUEST_ID}/reject`,
-    );
+    const response = await request(app)
+      .post(`/api/payment-requests/${PAYMENT_REQUEST_ID}/reject`)
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     const body = asPaymentRequestResponseBody(response.body);
 
@@ -967,9 +1038,9 @@ describe('backend application', () => {
       }),
     });
 
-    const response = await request(app).post(
-      `/api/payment-requests/${PAYMENT_REQUEST_ID}/accept`,
-    );
+    const response = await request(app)
+      .post(`/api/payment-requests/${PAYMENT_REQUEST_ID}/accept`)
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(status);
     expect(asErrorBody(response.body).error.code).toBe(code);
@@ -983,9 +1054,9 @@ describe('backend application', () => {
       paymentRequestCommandRepository,
     });
 
-    const response = await request(app).post(
-      '/api/payment-requests/not-a-uuid/accept',
-    );
+    const response = await request(app)
+      .post('/api/payment-requests/not-a-uuid/accept')
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
@@ -997,9 +1068,9 @@ describe('backend application', () => {
   it('承認で現在ユーザーが存在しなければ404にする', async () => {
     const { app } = createTestApp({ currentUser: null });
 
-    const response = await request(app).post(
-      `/api/payment-requests/${PAYMENT_REQUEST_ID}/accept`,
-    );
+    const response = await request(app)
+      .post(`/api/payment-requests/${PAYMENT_REQUEST_ID}/accept`)
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(404);
     expect(asErrorBody(response.body).error.code).toBe(
@@ -1023,9 +1094,9 @@ describe('backend application', () => {
       paymentRequestCommandRepository,
     });
 
-    const response = await request(app).post(
-      `/api/payment-requests/${PAYMENT_REQUEST_ID}/cancel`,
-    );
+    const response = await request(app)
+      .post(`/api/payment-requests/${PAYMENT_REQUEST_ID}/cancel`)
+      .set('Cookie', TEST_SESSION_COOKIE);
     const body = asPaymentRequestResponseBody(response.body);
 
     expect(response.status).toBe(200);
@@ -1047,9 +1118,9 @@ describe('backend application', () => {
       }),
     });
 
-    const response = await request(app).post(
-      `/api/payment-requests/${PAYMENT_REQUEST_ID}/cancel`,
-    );
+    const response = await request(app)
+      .post(`/api/payment-requests/${PAYMENT_REQUEST_ID}/cancel`)
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(403);
     expect(asErrorBody(response.body).error).toEqual({
@@ -1074,9 +1145,9 @@ describe('backend application', () => {
       paymentRequestListRepository,
     });
 
-    const response = await request(app).get(
-      `/api/payment-requests/${PAYMENT_REQUEST_ID}`,
-    );
+    const response = await request(app)
+      .get(`/api/payment-requests/${PAYMENT_REQUEST_ID}`)
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -1110,9 +1181,9 @@ describe('backend application', () => {
       }),
     });
 
-    const response = await request(app).get(
-      `/api/payment-requests/${PAYMENT_REQUEST_ID}`,
-    );
+    const response = await request(app)
+      .get(`/api/payment-requests/${PAYMENT_REQUEST_ID}`)
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(404);
     expect(asErrorBody(response.body).error.code).toBe(
@@ -1127,7 +1198,9 @@ describe('backend application', () => {
       paymentRequestListRepository,
     });
 
-    const response = await request(app).get('/api/payment-requests/not-a-uuid');
+    const response = await request(app)
+      .get('/api/payment-requests/not-a-uuid')
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
@@ -1141,9 +1214,9 @@ describe('backend application', () => {
   it('請求1件の取得で現在ユーザーが存在しなければ404にする', async () => {
     const { app } = createTestApp({ currentUser: null });
 
-    const response = await request(app).get(
-      `/api/payment-requests/${PAYMENT_REQUEST_ID}`,
-    );
+    const response = await request(app)
+      .get(`/api/payment-requests/${PAYMENT_REQUEST_ID}`)
+      .set('Cookie', TEST_SESSION_COOKIE);
 
     expect(response.status).toBe(404);
     expect(asErrorBody(response.body).error.code).toBe(
@@ -1272,5 +1345,81 @@ describe('backend application', () => {
 
     expect(response.status).toBe(204);
     expect(authRepository.deleteSession).not.toHaveBeenCalled();
+  });
+
+  // 認証が要るAPIを1つでも通してしまうと、他人になりすませる。
+  // 新しいrouterを足したときの付け忘れを検出するため、全経路を並べて確認する。
+  it.each([
+    ['get', '/api/me'],
+    ['get', '/api/transactions'],
+    ['get', `/api/users/${CURRENT_USER_ID}/recipients`],
+    ['get', '/api/friends'],
+    ['get', '/api/friends/blocked'],
+    ['get', `/api/friends/${FRIENDSHIP_ID}`],
+    ['post', '/api/friends'],
+    ['post', `/api/friends/${FRIENDSHIP_ID}/note`],
+    ['put', `/api/friends/${FRIENDSHIP_ID}/note`],
+    ['delete', `/api/friends/${FRIENDSHIP_ID}/note`],
+    ['post', `/api/friends/${FRIENDSHIP_ID}/block`],
+    ['delete', `/api/friends/${FRIENDSHIP_ID}/block`],
+    ['post', '/api/transfers'],
+    ['post', '/api/payment-requests'],
+    ['get', '/api/payment-requests'],
+    ['post', `/api/payment-requests/${PAYMENT_REQUEST_ID}/accept`],
+    ['post', `/api/payment-requests/${PAYMENT_REQUEST_ID}/reject`],
+    ['post', `/api/payment-requests/${PAYMENT_REQUEST_ID}/cancel`],
+    ['get', `/api/payment-requests/${PAYMENT_REQUEST_ID}`],
+  ] as const)('セッション無しの%s %sを401にする', async (method, path) => {
+    const { app } = createTestApp();
+
+    // methodを変数で選ぶため、一度受けてから呼ぶ（改行後の[]は構文が曖昧になる）。
+    const agent = request(app);
+    const response = await agent[method](path)
+      .set('Idempotency-Key', 'idem-key-unauthenticated')
+      .send({});
+
+    expect(response.status).toBe(401);
+    expect(response.body).toMatchObject({
+      error: { code: 'NOT_AUTHENTICATED' },
+    });
+  });
+
+  // 認証はしていても、他人のIDを指定して覗けてはいけない。
+  it('他人のIDを指定した相手候補一覧を401にする', async () => {
+    const { app } = createTestApp();
+
+    const response = await request(app)
+      .get('/api/users/5e5a4a1e-3b42-4f47-8b1f-b77ef98bf009/recipients')
+      .set('Cookie', TEST_SESSION_COOKIE);
+
+    expect(response.status).toBe(401);
+    expect(response.body).toMatchObject({
+      error: { code: 'NOT_AUTHENTICATED' },
+    });
+  });
+
+  it('セッションが無効なら401にする', async () => {
+    const { app } = createTestApp({
+      // 期限切れやログアウト済みのtokenは、repositoryがnullを返す。
+      authRepository: createAuthRepository({ sessionUser: null }),
+    });
+
+    const response = await request(app)
+      .get('/api/me')
+      .set('Cookie', TEST_SESSION_COOKIE);
+
+    expect(response.status).toBe(401);
+  });
+
+  it('セッションのユーザーで現在ユーザーを解決する', async () => {
+    const currentUser = createCurrentUser();
+    const { app, currentUserRepository } = createTestApp({ currentUser });
+
+    await request(app).get('/api/me').set('Cookie', TEST_SESSION_COOKIE);
+
+    // clientはユーザーを指定できず、セッション由来の公開user_idで引く。
+    expect(currentUserRepository.findByUserId).toHaveBeenCalledWith(
+      MOCK_USER_ID,
+    );
   });
 });

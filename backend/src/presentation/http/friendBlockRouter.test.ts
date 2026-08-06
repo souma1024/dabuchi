@@ -8,8 +8,10 @@ import { UnblockFriend } from '../../application/usecases/unblockFriend.js';
 import { createCurrentUserRepository } from '../../test/factories/currentUserRepositoryFactory.js';
 import { createFriendCommandRepository } from '../../test/factories/friendCommandRepositoryFactory.js';
 import { createFriendBlockRouter } from './friendBlockRouter.js';
+import { withCurrentUser } from '../../test/withCurrentUser.js';
 
 const CURRENT_USER_PUBLIC_ID = '001';
+const CURRENT_USER_INTERNAL_ID = '11111111-1111-4111-8111-111111111111';
 const FRIENDSHIP_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
 describe('friend block router', () => {
@@ -69,11 +71,16 @@ function createTestApp() {
     },
   });
   const app = express();
+  app.use(
+    withCurrentUser({
+      id: CURRENT_USER_INTERNAL_ID,
+      userId: CURRENT_USER_PUBLIC_ID,
+    }),
+  );
 
   app.use(
     '/api/friends',
     createFriendBlockRouter({
-      currentUserPublicId: CURRENT_USER_PUBLIC_ID,
       blockFriend: new BlockFriend(currentUserRepository, repository),
       unblockFriend: new UnblockFriend(currentUserRepository, repository),
     }),

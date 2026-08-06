@@ -45,7 +45,7 @@ npm run dev:backend
 
 ログインは`POST /api/auth/login`で行い、セッションはHttpOnly Cookieで保持します。詳細は[認証API](docs/api/auth.md)を参照してください。
 
-既存APIの現在ユーザーは、まだ`.env`の`MOCK_USER_ID`に設定した公開`user_id`から解決しています（セッション由来への切り替えは次の変更で行います）。mock認証は開発・テスト専用で、本番環境では起動を拒否します。
+現在ユーザーはセッションから決まります。`/health`と`/api/auth/*`以外のAPIは、有効なセッションが無ければ`401`を返します。
 
 ## データベース
 
