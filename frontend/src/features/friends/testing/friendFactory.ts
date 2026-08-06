@@ -1,4 +1,4 @@
-import type { Friend, FriendProfile } from '../types';
+import type { BlockedFriend, Friend, FriendProfile } from '../types';
 
 /** テスト用の友達プロフィール。indexで人物を作り分ける。 */
 export function createFriendProfile(
@@ -32,4 +32,16 @@ export function createFriend(
 /** テスト用の友達を連番でまとめて作る。 */
 export function createFriends(count: number): Friend[] {
   return Array.from({ length: count }, (_, index) => createFriend(index + 1));
+}
+
+/** テスト用のブロック中の友達1人分。 */
+export function createBlockedFriend(
+  index = 1,
+  overrides: Partial<BlockedFriend> = {},
+): BlockedFriend {
+  return {
+    ...createFriend(index),
+    blockedAt: '2026-08-06T10:00:00.000Z',
+    ...overrides,
+  };
 }

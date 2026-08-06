@@ -112,12 +112,9 @@ describe('TransactionsPage', () => {
     });
     expect(mockedFetch).toHaveBeenLastCalledWith('next-cursor');
 
-    await waitFor(
-      () => {
-        expect(screen.getAllByRole('listitem')).toHaveLength(32);
-      },
-      { timeout: 5000 },
-    );
+    await waitFor(() => {
+      expect(screen.getAllByRole('listitem')).toHaveLength(32);
+    });
   });
 
   it('取得に失敗したらエラーを表示する', async () => {

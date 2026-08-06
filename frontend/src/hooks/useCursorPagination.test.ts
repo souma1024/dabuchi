@@ -38,7 +38,7 @@ describe('useCursorPagination', () => {
     await waitFor(() => {
       expect(result.current.items).toEqual(['a', 'b']);
     });
-    expect(fetchPage).toHaveBeenLastCalledWith('1');
+    expect(fetchPage).toHaveBeenLastCalledWith('1', expect.any(AbortSignal));
     expect(result.current.hasMore).toBe(false);
   });
 
@@ -155,5 +155,141 @@ describe('useCursorPagination', () => {
 
     // アンマウント前の値のまま。追記されていない。
     expect(result.current.items).toEqual(['a']);
+  });
+
+  // reloadと進行中のloadMoreが競合すると、古いページが新しい一覧へ混ざりうる。
+  describe('reload', () => {
+    /** 解決タイミングを手で操作できるfetchPage。 */
+    function createDeferredFetch() {
+      const resolvers: ((page: CursorPage<string>) => void)[] = [];
+      const cursors: (string | null)[] = [];
+
+      const fetchPage = vi.fn((cursor: string | null) => {
+        cursors.push(cursor);
+        return new Promise<CursorPage<string>>((resolve) => {
+          resolvers.push(resolve);
+        });
+      });
+
+      return { fetchPage, resolvers, cursors };
+    }
+
+    it('reload前に始めた追加取得の結果は捨てる', async () => {
+      const { fetchPage, resolvers, cursors } = createDeferredFetch();
+      const { result } = renderHook(() => useCursorPagination(fetchPage));
+
+      await act(async () => {
+        resolvers[0]?.(createPage(['a'], 'C1'));
+        await Promise.resolve();
+      });
+
+      // 2ページ目の取得中にreloadする。
+      act(() => {
+        result.current.loadMore();
+      });
+      act(() => {
+        result.current.reload();
+      });
+
+      // 取り直した1ページ目を先に返し、その後で古い2ページ目が届く。
+      await act(async () => {
+        resolvers[2]?.(createPage(['x'], null));
+        await Promise.resolve();
+      });
+      await act(async () => {
+        resolvers[1]?.(createPage(['b'], 'C2'));
+        await Promise.resolve();
+      });
+
+      // 古い2ページ目は一覧にもカーソルにも反映しない。
+      expect(result.current.items).toEqual(['x']);
+      expect(result.current.hasMore).toBe(false);
+      expect(cursors).toEqual([null, 'C1', null]);
+    });
+
+    it('reload前に始めた追加取得の失敗はエラー表示しない', async () => {
+      const resolvers: ((page: CursorPage<string>) => void)[] = [];
+      const rejecters: ((reason: Error) => void)[] = [];
+      const fetchPage = vi.fn(
+        () =>
+          new Promise<CursorPage<string>>((resolve, reject) => {
+            resolvers.push(resolve);
+            rejecters.push(reject);
+          }),
+      );
+      const { result } = renderHook(() => useCursorPagination(fetchPage));
+
+      await act(async () => {
+        resolvers[0]?.(createPage(['a'], 'C1'));
+        await Promise.resolve();
+      });
+      act(() => {
+        result.current.loadMore();
+      });
+      act(() => {
+        result.current.reload();
+      });
+      await act(async () => {
+        resolvers[2]?.(createPage(['x'], null));
+        await Promise.resolve();
+      });
+      await act(async () => {
+        rejecters[1]?.(new Error('古い取得の失敗'));
+        await Promise.resolve();
+      });
+
+      expect(result.current.items).toEqual(['x']);
+      expect(result.current.error).toBeNull();
+    });
+
+    it('reload後は新しいカーソルで追加取得できる', async () => {
+      const { fetchPage, resolvers, cursors } = createDeferredFetch();
+      const { result } = renderHook(() => useCursorPagination(fetchPage));
+
+      await act(async () => {
+        resolvers[0]?.(createPage(['a'], 'C1'));
+        await Promise.resolve();
+      });
+      act(() => {
+        result.current.loadMore();
+      });
+      act(() => {
+        result.current.reload();
+      });
+      await act(async () => {
+        resolvers[2]?.(createPage(['x'], 'C9'));
+        await Promise.resolve();
+      });
+
+      // 古い取得が残っていても、取り直した後のカーソルから続けられる。
+      act(() => {
+        result.current.loadMore();
+      });
+
+      expect(cursors).toEqual([null, 'C1', null, 'C9']);
+    });
+
+    it('進行中の追加取得を打ち切る', async () => {
+      const signals: (AbortSignal | undefined)[] = [];
+      const fetchPage = vi.fn((cursor: string | null, signal?: AbortSignal) => {
+        signals.push(signal);
+        return cursor === null
+          ? Promise.resolve(createPage(['a'], 'C1'))
+          : new Promise<CursorPage<string>>(() => {});
+      });
+      const { result } = renderHook(() => useCursorPagination(fetchPage));
+
+      await waitFor(() => {
+        expect(result.current.hasMore).toBe(true);
+      });
+      act(() => {
+        result.current.loadMore();
+      });
+      act(() => {
+        result.current.reload();
+      });
+
+      expect(signals[1]?.aborted).toBe(true);
+    });
   });
 });
