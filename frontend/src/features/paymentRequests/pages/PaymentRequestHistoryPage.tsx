@@ -41,9 +41,7 @@ export function PaymentRequestHistoryPage({
     hasMore,
     loadMore,
   } = usePaymentRequestHistory(direction);
-  const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore, [
-    requests.length,
-  ]);
+  const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white">

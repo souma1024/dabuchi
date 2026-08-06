@@ -35,10 +35,7 @@ export function FriendsPage({
     loadMore,
     reload,
   } = useFriends();
-  const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore, [
-    hasMore,
-    friends.length,
-  ]);
+  const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore);
   const [openedFriendshipId, setOpenedFriendshipId] = useState<string | null>(
     null,
   );
