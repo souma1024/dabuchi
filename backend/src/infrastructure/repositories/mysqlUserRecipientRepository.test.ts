@@ -28,6 +28,7 @@ describe('MysqlUserRecipientRepository', () => {
         currentUserId: CURRENT_USER_ID,
         cursor: null,
         limit: 21,
+        sort: 'created-asc',
       }),
     ).resolves.toEqual([record]);
     expect(execute).toHaveBeenCalledWith(
@@ -44,19 +45,109 @@ describe('MysqlUserRecipientRepository', () => {
     const { pool, execute } = createMysqlPool([[]]);
     const repository = new MysqlUserRecipientRepository(pool);
     const cursor = {
-      createdAt: '2026-08-04 12:00:20.000000',
-      id: '00000000-0000-4000-8000-000000000020',
+      sort: 'created-asc' as const,
+      value: {
+        createdAt: '2026-08-04 12:00:20.000000',
+        id: '00000000-0000-4000-8000-000000000020',
+      },
     };
 
     await repository.findRecipients({
       currentUserId: CURRENT_USER_ID,
       cursor,
       limit: 21,
+      sort: 'created-asc',
     });
 
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('created_at > ?'),
-      [CURRENT_USER_ID, cursor.createdAt, cursor.createdAt, cursor.id, '21'],
+      [
+        CURRENT_USER_ID,
+        cursor.value.createdAt,
+        cursor.value.createdAt,
+        cursor.value.id,
+        '21',
+      ],
+    );
+  });
+
+  it('created-descでは新しい順と逆向きカーソル条件を使う', async () => {
+    const { pool, execute } = createMysqlPool([[]]);
+    const repository = new MysqlUserRecipientRepository(pool);
+    const cursor = {
+      sort: 'created-desc' as const,
+      value: {
+        createdAt: '2026-08-04 12:00:20.000000',
+        id: '00000000-0000-4000-8000-000000000020',
+      },
+    };
+
+    await repository.findRecipients({
+      currentUserId: CURRENT_USER_ID,
+      cursor,
+      limit: 21,
+      sort: 'created-desc',
+    });
+
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining('ORDER BY created_at DESC, id DESC'),
+      [
+        CURRENT_USER_ID,
+        cursor.value.createdAt,
+        cursor.value.createdAt,
+        cursor.value.id,
+        '21',
+      ],
+    );
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining('created_at < ?'),
+      [
+        CURRENT_USER_ID,
+        cursor.value.createdAt,
+        cursor.value.createdAt,
+        cursor.value.id,
+        '21',
+      ],
+    );
+  });
+
+  it('name-ascでは氏名順カーソル条件を使う', async () => {
+    const { pool, execute } = createMysqlPool([[]]);
+    const repository = new MysqlUserRecipientRepository(pool);
+    const cursor = {
+      sort: 'name-asc' as const,
+      value: {
+        name: 'テストユーザー20',
+        id: '00000000-0000-4000-8000-000000000020',
+      },
+    };
+
+    await repository.findRecipients({
+      currentUserId: CURRENT_USER_ID,
+      cursor,
+      limit: 21,
+      sort: 'name-asc',
+    });
+
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining('ORDER BY user_name ASC, id ASC'),
+      [
+        CURRENT_USER_ID,
+        cursor.value.name,
+        cursor.value.name,
+        cursor.value.id,
+        '21',
+      ],
+    );
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining('user_name > ?'),
+      [
+        CURRENT_USER_ID,
+        cursor.value.name,
+        cursor.value.name,
+        cursor.value.id,
+        '21',
+      ],
     );
   });
 });

@@ -25,13 +25,17 @@ describe('ListUserRecipients', () => {
       profileUrl: records[0]?.profileUrl,
     });
     expect(result.nextCursor).toEqual({
-      createdAt: records[19]?.createdAt,
-      id: records[19]?.id,
+      sort: 'created-asc',
+      value: {
+        createdAt: records[19]?.createdAt,
+        id: records[19]?.id,
+      },
     });
     expect(repository.findRecipients).toHaveBeenCalledWith({
       currentUserId: CURRENT_USER_ID,
       cursor: null,
       limit: 21,
+      sort: 'created-asc',
     });
   });
 
@@ -66,8 +70,11 @@ describe('ListUserRecipients', () => {
     const repository = createUserRecipientRepository();
     const useCase = new ListUserRecipients(repository);
     const cursor = {
-      createdAt: '2026-08-04 12:00:20.000000',
-      id: '00000000-0000-4000-8000-000000000020',
+      sort: 'created-asc' as const,
+      value: {
+        createdAt: '2026-08-04 12:00:20.000000',
+        id: '00000000-0000-4000-8000-000000000020',
+      },
     };
 
     await useCase.execute({ currentUserId: CURRENT_USER_ID, cursor });
@@ -76,9 +83,36 @@ describe('ListUserRecipients', () => {
       currentUserId: CURRENT_USER_ID,
       cursor,
       limit: 21,
+      sort: 'created-asc',
     });
     expect(vi.mocked(repository.existsById)).toHaveBeenCalledWith(
       CURRENT_USER_ID,
     );
+  });
+
+  it('name-ascでは氏名順カーソルを返す', async () => {
+    const records = createUserRecipientRecords(21);
+    const repository = createUserRecipientRepository({ recipients: records });
+    const useCase = new ListUserRecipients(repository);
+
+    const result = await useCase.execute({
+      currentUserId: CURRENT_USER_ID,
+      cursor: null,
+      sort: 'name-asc',
+    });
+
+    expect(result.nextCursor).toEqual({
+      sort: 'name-asc',
+      value: {
+        name: records[19]?.name,
+        id: records[19]?.id,
+      },
+    });
+    expect(repository.findRecipients).toHaveBeenCalledWith({
+      currentUserId: CURRENT_USER_ID,
+      cursor: null,
+      limit: 21,
+      sort: 'name-asc',
+    });
   });
 });

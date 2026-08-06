@@ -1,15 +1,18 @@
 import { CurrentUserNotFoundError } from '../errors/currentUserNotFoundError.js';
 import type { UserRecipient } from '../../domain/userRecipient.js';
 import type {
+  RecipientSort,
   RecipientCursor,
   UserRecipientRepository,
 } from '../ports/userRecipientRepository.js';
+import { DEFAULT_RECIPIENT_SORT as DEFAULT_SORT } from '../ports/userRecipientRepository.js';
 
 const RECIPIENT_PAGE_SIZE = 20;
 
 export interface ListUserRecipientsInput {
   currentUserId: string;
   cursor: RecipientCursor | null;
+  sort?: RecipientSort;
 }
 
 export interface ListUserRecipientsResult {
@@ -23,6 +26,7 @@ export class ListUserRecipients {
   async execute(
     input: ListUserRecipientsInput,
   ): Promise<ListUserRecipientsResult> {
+    const sort = input.sort ?? DEFAULT_SORT;
     const currentUserExists = await this.repository.existsById(
       input.currentUserId,
     );
@@ -35,6 +39,7 @@ export class ListUserRecipients {
       currentUserId: input.currentUserId,
       cursor: input.cursor,
       limit: RECIPIENT_PAGE_SIZE + 1,
+      sort,
     });
     const hasNextPage = records.length > RECIPIENT_PAGE_SIZE;
     const visibleRecords = records.slice(0, RECIPIENT_PAGE_SIZE);
@@ -48,7 +53,21 @@ export class ListUserRecipients {
       })),
       nextCursor:
         hasNextPage && lastVisibleRecord
-          ? { createdAt: lastVisibleRecord.createdAt, id: lastVisibleRecord.id }
+          ? sort === 'name-asc'
+            ? {
+                sort,
+                value: {
+                  name: lastVisibleRecord.name,
+                  id: lastVisibleRecord.id,
+                },
+              }
+            : {
+                sort,
+                value: {
+                  createdAt: lastVisibleRecord.createdAt,
+                  id: lastVisibleRecord.id,
+                },
+              }
           : null,
     };
   }
