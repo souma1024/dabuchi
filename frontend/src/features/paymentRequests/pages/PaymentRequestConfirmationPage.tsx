@@ -14,7 +14,9 @@ const secondaryStyle =
 interface PaymentRequestConfirmationPageProps {
   direction: PaymentRequestDirection;
   id: string;
+  /** 一覧へ戻る。来た画面（ホームまたは請求履歴）に応じて呼び出し側が決める。 */
   onBack?: () => void;
+  /** 残高が変わったときの戻り先。ホームを想定。 */
   onDone?: () => void;
 }
 
@@ -70,13 +72,19 @@ export function PaymentRequestConfirmationPage({
             {completed.status === 'accepted' ? 'へ' : 'の請求'}
           </p>
         </div>
+        {/*
+          お金が動いた承認だけホームへ戻す。残高が変わったので確認したいため。
+          拒否・取り消しは残高が変わらないので、来た一覧へ戻して作業を続けられる
+          ようにする。特に取り消しは請求履歴からしか来ないため、ホームへ戻すと
+          来た場所と違う画面に置き去りになる。
+        */}
         <div className="p-5">
           <button
             type="button"
-            onClick={onDone}
+            onClick={completed.status === 'accepted' ? onDone : onBack}
             className={`${primaryStyle} bg-slate-800 text-white`}
           >
-            ホームに戻る
+            {completed.status === 'accepted' ? 'ホームに戻る' : '一覧に戻る'}
           </button>
         </div>
       </main>

@@ -24,7 +24,9 @@ export function PaymentRequestConfirmationRoute() {
     <PaymentRequestConfirmationPage
       direction={direction}
       id={id}
+      // 一覧へは来た経路で戻る。ホームからでも請求履歴からでも同じ操作で済む。
       onBack={() => void navigate(-1)}
+      // 残高が変わったときだけホームへ。送金画面の完了後と揃える。
       onDone={() => void navigate('/', { replace: true })}
     />
   );

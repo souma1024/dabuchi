@@ -29,6 +29,9 @@ function stubCurrentUser(balance: number) {
   });
 }
 
+const onBack = vi.fn();
+const onDone = vi.fn();
+
 function renderPage(
   overrides: Partial<PaymentRequest> | null = {},
   direction: PaymentRequestDirection = 'received',
@@ -54,14 +57,16 @@ function renderPage(
     <PaymentRequestConfirmationPage
       direction={direction}
       id={request.id}
-      onBack={vi.fn()}
-      onDone={vi.fn()}
+      onBack={onBack}
+      onDone={onDone}
     />,
   );
 }
 
 afterEach(() => {
   vi.restoreAllMocks();
+  onBack.mockClear();
+  onDone.mockClear();
 });
 
 describe('PaymentRequestConfirmationPage', () => {
@@ -106,9 +111,9 @@ describe('PaymentRequestConfirmationPage', () => {
     );
 
     expect(await screen.findByText('送金しました')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'ホームに戻る' }),
-    ).toBeInTheDocument();
+    // 残高が変わったので、確認できるホームへ戻す。
+    await userEvent.click(screen.getByRole('button', { name: 'ホームに戻る' }));
+    expect(onDone).toHaveBeenCalledTimes(1);
   });
 
   it('拒否すると拒否した旨を表示する', async () => {
@@ -119,6 +124,24 @@ describe('PaymentRequestConfirmationPage', () => {
     );
 
     expect(await screen.findByText('請求を拒否しました')).toBeInTheDocument();
+    // 残高は変わらないので、来た一覧へ戻して作業を続けられるようにする。
+    await userEvent.click(screen.getByRole('button', { name: '一覧に戻る' }));
+    expect(onBack).toHaveBeenCalledTimes(1);
+    expect(onDone).not.toHaveBeenCalled();
+  });
+
+  // 取り消しは請求履歴からしか来ないため、ホームへ戻すと来た場所と違う画面になる。
+  it('取り消し後は一覧へ戻す', async () => {
+    renderPage({}, 'sent');
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: '請求を取り消す' }),
+    );
+
+    expect(await screen.findByText('請求を取り消しました')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '一覧に戻る' }));
+    expect(onBack).toHaveBeenCalledTimes(1);
+    expect(onDone).not.toHaveBeenCalled();
   });
 
   // 取り消しはお金が動かないため、残高を出さず操作も1つだけにする。
