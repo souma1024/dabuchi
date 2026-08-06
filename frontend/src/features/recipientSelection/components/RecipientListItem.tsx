@@ -1,5 +1,5 @@
+import { PersonAvatar } from '../../../components/PersonAvatar';
 import type { Recipient } from '../types';
-import { RecipientAvatar } from './RecipientAvatar';
 
 /** 複数選択モードでの1行の状態。未指定なら単一選択（行タップで即確定）。 */
 interface RecipientSelectionState {
@@ -42,10 +42,7 @@ export function RecipientListItem({
             }}
             className="h-5 w-5 flex-none accent-blue-600"
           />
-          <RecipientAvatar
-            name={recipient.name}
-            imageUrl={recipient.imageUrl}
-          />
+          <PersonAvatar name={recipient.name} imageUrl={recipient.imageUrl} />
           <span className="min-w-0 flex-1 truncate text-base font-semibold text-slate-800">
             {recipient.name}
           </span>
@@ -63,7 +60,7 @@ export function RecipientListItem({
         }}
         className={`${ROW_CLASS} border-none bg-transparent`}
       >
-        <RecipientAvatar name={recipient.name} imageUrl={recipient.imageUrl} />
+        <PersonAvatar name={recipient.name} imageUrl={recipient.imageUrl} />
         <span className="min-w-0 flex-1 truncate text-base font-semibold text-slate-800">
           {recipient.name}
         </span>

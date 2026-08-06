@@ -2,7 +2,11 @@ import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 
 import { PaymentRequestParticipantNotFoundError } from './application/createPaymentRequests.js';
-import { TransferParticipantNotFoundError } from './application/createTransfer.js';
+import {
+  IdempotencyKeyConflictError,
+  InsufficientBalanceError,
+  TransferParticipantNotFoundError,
+} from './application/createTransfer.js';
 import type {
   NewTransfer,
   TransferRepository,
@@ -41,7 +45,12 @@ class InMemoryTransferRepository implements TransferRepository {
     }
 
     this.transfers.push(transfer);
-    return Promise.resolve({ id: this.transfers.length, ...transfer });
+    return Promise.resolve({
+      id: this.transfers.length,
+      senderId: transfer.senderId,
+      recipientId: transfer.recipientId,
+      amount: transfer.amount,
+    });
   }
 }
 
@@ -440,6 +449,7 @@ describe('backend application', () => {
     const recipientId = '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf002';
     const response = await request(createTransferTestApp(repository))
       .post('/api/transfers')
+      .set('Idempotency-Key', 'idem-key-1')
       .send({ senderId, recipientId, amount: 1500 });
 
     expect(response.status).toBe(201);
@@ -450,7 +460,7 @@ describe('backend application', () => {
       amount: 1500,
     });
     expect(repository.transfers).toEqual([
-      { senderId, recipientId, amount: 1500 },
+      { senderId, recipientId, amount: 1500, idempotencyKey: 'idem-key-1' },
     ]);
   });
 
@@ -485,6 +495,7 @@ describe('backend application', () => {
 
     const response = await request(createTransferTestApp(repository))
       .post('/api/transfers')
+      .set('Idempotency-Key', 'idem-key-1')
       .send({
         senderId,
         recipientId,
@@ -496,6 +507,58 @@ describe('backend application', () => {
       error: {
         code: 'TRANSFER_PARTICIPANT_NOT_FOUND',
         message: 'senderId or recipientId was not found.',
+      },
+    });
+  });
+
+  it('Idempotency-Keyヘッダが無ければ400を返す', async () => {
+    const repository = new InMemoryTransferRepository();
+    const response = await request(createTransferTestApp(repository))
+      .post('/api/transfers')
+      .send({ senderId, recipientId, amount: 1500 });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: {
+        code: 'INVALID_REQUEST',
+        message: expect.stringContaining('Idempotency-Key') as string,
+      },
+    });
+    expect(repository.transfers).toEqual([]);
+  });
+
+  it('残高不足なら422を返す', async () => {
+    const repository = new InMemoryTransferRepository();
+    repository.error = new InsufficientBalanceError();
+
+    const response = await request(createTransferTestApp(repository))
+      .post('/api/transfers')
+      .set('Idempotency-Key', 'idem-key-1')
+      .send({ senderId, recipientId, amount: 1500 });
+
+    expect(response.status).toBe(422);
+    expect(response.body).toEqual({
+      error: {
+        code: 'INSUFFICIENT_BALANCE',
+        message: 'sender does not have enough balance.',
+      },
+    });
+  });
+
+  it('冪等キーが別内容に再利用されたら409を返す', async () => {
+    const repository = new InMemoryTransferRepository();
+    repository.error = new IdempotencyKeyConflictError();
+
+    const response = await request(createTransferTestApp(repository))
+      .post('/api/transfers')
+      .set('Idempotency-Key', 'idem-key-1')
+      .send({ senderId, recipientId, amount: 1500 });
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({
+      error: {
+        code: 'IDEMPOTENCY_KEY_CONFLICT',
+        message: 'idempotencyKey was reused for a different transfer.',
       },
     });
   });

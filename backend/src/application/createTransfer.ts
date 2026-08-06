@@ -31,9 +31,31 @@ export class IdempotencyKeyConflictError extends Error {
 export class CreateTransfer {
   constructor(private readonly repository: TransferRepository) {}
 
-  async execute(input: unknown): Promise<SavedTransfer> {
-    return this.repository.save(parseTransfer(input));
+  async execute(
+    input: unknown,
+    idempotencyKey: unknown,
+  ): Promise<SavedTransfer> {
+    const transfer = parseTransfer(input);
+    return this.repository.save({
+      ...transfer,
+      idempotencyKey: parseIdempotencyKey(idempotencyKey),
+    });
   }
+}
+
+// 冪等性キー(Idempotency-Keyヘッダ)。送金の重複実行を防ぐため必須とする。
+const MAX_IDEMPOTENCY_KEY_LENGTH = 64;
+
+function parseIdempotencyKey(value: unknown): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new InvalidTransferError('Idempotency-Key header is required');
+  }
+  if (value.length > MAX_IDEMPOTENCY_KEY_LENGTH) {
+    throw new InvalidTransferError(
+      `Idempotency-Key must be at most ${MAX_IDEMPOTENCY_KEY_LENGTH} characters`,
+    );
+  }
+  return value;
 }
 
 function parseTransfer(input: unknown): NewTransfer {
