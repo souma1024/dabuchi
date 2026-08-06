@@ -32,6 +32,16 @@ export function useTransactions(currentUserId: string): UseTransactionsResult {
 
   const loadingRef = useRef(false);
   const cursorRef = useRef<string | null>(null);
+  // loadMoreはeffectの外から呼ばれるためcleanupを持てない。
+  // アンマウント後に状態を更新しないよう、マウント状態をrefで保持する。
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // 初回ロード（1ページ目）。
   useEffect(() => {
@@ -75,17 +85,25 @@ export function useTransactions(currentUserId: string): UseTransactionsResult {
 
     void fetchTransactions(currentUserId, cursorRef.current)
       .then((page) => {
-        setTransactions((prev) => [...prev, ...page.transactions]);
+        // カーソルは次回のリクエストに使うため、アンマウント後でも進めておく。
         cursorRef.current = page.nextCursor;
+        if (!mountedRef.current) {
+          return;
+        }
+        setTransactions((prev) => [...prev, ...page.transactions]);
         setNextCursor(page.nextCursor);
         setError(null);
       })
       .catch((caught: unknown) => {
-        setError(toErrorMessage(caught));
+        if (mountedRef.current) {
+          setError(toErrorMessage(caught));
+        }
       })
       .finally(() => {
         loadingRef.current = false;
-        setIsLoadingMore(false);
+        if (mountedRef.current) {
+          setIsLoadingMore(false);
+        }
       });
   }, [currentUserId]);
 
