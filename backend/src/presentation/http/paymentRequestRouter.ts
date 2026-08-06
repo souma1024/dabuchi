@@ -1,10 +1,12 @@
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 
 import type { CreatePaymentRequests } from '../../application/createPaymentRequests.js';
 import type { PaymentRequestCursor } from '../../application/ports/paymentRequestListRepository.js';
 import type { ListPaymentRequests } from '../../application/usecases/listPaymentRequests.js';
+import type { RespondToPaymentRequest } from '../../application/usecases/respondToPaymentRequest.js';
 import type {
   PaymentRequestDirection,
+  PaymentRequestResponse,
   PaymentRequestState,
 } from '../../domain/paymentRequest.js';
 import {
@@ -68,8 +70,40 @@ export function createPaymentRequestRouter(
   createPaymentRequests: CreatePaymentRequests,
   currentUserId: string,
   listPaymentRequests: ListPaymentRequests,
+  respondToPaymentRequest: RespondToPaymentRequest,
 ) {
   const router = Router();
+
+  // 承認と拒否は同じ手続きで、残高が動くかどうかだけが違う。
+  // 経路を分けるのは、URLに動詞を出して意図を明示するため。
+  const respond =
+    (response: PaymentRequestResponse): RequestHandler =>
+    async (request, httpResponse, next) => {
+      try {
+        const result = await respondToPaymentRequest.execute({
+          currentUserId,
+          // 単一のpath parameterだが、型上は配列もありうる。
+          // 配列なら空文字にしてusecase側のUUID検証で400にする。
+          paymentRequestId:
+            typeof request.params.id === 'string' ? request.params.id : '',
+          response,
+        });
+
+        // 残高は承認時のみ返す。拒否では動かないため項目ごと省く。
+        httpResponse
+          .status(200)
+          .json(
+            result.balance === null
+              ? { request: result.request }
+              : { request: result.request, balance: result.balance },
+          );
+      } catch (error) {
+        next(error);
+      }
+    };
+
+  router.post('/:id/accept', respond('accepted'));
+  router.post('/:id/reject', respond('rejected'));
 
   router.get('/', async (request, response, next) => {
     try {

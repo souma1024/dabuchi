@@ -20,6 +20,12 @@ import {
   InvalidFriendshipIdError,
   InvalidFriendUserIdError,
 } from '../../application/errors/friendCommandErrors.js';
+import {
+  InvalidPaymentRequestIdError,
+  PaymentRequestAlreadyRespondedError,
+  PaymentRequestForbiddenError,
+  PaymentRequestNotFoundError,
+} from '../../application/errors/paymentRequestCommandErrors.js';
 import { InvalidFriendshipError } from '../../domain/friendship.js';
 import { InvalidFriendshipNoteError } from '../../domain/friendshipNote.js';
 import { InvalidUserBlockError } from '../../domain/userBlock.js';
@@ -46,6 +52,39 @@ export const errorHandler: ErrorRequestHandler = (
   if (error instanceof InvalidPaymentRequestQueryError) {
     response.status(400).json({
       error: { code: 'INVALID_REQUEST', message: error.message },
+    });
+    return;
+  }
+
+  if (error instanceof InvalidPaymentRequestIdError) {
+    response.status(400).json({
+      error: { code: 'INVALID_REQUEST', message: error.message },
+    });
+    return;
+  }
+
+  if (error instanceof PaymentRequestNotFoundError) {
+    response.status(404).json({
+      error: { code: 'PAYMENT_REQUEST_NOT_FOUND', message: error.message },
+    });
+    return;
+  }
+
+  // 請求者や第三者による承認・拒否。存在しない場合の404とは区別する。
+  if (error instanceof PaymentRequestForbiddenError) {
+    response.status(403).json({
+      error: { code: 'PAYMENT_REQUEST_FORBIDDEN', message: error.message },
+    });
+    return;
+  }
+
+  // すでに承認・拒否済み。二重実行を止めるのはserver側の責務。
+  if (error instanceof PaymentRequestAlreadyRespondedError) {
+    response.status(409).json({
+      error: {
+        code: 'PAYMENT_REQUEST_ALREADY_RESPONDED',
+        message: error.message,
+      },
     });
     return;
   }
