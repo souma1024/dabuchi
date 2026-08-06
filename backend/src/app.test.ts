@@ -856,6 +856,17 @@ describe('backend application', () => {
       '?direction=received&cursor=not-base64url',
       'cursor is invalid',
     ],
+    // 正しいカーソルへ1文字足しただけの値が200で通ってしまわないことを確かめる。
+    [
+      'カーソルへ非base64url文字が混ざっている',
+      `?direction=received&cursor=${encodeURIComponent(
+        `${encodePaymentRequestCursor({
+          createdAt: '2026-08-04 12:00:20.000000',
+          id: '00000000-0000-4000-8000-000000000020',
+        })}!`,
+      )}`,
+      'cursor is invalid',
+    ],
   ])('請求一覧で%sときは400にする', async (_name, query, message) => {
     const { app } = createTestApp({
       currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
