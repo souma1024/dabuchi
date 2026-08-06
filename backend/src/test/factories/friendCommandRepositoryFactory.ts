@@ -89,5 +89,11 @@ export function createFriendCommandRepository(
     deleteNote: vi
       .fn<FriendCommandRepository['deleteNote']>()
       .mockResolvedValue(undefined),
+    blockUser: vi
+      .fn<FriendCommandRepository['blockUser']>()
+      .mockResolvedValue(undefined),
+    unblockUser: vi
+      .fn<FriendCommandRepository['unblockUser']>()
+      .mockResolvedValue(undefined),
   };
 }

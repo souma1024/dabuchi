@@ -18,11 +18,16 @@ export interface WritableFriendship {
   friendship: FriendshipCommandRecord;
 }
 
+interface ResolveWritableFriendshipOptions {
+  allowWhenBlockedByFriend?: boolean;
+}
+
 export async function resolveWritableFriendship(
   currentUserRepository: CurrentUserRepository,
   friendCommandRepository: FriendCommandRepository,
   currentUserPublicId: string,
   friendshipId: string,
+  options: ResolveWritableFriendshipOptions = {},
 ): Promise<WritableFriendship> {
   if (!UUID_PATTERN.test(friendshipId)) {
     throw new InvalidFriendshipIdError();
@@ -42,7 +47,9 @@ export async function resolveWritableFriendship(
 
   if (
     !friendship ||
-    (friendship.blocksCurrentUser && !friendship.blockedByCurrentUser)
+    (friendship.blocksCurrentUser &&
+      !friendship.blockedByCurrentUser &&
+      !options.allowWhenBlockedByFriend)
   ) {
     throw new FriendshipNotFoundError();
   }
