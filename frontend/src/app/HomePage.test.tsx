@@ -76,12 +76,24 @@ describe('HomePage', () => {
     );
   });
 
+  it('請求されているはボタンではなく一覧として表示する', async () => {
+    renderHomePage();
+
+    await screen.findByText('山田 太郎 さん');
+
+    // ボタンは廃止し、下部のセクションが役割を引き継いでいる（Issue #44）。
+    expect(screen.queryByText('請求されている')).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: /請求されています/ }),
+    ).toBeInTheDocument();
+  });
+
   it('遷移先が未実装のボタンは配置するが押せない', async () => {
     renderHomePage();
 
     await screen.findByText('山田 太郎 さん');
 
-    for (const label of ['請求されている', '友達管理']) {
+    for (const label of ['友達管理']) {
       const button = screen.getByText(label).closest('button');
 
       expect(button).toBeInTheDocument();

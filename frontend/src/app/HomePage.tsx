@@ -2,11 +2,11 @@ import { Link } from 'react-router-dom';
 
 import { UserAvatar } from '../components/UserAvatar';
 import { useCurrentUser } from '../features/currentUser/hooks/useCurrentUser';
+import { ReceivedPaymentRequestSection } from '../features/paymentRequests/components/ReceivedPaymentRequestSection';
 
 // お金が出ていく操作はsend、入ってくる操作はrequestとして色を分ける。
 // 押し間違いを防ぐため、送金と請求は同じ色にしない。
-// noticeは自分が起こす操作ではなく未対応の通知なので、別の色で気づかせる。
-type Tone = 'send' | 'request' | 'notice' | 'quiet';
+type Tone = 'send' | 'request' | 'quiet';
 
 interface MenuItem {
   label: string;
@@ -20,13 +20,6 @@ const actions: MenuItem[] = [
   { label: '送金する', to: '/recipients', tone: 'send' },
   { label: '請求する', to: '/recipients?purpose=billing', tone: 'request' },
 ];
-
-// 自分宛の通知。
-const notice: MenuItem = {
-  label: '請求されている',
-  to: null,
-  tone: 'notice',
-};
 
 // 見る・管理する。
 const links: MenuItem[] = [
@@ -42,14 +35,12 @@ const baseStyle =
 const enabledStyles: Record<Tone, string> = {
   send: 'bg-red-600 text-white shadow-sm hover:bg-red-700',
   request: 'bg-slate-800 text-white shadow-sm hover:bg-slate-900',
-  notice: 'bg-amber-500 text-white shadow-sm hover:bg-amber-600',
   quiet: 'border border-slate-300 text-slate-700 hover:bg-slate-50',
 };
 
 const disabledStyles: Record<Tone, string> = {
   send: 'cursor-not-allowed bg-slate-300 text-white',
   request: 'cursor-not-allowed bg-slate-300 text-white',
-  notice: 'cursor-not-allowed bg-slate-300 text-white',
   quiet: 'cursor-not-allowed border border-slate-200 text-slate-400',
 };
 
@@ -146,14 +137,12 @@ export function HomePage() {
 
       <BalanceSection />
 
-      <nav aria-label="メニュー" className="flex flex-1 flex-col gap-3 p-5">
+      <nav aria-label="メニュー" className="flex flex-col gap-3 p-5">
         <div className="grid grid-cols-2 gap-3">
           {actions.map((item) => (
             <MenuButton key={item.label} item={item} />
           ))}
         </div>
-
-        <MenuButton item={notice} />
 
         <hr className="border-slate-200" />
 
@@ -161,6 +150,8 @@ export function HomePage() {
           <MenuButton key={item.label} item={item} />
         ))}
       </nav>
+
+      <ReceivedPaymentRequestSection />
     </main>
   );
 }
