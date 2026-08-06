@@ -2,6 +2,7 @@ import express from 'express';
 
 import type { CreatePaymentRequests } from './application/createPaymentRequests.js';
 import type { GetCurrentUser } from './application/usecases/getCurrentUser.js';
+import type { ListPaymentRequests } from './application/usecases/listPaymentRequests.js';
 import type { ListUserRecipients } from './application/usecases/listUserRecipients.js';
 import type { TransferRepository } from './domain/transferRepository.js';
 import { createCurrentUserRouter } from './presentation/http/currentUserRouter.js';
@@ -15,6 +16,7 @@ export interface AppDependencies {
   createPaymentRequests: CreatePaymentRequests;
   getCurrentUser: GetCurrentUser;
   currentUserId: string;
+  listPaymentRequests: ListPaymentRequests;
   listUserRecipients: ListUserRecipients;
   transferRepository: TransferRepository;
 }
@@ -45,6 +47,7 @@ export function createApp(dependencies: AppDependencies) {
     createPaymentRequestRouter(
       dependencies.createPaymentRequests,
       dependencies.currentUserId,
+      dependencies.listPaymentRequests,
     ),
   );
 

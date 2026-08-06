@@ -1,14 +1,21 @@
-import type { TransactionCursor } from '../../application/ports/transactionRepository.js';
+import type { PaymentRequestCursor } from '../../application/ports/paymentRequestListRepository.js';
 import { isRealMysqlDateTime } from '../../shared/mysqlDateTime.js';
 
-const NUMERIC_ID_PATTERN = /^\d+$/;
-export function encodeTransactionCursor(cursor: TransactionCursor): string {
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function isUuid(value: string): boolean {
+  return UUID_PATTERN.test(value);
+}
+
+export function encodePaymentRequestCursor(
+  cursor: PaymentRequestCursor,
+): string {
   return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url');
 }
 
-export function decodeTransactionCursor(
+export function decodePaymentRequestCursor(
   value: string,
-): TransactionCursor | null {
+): PaymentRequestCursor | null {
   try {
     const parsed: unknown = JSON.parse(
       Buffer.from(value, 'base64url').toString('utf8'),
@@ -22,7 +29,7 @@ export function decodeTransactionCursor(
       typeof parsed.createdAt !== 'string' ||
       typeof parsed.id !== 'string' ||
       !isRealMysqlDateTime(parsed.createdAt) ||
-      !NUMERIC_ID_PATTERN.test(parsed.id)
+      !isUuid(parsed.id)
     ) {
       return null;
     }
