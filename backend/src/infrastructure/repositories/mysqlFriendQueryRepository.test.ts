@@ -105,7 +105,12 @@ describe('MysqlFriendQueryRepository friendship detail', () => {
       [CURRENT_USER_ID, FRIENDSHIP_ID],
     );
     expect(execute).toHaveBeenCalledWith(
-      expect.stringContaining('AND current_user.id IN'),
+      expect.stringContaining('AND viewer.id IN'),
+      [CURRENT_USER_ID, FRIENDSHIP_ID],
+    );
+    // current_userはMySQLの予約語で、別名に使うとER_PARSE_ERRORになる。
+    expect(execute).toHaveBeenCalledWith(
+      expect.not.stringContaining('current_user'),
       [CURRENT_USER_ID, FRIENDSHIP_ID],
     );
   });
@@ -144,7 +149,7 @@ describe('MysqlFriendQueryRepository blocked friend list', () => {
       },
     ]);
     expect(execute).toHaveBeenCalledWith(
-      expect.stringContaining('WHERE ub.blocker_id = current_user.id'),
+      expect.stringContaining('WHERE ub.blocker_id = viewer.id'),
       [CURRENT_USER_ID, '21'],
     );
   });
