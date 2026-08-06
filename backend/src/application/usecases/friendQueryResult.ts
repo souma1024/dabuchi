@@ -1,8 +1,5 @@
 import type { FriendProfile } from '../../domain/friendship.js';
-import type {
-  BlockedFriendQueryRecord,
-  FriendQueryRecord,
-} from '../ports/friendQueryRepository.js';
+import type { FriendQueryRecord } from '../ports/friendQueryRepository.js';
 
 export interface FriendResult {
   friendshipId: string;
@@ -12,10 +9,6 @@ export interface FriendResult {
   note: string | null;
 }
 
-export interface BlockedFriendResult extends FriendResult {
-  blockedAt: string;
-}
-
 export function toFriendResult(record: FriendQueryRecord): FriendResult {
   return {
     friendshipId: record.friendshipId,
@@ -23,14 +16,5 @@ export function toFriendResult(record: FriendQueryRecord): FriendResult {
     addedBy: record.addedBy,
     addedAt: record.addedAt,
     note: record.note,
-  };
-}
-
-export function toBlockedFriendResult(
-  record: BlockedFriendQueryRecord,
-): BlockedFriendResult {
-  return {
-    ...toFriendResult(record),
-    blockedAt: record.blockedAt,
   };
 }
