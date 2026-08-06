@@ -152,6 +152,8 @@ GET /api/payment-requests?direction=received&status=pending&cursor=<opaque curso
 
 `hasNextPage` が `true` なら、次回リクエストの `cursor` へ `nextCursor` をそのまま渡します。最終ページでは `nextCursor` は `null` になります。
 
+**カーソルは、それを得たときと同じ `direction`・`status` に対してのみ再利用できます。** カーソルは `created_at` と `id` だけを持ち、検索条件を含みません。タブ切り替えなどで `direction` や `status` を変えるときは、カーソルを破棄して1ページ目から取得してください。条件をまたいで渡しても他のユーザーの請求が見えることはありませんが、返る範囲が期待とずれます。
+
 `createdAt` は請求日として表示に利用します。`respondedAt` は決着した日時で、`pending` のあいだは `null` です。
 
 ### `status` の意味
