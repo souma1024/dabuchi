@@ -1,6 +1,7 @@
 import { createFriendshipPair } from '../../domain/friendship.js';
 import type { FriendProfile } from '../../domain/friendship.js';
 import { normalizeFriendshipNote } from '../../domain/friendshipNote.js';
+import { mysqlDateTimeToIso } from '../../shared/mysqlDateTime.js';
 import {
   FriendUserNotFoundError,
   FriendshipAlreadyExistsError,
@@ -84,7 +85,7 @@ export class AddFriend {
         name: currentUser.name,
         profileUrl: currentUser.profileUrl,
       },
-      addedAt: savedFriendship.createdAt,
+      addedAt: mysqlDateTimeToIso(savedFriendship.createdAt),
       note: initialNote,
     };
   }
