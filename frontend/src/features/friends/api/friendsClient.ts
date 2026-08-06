@@ -1,4 +1,4 @@
-import type { Friend, FriendProfile } from '../types';
+import type { BlockedFriend, Friend, FriendProfile } from '../types';
 
 // 未設定なら同一オリジン（Vite dev serverの /api プロキシ経由）を使う。
 const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? '';
@@ -6,6 +6,12 @@ const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? '';
 /** 友達の1ページ分。 */
 export interface FriendPage {
   friends: Friend[];
+  nextCursor: string | null;
+}
+
+/** ブロック中の友達の1ページ分。 */
+export interface BlockedFriendPage {
+  friends: BlockedFriend[];
   nextCursor: string | null;
 }
 
@@ -85,6 +91,32 @@ function parseFriendsResponse(data: unknown): FriendPage {
   return { friends, nextCursor };
 }
 
+function isBlockedFriend(value: unknown): value is BlockedFriend {
+  if (!isFriend(value)) {
+    return false;
+  }
+  const blockedAt = (value as { blockedAt?: unknown }).blockedAt;
+  return (
+    typeof blockedAt === 'string' &&
+    !Number.isNaN(new Date(blockedAt).getTime())
+  );
+}
+
+/** ブロック一覧は友達一覧と同じ形にblockedAtが加わる。 */
+function parseBlockedFriendsResponse(data: unknown): BlockedFriendPage {
+  const { friends, nextCursor } = parseFriendsResponse(data);
+  const blockedFriends: BlockedFriend[] = [];
+
+  for (const friend of friends) {
+    if (!isBlockedFriend(friend)) {
+      throw invalidResponseError();
+    }
+    blockedFriends.push(friend);
+  }
+
+  return { friends: blockedFriends, nextCursor };
+}
+
 function parseAddedFriend(data: unknown): Friend {
   if (typeof data !== 'object' || data === null) {
     throw invalidResponseError();
@@ -144,6 +176,113 @@ export async function fetchFriends(
 
   const data: unknown = await response.json();
   return parseFriendsResponse(data);
+}
+
+/**
+ * ブロック中の友達を1ページ分（20件）取得する。
+ * 自分がブロックした相手だけが返る。
+ */
+export async function fetchBlockedFriends(
+  cursor: string | null = null,
+  signal?: AbortSignal,
+): Promise<BlockedFriendPage> {
+  const response = await fetch(
+    buildFriendsUrl('/api/friends/blocked', cursor),
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `ブロックリストの取得に失敗しました (HTTP ${response.status})`,
+    );
+  }
+
+  const data: unknown = await response.json();
+  return parseBlockedFriendsResponse(data);
+}
+
+/** メモ保存のレスポンスから本文を取り出す。削除された場合はnull。 */
+function parseSavedNote(data: unknown): string | null {
+  if (typeof data !== 'object' || data === null) {
+    throw invalidResponseError();
+  }
+  const note = (data as { note?: unknown }).note;
+
+  if (note === null) {
+    return null;
+  }
+  if (typeof note !== 'object') {
+    throw invalidResponseError();
+  }
+  const message = (note as { message?: unknown }).message;
+  if (typeof message !== 'string') {
+    throw invalidResponseError();
+  }
+
+  return message;
+}
+
+/**
+ * 自分用メモを保存する。空文字を渡すとメモを削除する。
+ *
+ * 作成はPOST、更新はPUTと分かれており、メモが無い状態へPUTすると404になる。
+ * 画面側で使い分けさせないよう、現在メモがあるかどうかを受け取ってここで振り分ける。
+ */
+export async function saveFriendshipNote(
+  friendshipId: string,
+  message: string,
+  hasExistingNote: boolean,
+  signal?: AbortSignal,
+): Promise<string | null> {
+  const url = buildFriendsUrl(
+    `/api/friends/${encodeURIComponent(friendshipId)}/note`,
+  );
+
+  // メモが無く、本文も空なら何もすることがない。
+  if (!hasExistingNote && message.trim() === '') {
+    return null;
+  }
+
+  const response = await fetch(url, {
+    method: hasExistingNote ? 'PUT' : 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message }),
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(`メモの保存に失敗しました (HTTP ${response.status})`);
+  }
+
+  const data: unknown = await response.json();
+  return parseSavedNote(data);
+}
+
+/** 友達をブロックする。すでにブロック済みでも成功する（冪等）。 */
+export async function blockFriend(
+  friendshipId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    buildFriendsUrl(`/api/friends/${encodeURIComponent(friendshipId)}/block`),
+    { method: 'POST', signal },
+  );
+  if (!response.ok) {
+    throw new Error(`ブロックに失敗しました (HTTP ${response.status})`);
+  }
+}
+
+/** ブロックを解除する。ブロックしていなくても成功する（冪等）。 */
+export async function unblockFriend(
+  friendshipId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    buildFriendsUrl(`/api/friends/${encodeURIComponent(friendshipId)}/block`),
+    { method: 'DELETE', signal },
+  );
+  if (!response.ok) {
+    throw new Error(`ブロック解除に失敗しました (HTTP ${response.status})`);
+  }
 }
 
 /**

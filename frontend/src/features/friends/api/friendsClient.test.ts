@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { addFriend, fetchFriends, FriendApiError } from './friendsClient';
+import {
+  addFriend,
+  blockFriend,
+  fetchBlockedFriends,
+  fetchFriends,
+  FriendApiError,
+  unblockFriend,
+} from './friendsClient';
 
 const validFriend = {
   friendshipId: '7f000000-0000-4000-8000-000000000002',
@@ -137,5 +144,61 @@ describe('addFriend', () => {
         'INTERNAL_SERVER_ERROR',
       ),
     );
+  });
+});
+
+describe('fetchBlockedFriends', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('ブロック中の友達をblockedAt付きで取得する', async () => {
+    const blocked = { ...validFriend, blockedAt: '2026-08-06T10:00:00.000Z' };
+    const mockFetch = stubFetch({ ok: true, body: pageBody([blocked]) });
+
+    const page = await fetchBlockedFriends();
+
+    expect(page).toEqual({ friends: [blocked], nextCursor: null });
+    const [url] = mockFetch.mock.calls[0] as [URL];
+    expect(url.pathname).toBe('/api/friends/blocked');
+  });
+
+  it('blockedAtが無ければ失敗させる', async () => {
+    stubFetch({ ok: true, body: pageBody([validFriend]) });
+
+    await expect(fetchBlockedFriends()).rejects.toThrow('不正なレスポンス');
+  });
+
+  it('HTTPエラーはstatus付きで失敗させる', async () => {
+    stubFetch({ ok: false, status: 500 });
+
+    await expect(fetchBlockedFriends()).rejects.toThrow('HTTP 500');
+  });
+});
+
+describe('blockFriend / unblockFriend', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('ブロックはPOST、解除はDELETEを同じpathへ送る', async () => {
+    const mockFetch = stubFetch({ ok: true, status: 200 });
+
+    await blockFriend('7f000000-0000-4000-8000-000000000002');
+    await unblockFriend('7f000000-0000-4000-8000-000000000002');
+
+    const [blockUrl, blockInit] = mockFetch.mock.calls[0] as [URL, RequestInit];
+    const [, unblockInit] = mockFetch.mock.calls[1] as [URL, RequestInit];
+    expect(blockUrl.pathname).toBe(
+      '/api/friends/7f000000-0000-4000-8000-000000000002/block',
+    );
+    expect(blockInit.method).toBe('POST');
+    expect(unblockInit.method).toBe('DELETE');
+  });
+
+  it('HTTPエラーはstatus付きで失敗させる', async () => {
+    stubFetch({ ok: false, status: 404 });
+
+    await expect(blockFriend('friendship-1')).rejects.toThrow('HTTP 404');
   });
 });

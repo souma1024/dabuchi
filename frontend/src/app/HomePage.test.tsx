@@ -54,6 +54,7 @@ describe('HomePage', () => {
   it.each([
     ['送金する', '/recipients'],
     ['履歴一覧', '/transactions'],
+    ['友達管理', '/friends'],
   ])('「%s」から%sへ遷移できる', async (label, path) => {
     renderHomePage();
 
@@ -86,21 +87,5 @@ describe('HomePage', () => {
     expect(
       await screen.findByRole('heading', { name: /請求されています/ }),
     ).toBeInTheDocument();
-  });
-
-  it('遷移先が未実装のボタンは配置するが押せない', async () => {
-    renderHomePage();
-
-    await screen.findByText('山田 太郎 さん');
-
-    for (const label of ['友達管理']) {
-      const button = screen.getByText(label).closest('button');
-
-      expect(button).toBeInTheDocument();
-      expect(button).toBeDisabled();
-      expect(
-        screen.queryByRole('link', { name: label }),
-      ).not.toBeInTheDocument();
-    }
   });
 });
