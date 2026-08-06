@@ -3,7 +3,11 @@ import { Router } from 'express';
 import type { CreateFriendshipNote } from '../../application/usecases/createFriendshipNote.js';
 import type { DeleteFriendshipNote } from '../../application/usecases/deleteFriendshipNote.js';
 import type { UpdateFriendshipNote } from '../../application/usecases/updateFriendshipNote.js';
-import { InvalidFriendshipNoteError } from '../../domain/friendshipNote.js';
+import {
+  InvalidFriendshipNoteError,
+  type FriendshipNote,
+} from '../../domain/friendshipNote.js';
+import { mysqlDateTimeToIso } from '../../shared/mysqlDateTime.js';
 
 export interface FriendshipNoteRouterDependencies {
   createFriendshipNote: CreateFriendshipNote;
@@ -25,7 +29,7 @@ export function createFriendshipNoteRouter(
         message: readMessage(request.body),
       });
 
-      response.status(201).json({ note });
+      response.status(201).json({ note: toNoteResponse(note) });
     })().catch(next);
   });
 
@@ -37,7 +41,7 @@ export function createFriendshipNoteRouter(
         message: readMessage(request.body),
       });
 
-      response.status(200).json({ note });
+      response.status(200).json({ note: note ? toNoteResponse(note) : null });
     })().catch(next);
   });
 
@@ -52,6 +56,27 @@ export function createFriendshipNoteRouter(
   });
 
   return router;
+}
+
+interface FriendshipNoteResponse {
+  friendshipId: string;
+  message: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * 自分用メモをAPIの表現へ変換する。
+ * 日時はMySQLのDATETIME形式のままでは返さず、友達追加APIと同じISO 8601へ揃える。
+ * 書き込んだ本人の内部userIdは、現在ユーザー自身であり公開する意味がないため含めない。
+ */
+function toNoteResponse(note: FriendshipNote): FriendshipNoteResponse {
+  return {
+    friendshipId: note.friendshipId,
+    message: note.message,
+    createdAt: mysqlDateTimeToIso(note.createdAt),
+    updatedAt: mysqlDateTimeToIso(note.updatedAt),
+  };
 }
 
 function readMessage(body: unknown): string {

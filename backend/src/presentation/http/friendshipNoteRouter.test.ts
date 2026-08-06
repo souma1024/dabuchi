@@ -23,7 +23,15 @@ describe('friendship note router', () => {
       .send({ message: '大学の友人' });
 
     expect(response.status).toBe(201);
-    expect(response.body).toMatchObject({ note: { message: '大学の友人' } });
+    // 日時はISO 8601。内部userIdは含めない。
+    expect(response.body).toEqual({
+      note: {
+        friendshipId: FRIENDSHIP_ID,
+        message: '大学の友人',
+        createdAt: '2026-08-06T12:10:00.000Z',
+        updatedAt: '2026-08-06T12:10:00.000Z',
+      },
+    });
     expect(repository.createNote).toHaveBeenCalledWith(
       expect.objectContaining({
         friendshipId: FRIENDSHIP_ID,
@@ -40,7 +48,14 @@ describe('friendship note router', () => {
       .send({ message: 'ゼミの友人' });
 
     expect(response.status).toBe(200);
-    expect(response.body).toMatchObject({ note: { message: 'ゼミの友人' } });
+    expect(response.body).toEqual({
+      note: {
+        friendshipId: FRIENDSHIP_ID,
+        message: 'ゼミの友人',
+        createdAt: '2026-08-06T12:10:00.000Z',
+        updatedAt: '2026-08-06T12:20:00.000Z',
+      },
+    });
     expect(repository.updateNote).toHaveBeenCalledOnce();
   });
 
