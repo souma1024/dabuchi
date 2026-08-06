@@ -39,8 +39,10 @@ function isTransaction(value: unknown): value is Transaction {
     typeof transaction.amount === 'number' &&
     Number.isSafeInteger(transaction.amount) &&
     transaction.amount > 0 &&
-    directions.includes(transaction.direction as TransactionDirection) &&
-    typeof transaction.createdAt === 'string'
+    directions.some((direction) => direction === transaction.direction) &&
+    // 文字列であっても日付として解釈できなければ、表示時に日時が空欄になるため弾く。
+    typeof transaction.createdAt === 'string' &&
+    !Number.isNaN(new Date(transaction.createdAt).getTime())
   );
 }
 

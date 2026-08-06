@@ -120,6 +120,12 @@ describe('fetchTransactions', () => {
     ['amountが小数', { ...validTransaction, amount: 10.5 }],
     ['directionが未知の値', { ...validTransaction, direction: 'unknown' }],
     ['createdAtが無い', { ...validTransaction, createdAt: undefined }],
+    // 文字列でも日付として解釈できなければ、表示時に日時が空欄になってしまう。
+    [
+      'createdAtが日付として不正',
+      { ...validTransaction, createdAt: 'not-a-date' },
+    ],
+    ['createdAtが空文字', { ...validTransaction, createdAt: '' }],
   ])('取引の%s なら不正として扱う', async (_label, transaction) => {
     stubFetch({ ok: true, body: pageBody([transaction]) });
 
