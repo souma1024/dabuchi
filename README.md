@@ -210,9 +210,11 @@ backendのcurrent userから見た請求を、作成日時の降順で20件ず�
 
 詳細なrequest / response / status codeは[Payment requests API](docs/api/payment-requests.md)を参照してください。
 
-### `POST /api/payment-requests/:id/accept` / `POST /api/payment-requests/:id/reject`
+### `POST /api/payment-requests/:id/accept` / `/reject` / `/cancel`
 
-`pending`の請求へ被請求者が応答します。承認では残高更新・送金履歴の記録・請求の状態更新を単一のDB transactionで実行し、拒否では状態だけを更新します。応答できるのは被請求者だけで、すでに応答済みなら409を返します。
+`pending`の請求を終わらせます。承認では残高更新・送金履歴の記録・請求の状態更新を単一のDB transactionで実行し、拒否・取り消しでは状態だけを更新します。
+
+承認と拒否は被請求者、取り消しは請求者だけが実行できます。取り消しはDB上`rejected`になり、拒否とは`responded_by`で区別します。自分が同じ操作で終わらせた請求への再送は冪等に200を返し、それ以外の決着済みは409になります。
 
 詳細なrequest / response / status codeは[Payment requests API](docs/api/payment-requests.md)を参照してください。
 
