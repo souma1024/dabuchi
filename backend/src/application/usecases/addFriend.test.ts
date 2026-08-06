@@ -79,7 +79,7 @@ describe('AddFriend', () => {
         name: '山田 太郎',
         profileUrl: '/assets/profiles/human1.png',
       },
-      addedAt: '2026-08-06 12:00:00.000000',
+      addedAt: '2026-08-06T12:00:00.000Z',
       note: '大学の友人',
     });
     expect(friendCommandRepository.findUserByPublicId).toHaveBeenCalledWith(

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { fetchMockTransactionPage } from '../mockTransactions';
+import { fetchTransactions } from '../api/transactionsClient';
 import type { Transaction } from '../types';
 
 /** 取引履歴一覧の取得結果と操作。 */
@@ -21,8 +21,7 @@ function toErrorMessage(caught: unknown): string {
 
 /**
  * 取引履歴をカーソルページングで取得するフック。
- * 現在の取得元はモック。API連携（Issue #20）でクライアントを差し替える想定で、
- * 返り値の形は変えない。
+ * 初回に1ページ目（最大20件）を読み込み、loadMoreで次ページを追記する。
  */
 export function useTransactions(): UseTransactionsResult {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -33,13 +32,23 @@ export function useTransactions(): UseTransactionsResult {
 
   const loadingRef = useRef(false);
   const cursorRef = useRef<string | null>(null);
+  // loadMoreはeffectの外から呼ばれるためcleanupを持てない。
+  // アンマウント後に状態を更新しないよう、マウント状態をrefで保持する。
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // 初回ロード（1ページ目）。
   useEffect(() => {
     let active = true;
     loadingRef.current = true;
 
-    void fetchMockTransactionPage(null)
+    void fetchTransactions(null)
       .then((page) => {
         if (!active) {
           return;
@@ -74,19 +83,27 @@ export function useTransactions(): UseTransactionsResult {
     loadingRef.current = true;
     setIsLoadingMore(true);
 
-    void fetchMockTransactionPage(cursorRef.current)
+    void fetchTransactions(cursorRef.current)
       .then((page) => {
-        setTransactions((prev) => [...prev, ...page.transactions]);
+        // カーソルは次回のリクエストに使うため、アンマウント後でも進めておく。
         cursorRef.current = page.nextCursor;
+        if (!mountedRef.current) {
+          return;
+        }
+        setTransactions((prev) => [...prev, ...page.transactions]);
         setNextCursor(page.nextCursor);
         setError(null);
       })
       .catch((caught: unknown) => {
-        setError(toErrorMessage(caught));
+        if (mountedRef.current) {
+          setError(toErrorMessage(caught));
+        }
       })
       .finally(() => {
         loadingRef.current = false;
-        setIsLoadingMore(false);
+        if (mountedRef.current) {
+          setIsLoadingMore(false);
+        }
       });
   }, []);
 
