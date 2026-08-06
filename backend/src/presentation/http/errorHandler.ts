@@ -9,6 +9,7 @@ import {
   TransferParticipantNotFoundError,
 } from '../../application/createTransfer.js';
 import { CurrentUserNotFoundError } from '../../application/errors/currentUserNotFoundError.js';
+import { InvalidPaymentRequestQueryError } from './paymentRequestRouter.js';
 import { InvalidRecipientRequestError } from './userRecipientRouter.js';
 import { InvalidTransactionRequestError } from './userTransactionRouter.js';
 
@@ -21,6 +22,13 @@ export const errorHandler: ErrorRequestHandler = (
   void next;
 
   if (error instanceof InvalidRecipientRequestError) {
+    response.status(400).json({
+      error: { code: 'INVALID_REQUEST', message: error.message },
+    });
+    return;
+  }
+
+  if (error instanceof InvalidPaymentRequestQueryError) {
     response.status(400).json({
       error: { code: 'INVALID_REQUEST', message: error.message },
     });

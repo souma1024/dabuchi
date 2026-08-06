@@ -1,9 +1,6 @@
 import { Router } from 'express';
 
-import {
-  InvalidPaymentRequestError,
-  type CreatePaymentRequests,
-} from '../../application/createPaymentRequests.js';
+import type { CreatePaymentRequests } from '../../application/createPaymentRequests.js';
 import type { PaymentRequestCursor } from '../../application/ports/paymentRequestListRepository.js';
 import type { ListPaymentRequests } from '../../application/usecases/listPaymentRequests.js';
 import type {
@@ -15,12 +12,19 @@ import {
   encodePaymentRequestCursor,
 } from './paymentRequestCursorCodec.js';
 
+export class InvalidPaymentRequestQueryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidPaymentRequestQueryError';
+  }
+}
+
 const DIRECTIONS: readonly string[] = ['received', 'sent'];
 const STATES: readonly string[] = ['pending', 'accepted', 'rejected'];
 
 function parseDirection(value: unknown): PaymentRequestDirection {
   if (typeof value !== 'string' || !DIRECTIONS.includes(value)) {
-    throw new InvalidPaymentRequestError(
+    throw new InvalidPaymentRequestQueryError(
       'direction must be "received" or "sent"',
     );
   }
@@ -34,7 +38,7 @@ function parseStatus(value: unknown): PaymentRequestState | null {
   }
 
   if (typeof value !== 'string' || !STATES.includes(value)) {
-    throw new InvalidPaymentRequestError(
+    throw new InvalidPaymentRequestQueryError(
       'status must be "pending", "accepted" or "rejected"',
     );
   }
@@ -48,13 +52,13 @@ function parseCursor(value: unknown): PaymentRequestCursor | null {
   }
 
   if (typeof value !== 'string') {
-    throw new InvalidPaymentRequestError('cursor must be a string');
+    throw new InvalidPaymentRequestQueryError('cursor must be a string');
   }
 
   const cursor = decodePaymentRequestCursor(value);
 
   if (cursor === null) {
-    throw new InvalidPaymentRequestError('cursor is invalid');
+    throw new InvalidPaymentRequestQueryError('cursor is invalid');
   }
 
   return cursor;
