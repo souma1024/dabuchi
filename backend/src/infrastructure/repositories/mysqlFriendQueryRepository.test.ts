@@ -122,3 +122,60 @@ describe('MysqlFriendQueryRepository friendship detail', () => {
     ).resolves.toBeNull();
   });
 });
+
+describe('MysqlFriendQueryRepository blocked friend list', () => {
+  it('現在ユーザーがブロックした友達だけをメモ付きで取得する', async () => {
+    const blockedAt = '2026-08-06 13:00:00.000000';
+    const { pool, execute } = createMysqlPool([[{ ...ROW, blockedAt }]]);
+    const repository = new MysqlFriendQueryRepository(pool);
+
+    await expect(
+      repository.findBlockedFriends({
+        currentUserId: CURRENT_USER_ID,
+        cursor: null,
+        limit: 21,
+      }),
+    ).resolves.toMatchObject([
+      {
+        friendshipId: FRIENDSHIP_ID,
+        friend: { id: ROW.friendId },
+        note: ROW.note,
+        blockedAt,
+      },
+    ]);
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE ub.blocker_id = current_user.id'),
+      [CURRENT_USER_ID, '21'],
+    );
+  });
+
+  it('次ページではブロック日時とfriendship UUIDをカーソル条件にする', async () => {
+    const { pool, execute } = createMysqlPool([[]]);
+    const repository = new MysqlFriendQueryRepository(pool);
+    const cursor = {
+      blockedAt: '2026-08-06 13:00:00.000000',
+      friendshipId: FRIENDSHIP_ID,
+    };
+
+    await repository.findBlockedFriends({
+      currentUserId: CURRENT_USER_ID,
+      cursor,
+      limit: 21,
+    });
+
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining('ub.created_at > ?'),
+      [
+        CURRENT_USER_ID,
+        cursor.blockedAt,
+        cursor.blockedAt,
+        cursor.friendshipId,
+        '21',
+      ],
+    );
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining('ORDER BY ub.created_at ASC, f.id ASC'),
+      expect.any(Array),
+    );
+  });
+});
