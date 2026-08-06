@@ -6,28 +6,30 @@ import { useInfiniteScrollSentinel } from './useInfiniteScrollSentinel';
 let triggerIntersection: (() => void) | null = null;
 let disconnected = 0;
 
+class ManualIntersectionObserver {
+  constructor(private readonly callback: IntersectionObserverCallback) {}
+  observe() {
+    triggerIntersection = () => {
+      this.callback(
+        [{ isIntersecting: true } as IntersectionObserverEntry],
+        this as unknown as IntersectionObserver,
+      );
+    };
+  }
+  disconnect() {
+    disconnected += 1;
+  }
+  unobserve() {}
+}
+
+// setup.tsの既定スタブをこのファイル全体で一度だけ差し替える。
+// テストごとに差し替えると、前テストの残りeffectがflushされる間に
+// クラスが入れ替わり、監視の登録先が食い違う余地が残る。
+vi.stubGlobal('IntersectionObserver', ManualIntersectionObserver);
+
 beforeEach(() => {
   triggerIntersection = null;
   disconnected = 0;
-
-  vi.stubGlobal(
-    'IntersectionObserver',
-    class {
-      constructor(private readonly callback: IntersectionObserverCallback) {}
-      observe() {
-        triggerIntersection = () => {
-          this.callback(
-            [{ isIntersecting: true } as IntersectionObserverEntry],
-            this as unknown as IntersectionObserver,
-          );
-        };
-      }
-      disconnect() {
-        disconnected += 1;
-      }
-      unobserve() {}
-    },
-  );
 });
 
 afterEach(() => {
