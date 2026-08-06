@@ -1,5 +1,6 @@
 import type { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise';
 
+import { IdempotencyKeyConflictError } from '../application/createTransfer.js';
 import type {
   NewTransfer,
   SavedTransfer,
@@ -40,7 +41,8 @@ export class MysqlTransferRepository implements TransferRepository {
           continue;
         }
 
-        // 同一キーで同時実行され、INSERTが一意制約で弾かれた場合は先勝ちの結果を返す。
+        // 同一キーで同時実行され、INSERTが一意制約で弾かれた場合。
+        // 先勝ちレコードと入力が一致すれば冪等リプレイ、異なれば競合エラー。
         if (
           isDuplicateKeyViolation(error) &&
           transfer.idempotencyKey !== undefined
@@ -50,6 +52,9 @@ export class MysqlTransferRepository implements TransferRepository {
             transfer.idempotencyKey,
           );
           if (existing) {
+            if (!isSameTransfer(existing, transfer)) {
+              throw new IdempotencyKeyConflictError();
+            }
             return existing;
           }
         }
@@ -70,13 +75,17 @@ export class MysqlTransferRepository implements TransferRepository {
   ): Promise<SavedTransfer> {
     await connection.beginTransaction();
 
-    // 既に同一キーで確定済みなら、残高を動かさずその結果を返す（冪等リプレイ）。
+    // 既に同一キーで確定済みの送金がある場合、入力内容が一致すれば残高を動かさず
+    // その結果を返す（冪等リプレイ）。内容が異なれば、キーの使い回しとして競合にする。
     if (transfer.idempotencyKey !== undefined) {
       const existing = await this.findByIdempotencyKey(
         connection,
         transfer.idempotencyKey,
       );
       if (existing) {
+        if (!isSameTransfer(existing, transfer)) {
+          throw new IdempotencyKeyConflictError();
+        }
         await connection.commit();
         return existing;
       }
@@ -126,6 +135,18 @@ export class MysqlTransferRepository implements TransferRepository {
       amount: row.amount,
     };
   }
+}
+
+// 既存レコードと今回の入力が同じ送金内容か（相手UUIDは大小無視、金額は一致）。
+function isSameTransfer(
+  existing: SavedTransfer,
+  transfer: NewTransfer,
+): boolean {
+  return (
+    existing.senderId.toLowerCase() === transfer.senderId.toLowerCase() &&
+    existing.recipientId.toLowerCase() === transfer.recipientId.toLowerCase() &&
+    existing.amount === transfer.amount
+  );
 }
 
 async function rollbackQuietly(connection: PoolConnection): Promise<void> {

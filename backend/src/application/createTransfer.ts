@@ -20,6 +20,13 @@ export class InsufficientBalanceError extends Error {
     this.name = 'InsufficientBalanceError';
   }
 }
+// 同じ冪等性キーが、内容の異なる送金に再利用された場合の競合（HTTPでは409相当）。
+export class IdempotencyKeyConflictError extends Error {
+  constructor() {
+    super('idempotencyKey was reused for a different transfer.');
+    this.name = 'IdempotencyKeyConflictError';
+  }
+}
 
 export class CreateTransfer {
   constructor(private readonly repository: TransferRepository) {}

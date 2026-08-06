@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  IdempotencyKeyConflictError,
   InsufficientBalanceError,
   TransferParticipantNotFoundError,
 } from '../application/createTransfer.js';
@@ -218,6 +219,51 @@ describe('MysqlTransferRepository', () => {
           idempotencyKey: 'idem-race',
         }),
       ).rejects.toMatchObject({ code: 'ER_DUP_ENTRY' });
+    });
+
+    it('同一キーで内容の異なる送金なら、リプレイせず競合エラーを投げる（通常経路）', async () => {
+      const { pool, connection } = createMysqlPool([
+        // 既存レコードは amount 999。今回の入力(1500)と不一致。
+        [{ id: 7, senderId: SENDER, recipientId: RECIPIENT, amount: 999 }],
+      ]);
+      const repository = new MysqlTransferRepository(pool);
+
+      await expect(
+        repository.save({
+          senderId: SENDER,
+          recipientId: RECIPIENT,
+          amount: 1500,
+          idempotencyKey: 'idem-existing',
+        }),
+      ).rejects.toBeInstanceOf(IdempotencyKeyConflictError);
+
+      expect(connection.commit).not.toHaveBeenCalled();
+      expect(connection.rollback).toHaveBeenCalledTimes(1);
+    });
+
+    it('一意制約競合後の先勝ちレコードが内容不一致なら、競合エラーを投げる', async () => {
+      const { pool, connection } = createMysqlPool([
+        [], // 冪等キー照会: 未存在
+        balances(5000, 200),
+        { affectedRows: 1 },
+        { affectedRows: 1 },
+        duplicateKeyError(), // INSERT が一意制約で失敗
+        // 先勝ちレコードは amount 999。今回の入力(1500)と不一致。
+        [{ id: 9, senderId: SENDER, recipientId: RECIPIENT, amount: 999 }],
+      ]);
+      const repository = new MysqlTransferRepository(pool);
+
+      await expect(
+        repository.save({
+          senderId: SENDER,
+          recipientId: RECIPIENT,
+          amount: 1500,
+          idempotencyKey: 'idem-race',
+        }),
+      ).rejects.toBeInstanceOf(IdempotencyKeyConflictError);
+
+      expect(connection.commit).not.toHaveBeenCalled();
+      expect(connection.rollback).toHaveBeenCalledTimes(1);
     });
   });
 
