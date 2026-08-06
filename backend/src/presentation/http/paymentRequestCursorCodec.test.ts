@@ -39,6 +39,13 @@ describe('payment request cursor codec', () => {
       'createdAtの形式が違う',
       encodeRaw({ ...VALID_CURSOR, createdAt: '2026/08/04 12:00:20' }),
     ],
+    // Buffer.from(..., 'base64url') は文字集合外の文字を読み飛ばすため、
+    // 検証しないと改竄された値がそのまま通ってしまう。
+    [
+      '正しいカーソルの末尾に非base64url文字がある',
+      `${encodeRaw(VALID_CURSOR)}!`,
+    ],
+    ['paddingが付いている', `${encodeRaw(VALID_CURSOR)}==`],
   ])('不正なカーソルを拒否する: %s', (_name, cursor) => {
     expect(decodePaymentRequestCursor(cursor)).toBeNull();
   });
