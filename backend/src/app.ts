@@ -9,6 +9,7 @@ import type { GetCurrentUser } from './application/usecases/getCurrentUser.js';
 import type { GetFriendshipDetail } from './application/usecases/getFriendshipDetail.js';
 import type { ListBlockedFriends } from './application/usecases/listBlockedFriends.js';
 import type { ListFriends } from './application/usecases/listFriends.js';
+import type { GetPaymentRequest } from './application/usecases/getPaymentRequest.js';
 import type { ListPaymentRequests } from './application/usecases/listPaymentRequests.js';
 import type { RespondToPaymentRequest } from './application/usecases/respondToPaymentRequest.js';
 import type { ListUserRecipients } from './application/usecases/listUserRecipients.js';
@@ -36,6 +37,7 @@ export interface AppDependencies {
   deleteFriendshipNote: DeleteFriendshipNote;
   getCurrentUser: GetCurrentUser;
   getFriendshipDetail: GetFriendshipDetail;
+  getPaymentRequest: GetPaymentRequest;
   /** mock認証で決まる現在ユーザーの公開user_id。内部UUIDはserver側で解決する。 */
   currentUserId: string;
   listBlockedFriends: ListBlockedFriends;
@@ -104,6 +106,7 @@ export function createApp(dependencies: AppDependencies) {
     createPaymentRequestRouter({
       createPaymentRequests: dependencies.createPaymentRequests,
       currentUserPublicId: dependencies.currentUserId,
+      getPaymentRequest: dependencies.getPaymentRequest,
       listPaymentRequests: dependencies.listPaymentRequests,
       respondToPaymentRequest: dependencies.respondToPaymentRequest,
     }),

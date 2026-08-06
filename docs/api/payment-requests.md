@@ -192,6 +192,55 @@ GET /api/payment-requests?direction=received&status=pending&cursor=<opaque curso
 }
 ```
 
+# 請求1件の取得
+
+請求を1件だけ返します。一覧の要素とまったく同じ形です。
+
+## Endpoint
+
+```http
+GET /api/payment-requests/:id
+```
+
+- `:id` は `payment_requests.id` の内部UUID
+- 取得できるのは**当事者（請求者または被請求者）だけ**です
+- `counterparty` は現在ユーザーでない側です。`direction` は受け取りません
+
+確認画面を開いた時点の状態を取り直す用途です（Issue #61）。一覧を読み込んだ時刻と行をタップする時刻の間に状態が変わりうるため、古い情報のまま承認ボタンを出さないようにします。
+
+一覧APIで代用しない理由は、20件ずつのページングでは古い請求へ到達できないためです。
+
+## Response
+
+### `200 OK`
+
+```json
+{
+  "request": {
+    "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "counterparty": {
+      "id": "5e5a4a1e-3b42-4f47-8b1f-b77ef98bf002",
+      "name": "佐藤 花子",
+      "profileUrl": "/assets/profiles/human2.png"
+    },
+    "amount": 3000,
+    "status": "pending",
+    "createdAt": "2026-08-03T01:00:00.000Z",
+    "respondedAt": null
+  }
+}
+```
+
+### エラー
+
+| status | code                        | 条件                                                   |
+| ------ | --------------------------- | ------------------------------------------------------ |
+| `400`  | `INVALID_REQUEST`           | `:id` がUUIDでない                                     |
+| `404`  | `PAYMENT_REQUEST_NOT_FOUND` | 請求が存在しない、**または現在ユーザーが当事者でない** |
+| `404`  | `CURRENT_USER_NOT_FOUND`    | 現在ユーザーが `users` に存在しない                    |
+
+**当事者でない場合も `404` です。** 承認・拒否が `403` を返すのと異なります。読み取りでは「存在するが読めない」と「存在しない」を区別せず、他人の請求IDを当てられても存在を確認できないようにしています。当事者かどうかの判定はSQLの検索条件に含めており、アプリケーション側で弾いているのではありません。
+
 # 請求の承認・拒否
 
 `pending` の請求に対して、被請求者が承認または拒否します。承認すると残高が動き、取引履歴にも記録されます。

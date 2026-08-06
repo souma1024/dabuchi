@@ -1000,4 +1000,96 @@ describe('backend application', () => {
       'CURRENT_USER_NOT_FOUND',
     );
   });
+
+  it('請求1件を一覧と同じ形で返す', async () => {
+    const record = createPaymentRequestRecord(1, {
+      amount: 3000,
+      status: 'pending',
+      createdAt: '2026-08-03 01:00:00.000000',
+      respondedAt: null,
+    });
+    const paymentRequestListRepository = createPaymentRequestListRepository({
+      record,
+    });
+    const { app } = createTestApp({
+      currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
+      paymentRequestListRepository,
+    });
+
+    const response = await request(app).get(
+      `/api/payment-requests/${PAYMENT_REQUEST_ID}`,
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      request: {
+        id: record.id,
+        counterparty: {
+          id: record.counterpartyId,
+          name: record.counterpartyName,
+          profileUrl: record.counterpartyProfileUrl,
+        },
+        amount: 3000,
+        status: 'pending',
+        createdAt: '2026-08-03T01:00:00.000Z',
+        respondedAt: null,
+      },
+    });
+    expect(
+      paymentRequestListRepository.findPaymentRequestById,
+    ).toHaveBeenCalledWith({
+      paymentRequestId: PAYMENT_REQUEST_ID,
+      currentUserInternalId: CURRENT_USER_ID,
+    });
+  });
+
+  // 当事者でない場合もrepositoryはnullを返す。存在の有無を区別しない。
+  it('当事者でない請求は404にする', async () => {
+    const { app } = createTestApp({
+      currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
+      paymentRequestListRepository: createPaymentRequestListRepository({
+        record: null,
+      }),
+    });
+
+    const response = await request(app).get(
+      `/api/payment-requests/${PAYMENT_REQUEST_ID}`,
+    );
+
+    expect(response.status).toBe(404);
+    expect(asErrorBody(response.body).error.code).toBe(
+      'PAYMENT_REQUEST_NOT_FOUND',
+    );
+  });
+
+  it('請求1件の取得でIDがUUIDでなければ400にする', async () => {
+    const paymentRequestListRepository = createPaymentRequestListRepository();
+    const { app } = createTestApp({
+      currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
+      paymentRequestListRepository,
+    });
+
+    const response = await request(app).get('/api/payment-requests/not-a-uuid');
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: { code: 'INVALID_REQUEST', message: 'id must be a UUID' },
+    });
+    expect(
+      paymentRequestListRepository.findPaymentRequestById,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('請求1件の取得で現在ユーザーが存在しなければ404にする', async () => {
+    const { app } = createTestApp({ currentUser: null });
+
+    const response = await request(app).get(
+      `/api/payment-requests/${PAYMENT_REQUEST_ID}`,
+    );
+
+    expect(response.status).toBe(404);
+    expect(asErrorBody(response.body).error.code).toBe(
+      'CURRENT_USER_NOT_FOUND',
+    );
+  });
 });

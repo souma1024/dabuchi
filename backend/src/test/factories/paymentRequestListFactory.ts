@@ -33,14 +33,23 @@ export function createPaymentRequestRecords(
 
 interface ListRepositoryOptions {
   records?: PaymentRequestRecord[];
+  /** findPaymentRequestById が返す1件。未指定なら records の先頭。 */
+  record?: PaymentRequestRecord | null;
 }
 
 export function createPaymentRequestListRepository(
   options: ListRepositoryOptions = {},
 ): PaymentRequestListRepository {
+  const records = options.records ?? [];
+
   return {
     findPaymentRequests: vi
       .fn<PaymentRequestListRepository['findPaymentRequests']>()
-      .mockResolvedValue(options.records ?? []),
+      .mockResolvedValue(records),
+    findPaymentRequestById: vi
+      .fn<PaymentRequestListRepository['findPaymentRequestById']>()
+      .mockResolvedValue(
+        options.record !== undefined ? options.record : (records[0] ?? null),
+      ),
   };
 }
