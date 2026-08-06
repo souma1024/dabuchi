@@ -2,10 +2,8 @@ import type {
   BlockedFriendCursor,
   FriendshipCursor,
 } from '../../application/ports/friendQueryRepository.js';
+import { isRealMysqlDateTime } from '../../shared/mysqlDateTime.js';
 import { isUuid } from './recipientCursorCodec.js';
-
-const MYSQL_DATETIME_PATTERN =
-  /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d{1,6})?$/;
 
 export function encodeFriendCursor(cursor: FriendshipCursor): string {
   return encodeCursor(cursor);
@@ -69,7 +67,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isValidDateTime(value: unknown): value is string {
-  return typeof value === 'string' && MYSQL_DATETIME_PATTERN.test(value);
+  return typeof value === 'string' && isRealMysqlDateTime(value);
 }
 
 function isUuidValue(value: unknown): value is string {
