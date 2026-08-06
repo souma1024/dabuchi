@@ -1,9 +1,10 @@
 import type { RowDataPacket } from 'mysql2';
-import type { Pool } from 'mysql2/promise';
+import type { Pool, PoolConnection } from 'mysql2/promise';
 
 import type {
   AuthRepository,
   AuthenticatedUser,
+  NewSession,
   NewUser,
   UserCredential,
 } from '../../application/ports/authRepository.js';
@@ -37,35 +38,39 @@ export class MysqlAuthRepository implements AuthRepository {
     return row ? { id: row.id, passwordHash: row.passwordHash } : null;
   }
 
-  async createUser(user: NewUser): Promise<boolean> {
+  async createUserWithSession(
+    user: NewUser,
+    session: NewSession,
+  ): Promise<boolean> {
+    const connection = await this.pool.getConnection();
+
     try {
-      await this.pool.execute(
+      await connection.beginTransaction();
+      await connection.execute(
         `INSERT INTO users (id, user_id, password_hash, user_name, profile_url)
          VALUES (UUID_TO_BIN(?), ?, ?, ?, ?)`,
         [user.id, user.userId, user.passwordHash, user.name, user.profileUrl],
       );
+      await insertSession(connection, session);
+      await connection.commit();
 
       return true;
     } catch (error) {
+      await rollbackQuietly(connection);
+
       // 公開user_idの一意制約。同時登録の競合もここへ来る。
       if (isDuplicateKeyViolation(error)) {
         return false;
       }
 
       throw error;
+    } finally {
+      connection.release();
     }
   }
 
-  async createSession(session: {
-    tokenHash: Buffer;
-    userId: string;
-    expiresAt: Date;
-  }): Promise<void> {
-    await this.pool.execute(
-      `INSERT INTO sessions (token_hash, user_id, expires_at)
-       VALUES (?, UUID_TO_BIN(?), ?)`,
-      [session.tokenHash, session.userId, session.expiresAt],
-    );
+  async createSession(session: NewSession): Promise<void> {
+    await insertSession(this.pool, session);
   }
 
   async findUserBySessionToken(
@@ -91,5 +96,25 @@ export class MysqlAuthRepository implements AuthRepository {
     await this.pool.execute(`DELETE FROM sessions WHERE token_hash = ?`, [
       tokenHash,
     ]);
+  }
+}
+
+async function insertSession(
+  executor: Pool | PoolConnection,
+  session: NewSession,
+): Promise<void> {
+  await executor.execute(
+    `INSERT INTO sessions (token_hash, user_id, expires_at)
+     VALUES (?, UUID_TO_BIN(?), ?)`,
+    [session.tokenHash, session.userId, session.expiresAt],
+  );
+}
+
+async function rollbackQuietly(connection: PoolConnection): Promise<void> {
+  try {
+    await connection.rollback();
+  } catch {
+    // rollback自体の失敗は握りつぶす。壊れたコネクションはプール返却時に破棄される。
+    // 呼び出し側へは元の原因エラーを伝える。
   }
 }

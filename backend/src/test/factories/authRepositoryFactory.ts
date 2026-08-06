@@ -8,7 +8,7 @@ import type {
 
 interface AuthRepositoryFactoryOptions {
   credential?: UserCredential | null;
-  /** createUserの結果。falseなら公開user_idが既に使われている。 */
+  /** createUserWithSessionの結果。falseなら公開user_idが既に使われている。 */
   userCreated?: boolean;
   sessionUser?: AuthenticatedUser | null;
 }
@@ -22,8 +22,8 @@ export function createAuthRepository(
       .mockResolvedValue(
         options.credential === undefined ? null : options.credential,
       ),
-    createUser: vi
-      .fn<AuthRepository['createUser']>()
+    createUserWithSession: vi
+      .fn<AuthRepository['createUserWithSession']>()
       .mockResolvedValue(options.userCreated ?? true),
     createSession: vi
       .fn<AuthRepository['createSession']>()

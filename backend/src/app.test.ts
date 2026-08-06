@@ -1219,8 +1219,9 @@ describe('backend application', () => {
 
     expect(response.status).toBe(201);
     expect(response.headers['set-cookie']?.[0]).toContain('dabuchi_session=');
-    expect(authRepository.createUser).toHaveBeenCalledWith(
+    expect(authRepository.createUserWithSession).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'new-user', name: '新井 太郎' }),
+      expect.anything(),
     );
   });
 

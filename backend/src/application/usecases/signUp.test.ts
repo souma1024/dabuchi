@@ -31,17 +31,38 @@ function createUseCase(options: { userCreated?: boolean } = {}) {
 }
 
 describe('SignUp', () => {
-  it('ユーザーを作り、そのままログイン状態にする', async () => {
+  it('ユーザーとセッションをまとめて作る', async () => {
     const { authRepository, useCase } = createUseCase();
 
     const session = await useCase.execute(VALID_INPUT);
 
     expect(session.userId).toBe(GENERATED_ID);
-    expect(authRepository.createSession).toHaveBeenCalledWith({
-      tokenHash: hashSessionToken(session.token),
-      userId: GENERATED_ID,
-      expiresAt: new Date('2026-08-13T00:00:00.000Z'),
-    });
+    // 片方だけ成立すると、登録に失敗したのにuser_idだけ使用済みになる。
+    expect(authRepository.createUserWithSession).toHaveBeenCalledWith(
+      expect.objectContaining({ id: GENERATED_ID, userId: 'new-user' }),
+      {
+        tokenHash: hashSessionToken(session.token),
+        userId: GENERATED_ID,
+        expiresAt: new Date('2026-08-13T00:00:00.000Z'),
+      },
+    );
+    expect(authRepository.createSession).not.toHaveBeenCalled();
+  });
+
+  it('保存に失敗したらセッションを返さない', async () => {
+    const authRepository = createAuthRepository();
+    vi.mocked(authRepository.createUserWithSession).mockRejectedValue(
+      new Error('DBに接続できません'),
+    );
+    const useCase = new SignUp(
+      authRepository,
+      () => GENERATED_ID,
+      () => NOW,
+    );
+
+    await expect(useCase.execute(VALID_INPUT)).rejects.toThrow(
+      'DBに接続できません',
+    );
   });
 
   it('パスワードは平文で渡さず、ハッシュにして保存する', async () => {
@@ -49,9 +70,10 @@ describe('SignUp', () => {
 
     await useCase.execute(VALID_INPUT);
 
-    const saved = vi.mocked(authRepository.createUser).mock.calls[0]?.[0];
+    const saved = vi.mocked(authRepository.createUserWithSession).mock
+      .calls[0]?.[0];
     if (!saved) {
-      throw new Error('createUser was not called.');
+      throw new Error('createUserWithSession was not called.');
     }
     expect(saved.passwordHash).not.toContain(VALID_INPUT.password);
     await expect(
@@ -68,8 +90,9 @@ describe('SignUp', () => {
       name: '  新井 太郎  ',
     });
 
-    expect(authRepository.createUser).toHaveBeenCalledWith(
+    expect(authRepository.createUserWithSession).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'new-user', name: '新井 太郎' }),
+      expect.anything(),
     );
   });
 
@@ -95,6 +118,6 @@ describe('SignUp', () => {
     await expect(
       useCase.execute({ ...VALID_INPUT, ...overrides }),
     ).rejects.toThrow(InvalidSignUpError);
-    expect(authRepository.createUser).not.toHaveBeenCalled();
+    expect(authRepository.createUserWithSession).not.toHaveBeenCalled();
   });
 });

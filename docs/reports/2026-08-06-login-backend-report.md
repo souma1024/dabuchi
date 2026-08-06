@@ -14,7 +14,7 @@
 
 ## 変更内容
 
-- migration V6を追加した。`users.password_hash`（NULL許可）と`sessions`テーブルを作る。
+- migration V7を追加した。`users.password_hash`（NULL許可）と`sessions`テーブルを作る。
 - パスワードのハッシュ化・検証をdomainへ追加した。Node標準のscryptを使い、ソルトとパラメータを保存値へ含める。
 - セッションtokenの生成とハッシュ化をdomainへ追加した。有効期間は7日。
 - 新規登録・ログイン・ログアウトのusecaseと、`/api/auth`のrouterを追加した。
@@ -25,8 +25,8 @@
 
 ## 変更したファイル
 
-- `database/migrations/V6__add_credentials_and_sessions.sql`
-- `database/rollback/V6__drop_credentials_and_sessions.sql`
+- `database/migrations/V7__add_credentials_and_sessions.sql`
+- `database/rollback/V7__drop_credentials_and_sessions.sql`
 - `database/seeds/development.sql`
 - `backend/src/domain/password.ts` / `password.test.ts`
 - `backend/src/domain/session.ts`

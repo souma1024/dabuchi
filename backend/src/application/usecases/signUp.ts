@@ -40,26 +40,25 @@ export class SignUp {
     const passwordHash = await hashPassword(input.password);
     const id = this.generateId();
 
-    const created = await this.authRepository.createUser({
-      id,
-      userId,
-      name,
-      profileUrl: DEFAULT_PROFILE_URL,
-      passwordHash,
-    });
+    const token = createSessionToken();
+    const expiresAt = sessionExpiryFrom(this.now());
+
+    // ユーザーとセッションは同時に成立させる。片方だけ残ると、登録に失敗したのに
+    // そのuser_idだけ使用済みになり、本人が二度と登録できなくなる。
+    const created = await this.authRepository.createUserWithSession(
+      {
+        id,
+        userId,
+        name,
+        profileUrl: DEFAULT_PROFILE_URL,
+        passwordHash,
+      },
+      { tokenHash: hashSessionToken(token), userId: id, expiresAt },
+    );
 
     if (!created) {
       throw new UserIdAlreadyTakenError();
     }
-
-    const token = createSessionToken();
-    const expiresAt = sessionExpiryFrom(this.now());
-
-    await this.authRepository.createSession({
-      tokenHash: hashSessionToken(token),
-      userId: id,
-      expiresAt,
-    });
 
     return { token, userId: id, expiresAt };
   }
