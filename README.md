@@ -166,8 +166,9 @@ npm run db:test
 
 ### `POST /api/transfers`
 
-送信者と受取人の内部UUID、および金額（円単位の正の整数）を保存します。
+送金者から受取人へ金額を移動し、双方の残高へ反映して取引履歴に記録します。
 `senderId`と`recipientId`には`users.id`をUUID文字列へ変換した値を指定します。
+二重送金を防ぐため、送金1件ごとに一意な`Idempotency-Key`ヘッダ（64文字以内）が必須です。
 
 ```json
 {
@@ -178,9 +179,12 @@ npm run db:test
 ```
 
 - 成功: `201 Created`
-- 入力不正: `400 Bad Request`
-- 存在しない送信者または受取人: `422 Unprocessable Entity`
+- 入力不正・`Idempotency-Key`欠落: `400 Bad Request`
+- 冪等キーの内容不一致な再利用: `409 Conflict`
+- 存在しない送信者/受取人・残高不足: `422 Unprocessable Entity`
 - 想定外のDBエラー: `500 Internal Server Error`
+
+残高更新・履歴記録は単一トランザクションで原子的に行います。詳細は[送金API](docs/api/transfers.md)を参照してください。
 
 ### `GET /api/me`
 

@@ -44,6 +44,21 @@ export function useCursorPagination<T>(
 
   const loadingRef = useRef(false);
   const cursorRef = useRef<string | null>(null);
+
+  // fetchPageが変わる＝取得対象が変わったということ。前の結果を消してから読み直す。
+  // 残したままだと、取得が終わるまで前の一覧が新しい対象のものとして表示される
+  // （例: 受けた請求のpendingが「請求中」として並ぶ）。
+  // effect内でsetStateすると描画が連鎖するため、Reactが推奨する
+  // 「propsの変更に合わせて描画中に調整する」書き方にしている。
+  const [previousFetchPage, setPreviousFetchPage] = useState(() => fetchPage);
+
+  if (previousFetchPage !== fetchPage) {
+    setPreviousFetchPage(() => fetchPage);
+    setItems([]);
+    setNextCursor(null);
+    setError(null);
+    setIsLoadingInitial(true);
+  }
   // loadMoreはeffectの外から呼ばれるためcleanupを持てない。
   // アンマウント後に状態を更新しないよう、マウント状態をrefで保持する。
   const mountedRef = useRef(true);
@@ -59,6 +74,8 @@ export function useCursorPagination<T>(
   useEffect(() => {
     let active = true;
     loadingRef.current = true;
+    // refは描画中に触れないため、リセットはここで行う。
+    cursorRef.current = null;
 
     void fetchPage(null)
       .then((page) => {

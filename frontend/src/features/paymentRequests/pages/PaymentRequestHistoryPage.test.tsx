@@ -111,6 +111,24 @@ describe('PaymentRequestHistoryPage', () => {
     expect(spy).toHaveBeenCalledWith('sent', null);
   });
 
+  // 前のタブのデータが、新しいタブのものとして一時表示されないようにする。
+  it('タブ切り替え直後は前のタブの一覧を残さない', async () => {
+    renderPage();
+    await screen.findAllByRole('listitem');
+    // 切り替え後の取得を解決させず、前の結果が残っていれば検出できるようにする。
+    vi.spyOn(
+      mockModule,
+      'fetchMockPaymentRequestHistoryPage',
+    ).mockImplementation(() => new Promise(() => undefined));
+
+    await userEvent.click(screen.getByRole('button', { name: '出した請求' }));
+
+    await waitFor(() => {
+      expect(screen.queryAllByRole('listitem')).toHaveLength(0);
+    });
+    expect(screen.getByText('読み込み中…')).toBeInTheDocument();
+  });
+
   it('タブを切り替えると1ページ目から読み直す', async () => {
     const spy = vi.spyOn(mockModule, 'fetchMockPaymentRequestHistoryPage');
     renderPage();
