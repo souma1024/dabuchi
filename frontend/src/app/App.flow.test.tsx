@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fetchRecipients } from '../features/recipientSelection/api/fetchRecipients';
 import { App } from './App';
@@ -29,6 +29,39 @@ describe('送金フローの結合', () => {
       nextCursor: null,
     });
     window.history.pushState({}, '', '/');
+
+    // ホーム・送金画面が現在ユーザーを /api/me から取得するためstubする。
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: Parameters<typeof fetch>[0]) => {
+        const url =
+          typeof input === 'string'
+            ? input
+            : input instanceof URL
+              ? input.href
+              : input.url;
+        if (url.includes('/api/me')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                user: {
+                  id: '11111111-1111-4111-8111-111111111111',
+                  name: 'テスト送金者',
+                  profileUrl: '/assets/profiles/human1.png',
+                  balance: 50000,
+                },
+              }),
+              { status: 200, headers: { 'Content-Type': 'application/json' } },
+            ),
+          );
+        }
+        return Promise.reject(new Error(`unexpected fetch: ${url}`));
+      }),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('ホーム→相手選択→相手タップで、送金画面へ選んだ相手が渡る', async () => {
