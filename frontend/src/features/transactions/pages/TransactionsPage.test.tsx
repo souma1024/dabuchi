@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchTransactions } from '../api/transactionsClient';
 import type { Transaction } from '../types';
 import { TransactionsPage } from './TransactionsPage';
+import { installManualIntersectionObserver } from '../../../test/intersectionObserver';
 
 vi.mock('../api/transactionsClient', () => ({
   fetchTransactions: vi.fn(),
@@ -27,31 +28,12 @@ function makeTransactions(count: number, offset = 0): Transaction[] {
   }));
 }
 
-// IntersectionObserverはjsdomに無いため、observe対象を保持して手動で発火させる。
-let triggerIntersection: (() => void) | null = null;
-
-class ManualIntersectionObserver {
-  constructor(private readonly callback: IntersectionObserverCallback) {}
-  observe() {
-    triggerIntersection = () => {
-      this.callback(
-        [{ isIntersecting: true } as IntersectionObserverEntry],
-        this as unknown as IntersectionObserver,
-      );
-    };
-  }
-  disconnect() {}
-  unobserve() {}
-}
-
-// setup.tsの既定スタブをこのファイル全体で差し替える。
-// テストごとにunstubすると、前テストの残りeffectがflushされる際に
-// IntersectionObserverが未定義となり、後続テストのeffectごと失敗する。
-vi.stubGlobal('IntersectionObserver', ManualIntersectionObserver);
+// 一覧末尾の監視は手で発火させる（jsdomにIntersectionObserverが無いため）。
+const intersection = installManualIntersectionObserver();
 
 beforeEach(() => {
   mockedFetch.mockReset();
-  triggerIntersection = null;
+  intersection.reset();
 });
 
 function renderPage(onBack?: () => void) {
@@ -102,8 +84,7 @@ describe('TransactionsPage', () => {
       expect(screen.getAllByRole('listitem')).toHaveLength(20);
     });
 
-    expect(triggerIntersection).not.toBeNull();
-    triggerIntersection?.();
+    await intersection.trigger();
 
     // 2回目の取得が走ったことを先に確認する。
     // 32件の描画完了だけを待つと、他ワーカーと並行実行された際に既定の1秒を超えることがある。
