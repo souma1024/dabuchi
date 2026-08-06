@@ -204,6 +204,12 @@ backendのcurrent userから見た請求を、作成日時の降順で20件ず�
 
 詳細なrequest / response / status codeは[Payment requests API](docs/api/payment-requests.md)を参照してください。
 
+### `GET /api/payment-requests/:id`
+
+請求を1件だけ、一覧の要素と同じ形で返します。確認画面を開いた時点の状態を取り直す用途です。取得できるのは当事者だけで、それ以外は存在の有無を区別せず404を返します。
+
+詳細なrequest / response / status codeは[Payment requests API](docs/api/payment-requests.md)を参照してください。
+
 ### `POST /api/payment-requests/:id/accept` / `POST /api/payment-requests/:id/reject`
 
 `pending`の請求へ被請求者が応答します。承認では残高更新・送金履歴の記録・請求の状態更新を単一のDB transactionで実行し、拒否では状態だけを更新します。応答できるのは被請求者だけで、すでに応答済みなら409を返します。

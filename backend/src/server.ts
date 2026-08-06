@@ -10,6 +10,7 @@ import { GetCurrentUser } from './application/usecases/getCurrentUser.js';
 import { GetFriendshipDetail } from './application/usecases/getFriendshipDetail.js';
 import { ListBlockedFriends } from './application/usecases/listBlockedFriends.js';
 import { ListFriends } from './application/usecases/listFriends.js';
+import { GetPaymentRequest } from './application/usecases/getPaymentRequest.js';
 import { ListPaymentRequests } from './application/usecases/listPaymentRequests.js';
 import { RespondToPaymentRequest } from './application/usecases/respondToPaymentRequest.js';
 import { ListUserRecipients } from './application/usecases/listUserRecipients.js';
@@ -91,9 +92,16 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
       friendQueryRepository,
     );
     const listUserRecipients = new ListUserRecipients(userRecipientRepository);
+    const paymentRequestListRepository = new MysqlPaymentRequestListRepository(
+      pool,
+    );
     const listPaymentRequests = new ListPaymentRequests(
       currentUserRepository,
-      new MysqlPaymentRequestListRepository(pool),
+      paymentRequestListRepository,
+    );
+    const getPaymentRequest = new GetPaymentRequest(
+      currentUserRepository,
+      paymentRequestListRepository,
     );
     const listUserTransactions = new ListUserTransactions(
       currentUserRepository,
@@ -112,6 +120,7 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
       deleteFriendshipNote,
       getCurrentUser,
       getFriendshipDetail,
+      getPaymentRequest,
       listBlockedFriends,
       listFriends,
       listPaymentRequests,

@@ -19,6 +19,7 @@ import { GetCurrentUser } from '../../application/usecases/getCurrentUser.js';
 import { GetFriendshipDetail } from '../../application/usecases/getFriendshipDetail.js';
 import { ListBlockedFriends } from '../../application/usecases/listBlockedFriends.js';
 import { ListFriends } from '../../application/usecases/listFriends.js';
+import { GetPaymentRequest } from '../../application/usecases/getPaymentRequest.js';
 import { ListPaymentRequests } from '../../application/usecases/listPaymentRequests.js';
 import { RespondToPaymentRequest } from '../../application/usecases/respondToPaymentRequest.js';
 import { ListUserRecipients } from '../../application/usecases/listUserRecipients.js';
@@ -101,6 +102,10 @@ export function createTestApp(options: AppFactoryOptions = {}) {
     currentUserRepository,
     paymentRequestListRepository,
   );
+  const getPaymentRequest = new GetPaymentRequest(
+    currentUserRepository,
+    paymentRequestListRepository,
+  );
   const listUserTransactions = new ListUserTransactions(
     currentUserRepository,
     transactionRepository,
@@ -144,6 +149,7 @@ export function createTestApp(options: AppFactoryOptions = {}) {
         currentUserRepository,
         friendQueryRepository,
       ),
+      getPaymentRequest,
       listBlockedFriends: new ListBlockedFriends(
         currentUserRepository,
         friendQueryRepository,
