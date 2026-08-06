@@ -14,6 +14,11 @@ import { mysqlDateTimeToIso } from './shared/mysqlDateTime.js';
 import { createTestApp } from './test/factories/appFactory.js';
 import { createCurrentUser } from './test/factories/currentUserFactory.js';
 import {
+  createBlockedFriendQueryRecords,
+  createFriendQueryRecords,
+} from './test/factories/friendQueryFactory.js';
+import { createFriendQueryRepository } from './test/factories/friendQueryRepositoryFactory.js';
+import {
   createTransactionRecord,
   createTransactionRecords,
 } from './test/factories/transactionFactory.js';
@@ -117,8 +122,11 @@ describe('backend application', () => {
         .map(({ id, name, profileUrl }) => ({ id, name, profileUrl })),
       pageInfo: {
         nextCursor: encodeRecipientCursor({
-          createdAt: createUserRecipientRecord(20).createdAt,
-          id: createUserRecipientRecord(20).id,
+          sort: 'created-asc',
+          value: {
+            createdAt: createUserRecipientRecord(20).createdAt,
+            id: createUserRecipientRecord(20).id,
+          },
         }),
         hasNextPage: true,
       },
@@ -127,8 +135,11 @@ describe('backend application', () => {
 
   it('次ページのカーソルを検索条件として使う', async () => {
     const cursor = {
-      createdAt: '2026-08-04 12:00:20.000000',
-      id: '00000000-0000-4000-8000-000000000020',
+      sort: 'created-asc' as const,
+      value: {
+        createdAt: '2026-08-04 12:00:20.000000',
+        id: '00000000-0000-4000-8000-000000000020',
+      },
     };
     const { app, repository } = createTestApp();
 
@@ -141,6 +152,23 @@ describe('backend application', () => {
       currentUserId: CURRENT_USER_ID,
       cursor,
       limit: 21,
+      sort: 'created-asc',
+    });
+  });
+
+  it('sort=name-ascを検索条件として使う', async () => {
+    const { app, repository } = createTestApp();
+
+    const response = await request(app)
+      .get(`/api/users/${CURRENT_USER_ID}/recipients`)
+      .query({ sort: 'name-asc' });
+
+    expect(response.status).toBe(200);
+    expect(repository.findRecipients).toHaveBeenCalledWith({
+      currentUserId: CURRENT_USER_ID,
+      cursor: null,
+      limit: 21,
+      sort: 'name-asc',
     });
   });
 
@@ -164,6 +192,42 @@ describe('backend application', () => {
     const response = await request(app)
       .get(`/api/users/${CURRENT_USER_ID}/recipients`)
       .query({ cursor: 'invalid' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: { code: 'INVALID_REQUEST', message: 'cursor is invalid.' },
+    });
+  });
+
+  it('不正なsortを400にする', async () => {
+    const { app } = createTestApp();
+
+    const response = await request(app)
+      .get(`/api/users/${CURRENT_USER_ID}/recipients`)
+      .query({ sort: 'unknown' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: {
+        code: 'INVALID_REQUEST',
+        message: 'sort must be one of created-asc, created-desc or name-asc.',
+      },
+    });
+  });
+
+  it('sortと一致しないカーソルを400にする', async () => {
+    const { app } = createTestApp();
+    const cursor = {
+      sort: 'name-asc' as const,
+      value: {
+        name: '佐藤 花子',
+        id: '00000000-0000-4000-8000-000000000020',
+      },
+    };
+
+    const response = await request(app)
+      .get(`/api/users/${CURRENT_USER_ID}/recipients`)
+      .query({ sort: 'created-asc', cursor: encodeRecipientCursor(cursor) });
 
     expect(response.status).toBe(400);
     expect(response.body).toEqual({
@@ -294,6 +358,80 @@ describe('backend application', () => {
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ error: 'Not Found' });
+  });
+
+  it('友達一覧をログイン中ユーザーの内部UUIDで検索して返す', async () => {
+    const records = createFriendQueryRecords(1);
+    const { app, friendQueryRepository } = createTestApp({
+      friendQueryRepository: createFriendQueryRepository({ friends: records }),
+    });
+
+    const response = await request(app).get('/api/friends');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      friends: [
+        {
+          friendshipId: records[0]?.friendshipId,
+          friend: records[0]?.friend,
+          addedBy: records[0]?.addedBy,
+          addedAt: '2026-08-06T10:00:01.000Z',
+          note: records[0]?.note,
+        },
+      ],
+      pageInfo: { nextCursor: null, hasNextPage: false },
+    });
+    // clientはユーザーを指定できず、server解決の内部UUIDで検索される
+    expect(friendQueryRepository.findFriends).toHaveBeenCalledWith({
+      currentUserId: CURRENT_USER_ID,
+      cursor: null,
+      limit: 21,
+    });
+  });
+
+  it('ブロック中の友達一覧を返す', async () => {
+    const records = createBlockedFriendQueryRecords(1);
+    const { app } = createTestApp({
+      friendQueryRepository: createFriendQueryRepository({
+        blockedFriends: records,
+      }),
+    });
+
+    const response = await request(app).get('/api/friends/blocked');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      friends: [{ friendshipId: records[0]?.friendshipId }],
+      pageInfo: { hasNextPage: false },
+    });
+  });
+
+  it('友達を追加して201を返す', async () => {
+    const { app } = createTestApp();
+
+    const response = await request(app)
+      .post('/api/friends')
+      .send({ friendUserId: 'friend-002' });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toMatchObject({
+      friendship: { friend: { userId: 'friend-002' } },
+    });
+  });
+
+  it('存在しない友達関係の詳細を404にする', async () => {
+    const { app } = createTestApp({
+      friendQueryRepository: createFriendQueryRepository({ detail: null }),
+    });
+
+    const response = await request(app).get(
+      '/api/friends/10000000-0000-4000-8000-000000000001',
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.body).toMatchObject({
+      error: { code: 'FRIENDSHIP_NOT_FOUND' },
+    });
   });
 
   it('送信者ID、受取人IDと金額を保存する', async () => {

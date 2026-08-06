@@ -1,4 +1,5 @@
 import type { FriendProfile } from '../../domain/friendship.js';
+import { mysqlDateTimeToIso } from '../../shared/mysqlDateTime.js';
 import type {
   BlockedFriendQueryRecord,
   FriendQueryRecord,
@@ -16,12 +17,14 @@ export interface BlockedFriendResult extends FriendResult {
   blockedAt: string;
 }
 
+// 日時はAPIの表現であるISO 8601へ揃える。
+// ページングカーソルはrecord側のMySQL DATETIME文字列をそのまま使う。
 export function toFriendResult(record: FriendQueryRecord): FriendResult {
   return {
     friendshipId: record.friendshipId,
     friend: record.friend,
     addedBy: record.addedBy,
-    addedAt: record.addedAt,
+    addedAt: mysqlDateTimeToIso(record.addedAt),
     note: record.note,
   };
 }
@@ -31,6 +34,6 @@ export function toBlockedFriendResult(
 ): BlockedFriendResult {
   return {
     ...toFriendResult(record),
-    blockedAt: record.blockedAt,
+    blockedAt: mysqlDateTimeToIso(record.blockedAt),
   };
 }

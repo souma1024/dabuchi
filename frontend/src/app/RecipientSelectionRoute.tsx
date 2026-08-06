@@ -4,12 +4,6 @@ import { MAX_BILLING_RECIPIENTS } from '../features/billing/api/billingClient';
 import { RecipientSelectionScreen } from '../features/recipientSelection/RecipientSelectionScreen';
 import type { Recipient } from '../features/recipientSelection/types';
 
-// 認証が未実装のため、暫定で環境変数（未設定なら開発シードfriend-001のUUID）を現在ユーザーとして扱う。
-// バックエンドはcurrentUserIdにUUID（内部id）を要求する。
-const CURRENT_USER_ID: string =
-  import.meta.env.VITE_CURRENT_USER_ID ??
-  '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001';
-
 // ?purpose=billingのときだけ請求フロー、それ以外（未指定含む）は送金フローとして扱う。
 type Purpose = 'transfer' | 'billing';
 
@@ -49,7 +43,6 @@ export function RecipientSelectionRoute() {
   if (purpose === 'billing') {
     return (
       <RecipientSelectionScreen
-        currentUserId={CURRENT_USER_ID}
         title={title}
         emptyMessage={emptyMessage}
         onBack={handleBack}
@@ -67,7 +60,6 @@ export function RecipientSelectionRoute() {
   // 送金は1人へ送るため、行タップで即座に金額入力へ進む。
   return (
     <RecipientSelectionScreen
-      currentUserId={CURRENT_USER_ID}
       title={title}
       emptyMessage={emptyMessage}
       onBack={handleBack}
