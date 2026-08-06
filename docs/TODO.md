@@ -20,7 +20,7 @@
 - [未着手] 請求承認時の残高更新・送金履歴作成・状態更新をDB transactionで実装する
 - [未着手] 被請求者向けpending一覧と承認・拒否APIを設計する
 - [未着手] 友達一覧・追加・個別メモ編集・ブロック・解除APIを実装する
-- [未着手] 友達管理application ports/usecaseとfactory-based unit testを実装する
+- [未着手] 友達追加・note・ブロックのapplication更新系usecaseとfactory-based unit testを実装する
 - [未着手] 友達管理MySQL repositoryとprepared query unit testを実装する
 - [未着手] 友達管理HTTP router・共通error形式・API testを実装する
 - [未着手] 友達管理の依存をapp.tsとserver.tsへ配線する
@@ -63,6 +63,7 @@
 - [完了] PR #50へ最新mainを取り込み、請求画面と取引履歴のroute競合を解消する
 - [完了] PR #52へ更新済み#50を取り込み、ホーム画面テストの競合を解消する
 - [完了] PR #56へ更新済み#52を取り込み、送信されないメッセージ欄の削除を再検証する
+- [完了] 友達一覧・詳細・自分のブロック一覧のapplication参照系usecaseとunit testを追加する
 
 ## 保留・要確認
 
@@ -79,4 +80,4 @@
 
 ## 次回最初に着手するタスク
 
-友達管理application ports/usecaseとfactory-based unit testを、domain PRへ積む。
+友達追加・note作成更新削除・ブロック作成解除のapplication更新系usecaseを、参照系PRへ積む。
