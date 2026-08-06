@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 
+import { ScreenHeader } from '../../../components/ScreenHeader';
 import { TransactionListItem } from '../components/TransactionListItem';
 import { useTransactions } from '../hooks/useTransactions';
 
@@ -41,24 +42,7 @@ export function TransactionsPage({ onBack }: TransactionsPageProps) {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white">
-      <header className="grid grid-cols-[40px_1fr_40px] items-center border-b border-slate-200 px-3 py-3.5">
-        {onBack ? (
-          <button
-            type="button"
-            onClick={onBack}
-            aria-label="戻る"
-            className="h-10 w-10 border-none bg-transparent text-xl text-slate-500"
-          >
-            ←
-          </button>
-        ) : (
-          <span />
-        )}
-        <h1 className="m-0 text-center text-base font-semibold text-slate-900">
-          取引履歴
-        </h1>
-        <span />
-      </header>
+      <ScreenHeader title="取引履歴" onBack={onBack} />
 
       {isLoadingInitial && (
         <p className="px-4 py-8 text-center text-slate-500">読み込み中…</p>

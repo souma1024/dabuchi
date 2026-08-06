@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { AddFriendForm } from '../friends/components/AddFriendForm';
 import { RecipientListItem } from './components/RecipientListItem';
 import { useRecipients } from './hooks/useRecipients';
@@ -101,24 +102,7 @@ export function RecipientSelectionScreen(props: RecipientSelectionScreenProps) {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white">
-      <header className="grid grid-cols-[40px_1fr_40px] items-center border-b border-slate-200 px-3 py-3.5">
-        {onBack ? (
-          <button
-            type="button"
-            onClick={onBack}
-            aria-label="戻る"
-            className="h-10 w-10 border-none bg-transparent text-xl text-slate-500"
-          >
-            ←
-          </button>
-        ) : (
-          <span />
-        )}
-        <h1 className="m-0 text-center text-base font-semibold text-slate-900">
-          {title}
-        </h1>
-        <span />
-      </header>
+      <ScreenHeader title={title} onBack={onBack} />
 
       {/* 候補が0件でも詰まないよう、一覧の前に友達追加を置く。 */}
       <AddFriendForm onAdded={reload} />
