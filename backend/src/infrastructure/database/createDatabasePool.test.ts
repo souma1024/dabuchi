@@ -3,8 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDatabasePool } from './createDatabasePool.js';
 import type { DatabaseConfig } from './databaseConfig.js';
 
+type QueryCallback = (error: unknown) => void;
+
 interface FakeConnection {
-  query: (sql: string) => Promise<unknown>;
+  query: (sql: string, callback: QueryCallback) => void;
   destroy: () => void;
 }
 
@@ -56,28 +58,31 @@ describe('createDatabasePool', () => {
 
   it('新規コネクションのセッションtime_zoneをUTCへ固定する', () => {
     createDatabasePool(CONFIG);
-    const query = vi
-      .fn<(sql: string) => Promise<unknown>>()
-      .mockResolvedValue(undefined);
+    const query = vi.fn<(sql: string, callback: QueryCallback) => void>();
     const destroy = vi.fn();
 
     getConnectionListener()({ query, destroy });
 
-    expect(query).toHaveBeenCalledWith("SET time_zone = '+00:00'");
+    expect(query).toHaveBeenCalledWith(
+      "SET time_zone = '+00:00'",
+      expect.any(Function),
+    );
+
+    // 成功時（error なし）はコネクションを破棄しない。
+    const callback = query.mock.calls[0]?.[1];
+    callback?.(null);
     expect(destroy).not.toHaveBeenCalled();
   });
 
-  it('time_zone固定に失敗したコネクションを破棄する', async () => {
+  it('time_zone固定に失敗したコネクションを破棄する', () => {
     createDatabasePool(CONFIG);
-    const query = vi
-      .fn<(sql: string) => Promise<unknown>>()
-      .mockRejectedValue(new Error('SET time_zone failed'));
+    const query = vi.fn<(sql: string, callback: QueryCallback) => void>();
     const destroy = vi.fn();
 
     getConnectionListener()({ query, destroy });
 
-    await vi.waitFor(() => {
-      expect(destroy).toHaveBeenCalledTimes(1);
-    });
+    const callback = query.mock.calls[0]?.[1];
+    callback?.(new Error('SET time_zone failed'));
+    expect(destroy).toHaveBeenCalledTimes(1);
   });
 });

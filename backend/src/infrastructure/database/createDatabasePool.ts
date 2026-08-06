@@ -2,6 +2,14 @@ import { createPool, type Pool } from 'mysql2/promise';
 
 import type { DatabaseConfig } from './databaseConfig.js';
 
+// mysql2 の 'connection' イベントが渡す生コネクションの最小形。
+// promise.d.ts は Promise 版 PoolConnection を型付けするが、inheritEvents は
+// コアプールのコールバック方式コネクションをそのまま透過するため実体は異なる。
+interface RawConnection {
+  query: (sql: string, callback: (error: unknown) => void) => void;
+  destroy: () => void;
+}
+
 export function createDatabasePool(config: DatabaseConfig): Pool {
   const pool = createPool({
     ...config,
@@ -16,8 +24,11 @@ export function createDatabasePool(config: DatabaseConfig): Pool {
   // この SET は払い出し後の最初のクエリより必ず先に実行される。
   // 固定に失敗したコネクションは破棄し、プールに再作成させる。
   pool.on('connection', (connection) => {
-    void connection.query("SET time_zone = '+00:00'").catch(() => {
-      connection.destroy();
+    const raw = connection as unknown as RawConnection;
+    raw.query("SET time_zone = '+00:00'", (error) => {
+      if (error) {
+        raw.destroy();
+      }
     });
   });
 
