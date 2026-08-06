@@ -2,6 +2,8 @@
 export interface CurrentUser {
   /** 内部UUID（users.id、公開user_idではない）。 */
   id: string;
+  /** 公開user_id。友達追加のときに相手へ伝える値。 */
+  userId: string;
   /** 表示名。 */
   name: string;
   /** アイコン画像の相対URL（例: /assets/profiles/human1.png）。 */
