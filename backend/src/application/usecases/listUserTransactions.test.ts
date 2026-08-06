@@ -1,23 +1,34 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { CurrentUserNotFoundError } from '../errors/currentUserNotFoundError.js';
+import { createCurrentUser } from '../../test/factories/currentUserFactory.js';
+import { createCurrentUserRepository } from '../../test/factories/currentUserRepositoryFactory.js';
 import { createTransactionRecords } from '../../test/factories/transactionFactory.js';
 import { createTransactionRepository } from '../../test/factories/transactionRepositoryFactory.js';
 import { ListUserTransactions } from './listUserTransactions.js';
 
-const CURRENT_USER_ID = '11111111-1111-4111-8111-111111111111';
+const CURRENT_USER_PUBLIC_ID = 'friend-001';
+const CURRENT_USER_INTERNAL_ID = '11111111-1111-4111-8111-111111111111';
 
 describe('ListUserTransactions', () => {
-  it('20件を返し、21件目があれば次のカーソルを返す', async () => {
+  it('公開user_idを内部UUIDへ解決し、20件と次カーソルを返す', async () => {
     const records = createTransactionRecords(21);
-    const repository = createTransactionRepository({ transactions: records });
-    const useCase = new ListUserTransactions(repository);
-
-    const result = await useCase.execute({
-      currentUserId: CURRENT_USER_ID,
-      cursor: null,
+    const currentUserRepository = createCurrentUserRepository({
+      user: createCurrentUser({ id: CURRENT_USER_INTERNAL_ID }),
     });
+    const transactionRepository = createTransactionRepository({
+      transactions: records,
+    });
+    const useCase = new ListUserTransactions(
+      currentUserRepository,
+      transactionRepository,
+    );
 
+    const result = await useCase.execute(CURRENT_USER_PUBLIC_ID, null);
+
+    expect(currentUserRepository.findByUserId).toHaveBeenCalledWith(
+      CURRENT_USER_PUBLIC_ID,
+    );
     expect(result.transactions).toHaveLength(20);
     expect(result.transactions[0]).toEqual({
       id: records[0]?.id,
@@ -34,57 +45,64 @@ describe('ListUserTransactions', () => {
       createdAt: records[19]?.createdAt,
       id: records[19]?.id,
     });
-    expect(repository.findTransactions).toHaveBeenCalledWith({
-      currentUserId: CURRENT_USER_ID,
+    // client値ではなく、解決した内部UUIDで検索されること
+    expect(transactionRepository.findTransactions).toHaveBeenCalledWith({
+      currentUserId: CURRENT_USER_INTERNAL_ID,
       cursor: null,
       limit: 21,
     });
   });
 
   it('20件以下なら次のカーソルを返さない', async () => {
-    const repository = createTransactionRepository({
-      transactions: createTransactionRecords(20),
-    });
-    const useCase = new ListUserTransactions(repository);
+    const useCase = new ListUserTransactions(
+      createCurrentUserRepository({
+        user: createCurrentUser({ id: CURRENT_USER_INTERNAL_ID }),
+      }),
+      createTransactionRepository({
+        transactions: createTransactionRecords(20),
+      }),
+    );
 
-    const result = await useCase.execute({
-      currentUserId: CURRENT_USER_ID,
-      cursor: null,
-    });
+    const result = await useCase.execute(CURRENT_USER_PUBLIC_ID, null);
 
     expect(result.transactions).toHaveLength(20);
     expect(result.nextCursor).toBeNull();
   });
 
-  it('現在のユーザーが存在しなければ取引履歴を検索しない', async () => {
-    const repository = createTransactionRepository({
-      currentUserExists: false,
-    });
-    const useCase = new ListUserTransactions(repository);
+  it('現在ユーザーが存在しなければ取引履歴を検索しない', async () => {
+    const currentUserRepository = createCurrentUserRepository({ user: null });
+    const transactionRepository = createTransactionRepository();
+    const useCase = new ListUserTransactions(
+      currentUserRepository,
+      transactionRepository,
+    );
 
     await expect(
-      useCase.execute({ currentUserId: CURRENT_USER_ID, cursor: null }),
+      useCase.execute(CURRENT_USER_PUBLIC_ID, null),
     ).rejects.toBeInstanceOf(CurrentUserNotFoundError);
-    expect(repository.findTransactions).not.toHaveBeenCalled();
+    expect(transactionRepository.findTransactions).not.toHaveBeenCalled();
   });
 
-  it('受け取ったカーソルをリポジトリへ渡す', async () => {
-    const repository = createTransactionRepository();
-    const useCase = new ListUserTransactions(repository);
+  it('受け取ったカーソルを内部UUIDとともにリポジトリへ渡す', async () => {
+    const currentUserRepository = createCurrentUserRepository({
+      user: createCurrentUser({ id: CURRENT_USER_INTERNAL_ID }),
+    });
+    const transactionRepository = createTransactionRepository();
+    const useCase = new ListUserTransactions(
+      currentUserRepository,
+      transactionRepository,
+    );
     const cursor = {
       createdAt: '2026-08-04 12:00:20.000000',
       id: '20',
     };
 
-    await useCase.execute({ currentUserId: CURRENT_USER_ID, cursor });
+    await useCase.execute(CURRENT_USER_PUBLIC_ID, cursor);
 
-    expect(repository.findTransactions).toHaveBeenCalledWith({
-      currentUserId: CURRENT_USER_ID,
+    expect(transactionRepository.findTransactions).toHaveBeenCalledWith({
+      currentUserId: CURRENT_USER_INTERNAL_ID,
       cursor,
       limit: 21,
     });
-    expect(vi.mocked(repository.existsById)).toHaveBeenCalledWith(
-      CURRENT_USER_ID,
-    );
   });
 });
