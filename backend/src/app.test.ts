@@ -947,7 +947,7 @@ describe('backend application', () => {
     expect(paymentRequestCommandRepository.respond).toHaveBeenCalledWith({
       paymentRequestId: PAYMENT_REQUEST_ID,
       currentUserInternalId: CURRENT_USER_ID,
-      response: 'accepted',
+      action: 'accept',
     });
   });
 
@@ -983,7 +983,7 @@ describe('backend application', () => {
     ],
     [
       '被請求者でない',
-      new PaymentRequestForbiddenError(),
+      new PaymentRequestForbiddenError('recipient'),
       403,
       'PAYMENT_REQUEST_FORBIDDEN',
     ],
@@ -1040,6 +1040,58 @@ describe('backend application', () => {
     expect(asErrorBody(response.body).error.code).toBe(
       'CURRENT_USER_NOT_FOUND',
     );
+  });
+
+  it('請求者が請求を取り消せる', async () => {
+    const paymentRequestCommandRepository =
+      createPaymentRequestCommandRepository({
+        responded: createRespondedPaymentRequest({
+          id: PAYMENT_REQUEST_ID,
+          amount: 3000,
+          status: 'rejected',
+          respondedAt: '2026-08-06 02:00:00.000000',
+          recipientBalance: null,
+        }),
+      });
+    const { app } = createTestApp({
+      currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
+      paymentRequestCommandRepository,
+    });
+
+    const response = await request(app).post(
+      `/api/payment-requests/${PAYMENT_REQUEST_ID}/cancel`,
+    );
+    const body = asPaymentRequestResponseBody(response.body);
+
+    expect(response.status).toBe(200);
+    // 取り消しでも残高は動かないため、balanceは返さない。
+    expect(body.balance).toBeUndefined();
+    expect(body.request.status).toBe('rejected');
+    expect(paymentRequestCommandRepository.respond).toHaveBeenCalledWith({
+      paymentRequestId: PAYMENT_REQUEST_ID,
+      currentUserInternalId: CURRENT_USER_ID,
+      action: 'cancel',
+    });
+  });
+
+  it('被請求者でない取り消しを403にする', async () => {
+    const { app } = createTestApp({
+      currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
+      paymentRequestCommandRepository: createPaymentRequestCommandRepository({
+        error: new PaymentRequestForbiddenError('requester'),
+      }),
+    });
+
+    const response = await request(app).post(
+      `/api/payment-requests/${PAYMENT_REQUEST_ID}/cancel`,
+    );
+
+    expect(response.status).toBe(403);
+    expect(asErrorBody(response.body).error).toEqual({
+      code: 'PAYMENT_REQUEST_FORBIDDEN',
+      message:
+        'Only the requester can perform this action on the payment request.',
+    });
   });
 
   it('請求1件を一覧と同じ形で返す', async () => {

@@ -11,6 +11,7 @@ import type {
   RespondToPaymentRequestInput,
   RespondedPaymentRequest,
 } from '../../application/ports/paymentRequestCommandRepository.js';
+import { PAYMENT_REQUEST_ACTIONS } from '../../domain/paymentRequest.js';
 import { applyMoneyTransfer } from '../applyMoneyTransfer.js';
 import { isTransientTransactionError } from '../database/mysqlError.js';
 
@@ -26,6 +27,8 @@ interface PaymentRequestRow extends RowDataPacket {
   status: string;
   /** pendingのあいだはnull。 */
   respondedAt: string | null;
+  /** 請求を終わらせた人の内部UUID。列の追加前に確定した行ではnull。 */
+  respondedBy: string | null;
 }
 
 interface RespondedRow extends RowDataPacket {
@@ -83,7 +86,8 @@ export class MysqlPaymentRequestCommandRepository implements PaymentRequestComma
               BIN_TO_UUID(recipient_id) AS recipientId,
               amount,
               status,
-              DATE_FORMAT(responded_at, '%Y-%m-%d %H:%i:%s.%f') AS respondedAt
+              DATE_FORMAT(responded_at, '%Y-%m-%d %H:%i:%s.%f') AS respondedAt,
+              BIN_TO_UUID(responded_by) AS respondedBy
          FROM payment_requests
         WHERE id = UUID_TO_BIN(?)
         FOR UPDATE`,
@@ -96,21 +100,32 @@ export class MysqlPaymentRequestCommandRepository implements PaymentRequestComma
       throw new PaymentRequestNotFoundError();
     }
 
-    if (
-      paymentRequest.recipientId.toLowerCase() !==
-      input.currentUserInternalId.toLowerCase()
-    ) {
-      throw new PaymentRequestForbiddenError();
+    const { actor, nextStatus, movesMoney } =
+      PAYMENT_REQUEST_ACTIONS[input.action];
+    // 承認・拒否は被請求者、取り消しは請求者だけができる。
+    const actorId =
+      actor === 'recipient'
+        ? paymentRequest.recipientId
+        : paymentRequest.requesterId;
+
+    if (!isSameUser(actorId, input.currentUserInternalId)) {
+      throw new PaymentRequestForbiddenError(actor);
     }
 
     const amount = Number(paymentRequest.amount);
 
     if (paymentRequest.status !== 'pending') {
-      // 同じ向きの応答が確定済みなら、冪等リプレイとして現在の結果を返す。
+      // 自分が同じ操作で終わらせた請求なら、冪等リプレイとして現在の結果を返す。
       // COMMITはMySQL側で完了したのに応答が届かず、clientが再送する場合がある。
       // 409のままだと「失敗表示なのにお金は動いた」状態から成功へ収束できない。
-      // 逆向き（accepted済みへreject等）は取り消しにあたるため409のままにする。
-      if (paymentRequest.status !== input.response) {
+      //
+      // 遷移先が一致するだけでは足りない。rejectedは拒否と取り消しの両方を表すため、
+      // 請求者が取り消した請求へ被請求者がrejectすると、statusだけ見ると一致してしまう。
+      // 「拒否しました」と誤って表示させないよう、終わらせた本人かどうかまで確認する。
+      if (
+        paymentRequest.status !== nextStatus ||
+        !isSameUser(resolvedBy(paymentRequest), input.currentUserInternalId)
+      ) {
         throw new PaymentRequestAlreadyRespondedError();
       }
 
@@ -120,7 +135,7 @@ export class MysqlPaymentRequestCommandRepository implements PaymentRequestComma
     // 承認のときだけ残高が動く。送金APIと同じ手続きを再利用し、
     // 残高検証・双方の更新・transfers への記録を同じtransactionで行う。
     // 被請求者が支払い、請求者が受け取る。
-    if (input.response === 'accepted') {
+    if (movesMoney) {
       await applyMoneyTransfer(connection, {
         payerId: paymentRequest.recipientId,
         payeeId: paymentRequest.requesterId,
@@ -130,9 +145,11 @@ export class MysqlPaymentRequestCommandRepository implements PaymentRequestComma
 
     const [updateResult] = await connection.execute<ResultSetHeader>(
       `UPDATE payment_requests
-          SET status = ?, responded_at = CURRENT_TIMESTAMP(6)
+          SET status = ?,
+              responded_at = CURRENT_TIMESTAMP(6),
+              responded_by = UUID_TO_BIN(?)
         WHERE id = UUID_TO_BIN(?) AND status = 'pending'`,
-      [input.response, input.paymentRequestId],
+      [nextStatus, actorId, input.paymentRequestId],
     );
 
     // FOR UPDATE で保護しているため通常は起こらない。想定が崩れた場合に
@@ -154,24 +171,23 @@ export class MysqlPaymentRequestCommandRepository implements PaymentRequestComma
       throw new PaymentRequestNotFoundError();
     }
 
-    const recipientBalance =
-      input.response === 'accepted'
-        ? await readBalance(connection, paymentRequest.recipientId)
-        : null;
+    const recipientBalance = movesMoney
+      ? await readBalance(connection, paymentRequest.recipientId)
+      : null;
 
     await connection.commit();
 
     return {
       id: paymentRequest.id,
       amount,
-      status: input.response,
+      status: nextStatus,
       respondedAt,
       recipientBalance,
     };
   }
 
   /**
-   * 既に同じ向きで確定している請求の結果を、何も変えずに返す。
+   * 自分が同じ操作で確定させた請求の結果を、何も変えずに返す。
    *
    * 残高は動かさない。返す残高は現時点の値で、承認直後の値とは限らない
    * （その後に別の送金があれば変わる）。clientが必要とするのは
@@ -183,6 +199,8 @@ export class MysqlPaymentRequestCommandRepository implements PaymentRequestComma
     amount: number,
     input: RespondToPaymentRequestInput,
   ): Promise<RespondedPaymentRequest> {
+    const { nextStatus, movesMoney } = PAYMENT_REQUEST_ACTIONS[input.action];
+
     // CHECK制約 chk_payment_requests_response_time により、pending以外は
     // responded_at が必ず入っている。取れないならDBの不変条件が壊れている。
     if (paymentRequest.respondedAt === null) {
@@ -191,21 +209,36 @@ export class MysqlPaymentRequestCommandRepository implements PaymentRequestComma
       );
     }
 
-    const recipientBalance =
-      input.response === 'accepted'
-        ? await readBalance(connection, paymentRequest.recipientId)
-        : null;
+    const recipientBalance = movesMoney
+      ? await readBalance(connection, paymentRequest.recipientId)
+      : null;
 
     await connection.commit();
 
     return {
       id: paymentRequest.id,
       amount,
-      status: input.response,
+      status: nextStatus,
       respondedAt: paymentRequest.respondedAt,
       recipientBalance,
     };
   }
+}
+
+/** 内部UUIDは大小の表記ゆれがありうるため、比較時に揃える。 */
+function isSameUser(left: string, right: string): boolean {
+  return left.toLowerCase() === right.toLowerCase();
+}
+
+/**
+ * 請求を終わらせた人。
+ *
+ * responded_by が NULL なのは、列を追加してから取り消しAPIが入るまでの間に
+ * 確定した行だけ。その期間に請求を終わらせられたのは被請求者だけなので、
+ * 被請求者とみなす（V6のバックフィルと同じ推論）。
+ */
+function resolvedBy(paymentRequest: PaymentRequestRow): string {
+  return paymentRequest.respondedBy ?? paymentRequest.recipientId;
 }
 
 async function readBalance(
