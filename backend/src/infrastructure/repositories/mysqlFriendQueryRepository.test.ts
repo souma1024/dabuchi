@@ -77,3 +77,105 @@ describe('MysqlFriendQueryRepository friend list', () => {
     );
   });
 });
+
+describe('MysqlFriendQueryRepository friendship detail', () => {
+  it('参加者に友達詳細と双方向のブロック状態を返す', async () => {
+    const row = {
+      ...ROW,
+      blockedByCurrentUser: 1,
+      blocksCurrentUser: 1,
+    };
+    const { pool, execute } = createMysqlPool([[row]]);
+    const repository = new MysqlFriendQueryRepository(pool);
+
+    await expect(
+      repository.findFriendshipDetail({
+        currentUserId: CURRENT_USER_ID,
+        friendshipId: FRIENDSHIP_ID,
+      }),
+    ).resolves.toMatchObject({
+      friendshipId: FRIENDSHIP_ID,
+      friend: { id: ROW.friendId, userId: ROW.friendUserId },
+      note: ROW.note,
+      blockedByCurrentUser: true,
+      blocksCurrentUser: true,
+    });
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining('AS blockedByCurrentUser'),
+      [CURRENT_USER_ID, FRIENDSHIP_ID],
+    );
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining('AND current_user.id IN'),
+      [CURRENT_USER_ID, FRIENDSHIP_ID],
+    );
+  });
+
+  it('存在しない、または参加していない友達関係はnullを返す', async () => {
+    const { pool } = createMysqlPool([[]]);
+    const repository = new MysqlFriendQueryRepository(pool);
+
+    await expect(
+      repository.findFriendshipDetail({
+        currentUserId: CURRENT_USER_ID,
+        friendshipId: FRIENDSHIP_ID,
+      }),
+    ).resolves.toBeNull();
+  });
+});
+
+describe('MysqlFriendQueryRepository blocked friend list', () => {
+  it('現在ユーザーがブロックした友達だけをメモ付きで取得する', async () => {
+    const blockedAt = '2026-08-06 13:00:00.000000';
+    const { pool, execute } = createMysqlPool([[{ ...ROW, blockedAt }]]);
+    const repository = new MysqlFriendQueryRepository(pool);
+
+    await expect(
+      repository.findBlockedFriends({
+        currentUserId: CURRENT_USER_ID,
+        cursor: null,
+        limit: 21,
+      }),
+    ).resolves.toMatchObject([
+      {
+        friendshipId: FRIENDSHIP_ID,
+        friend: { id: ROW.friendId },
+        note: ROW.note,
+        blockedAt,
+      },
+    ]);
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE ub.blocker_id = current_user.id'),
+      [CURRENT_USER_ID, '21'],
+    );
+  });
+
+  it('次ページではブロック日時とfriendship UUIDをカーソル条件にする', async () => {
+    const { pool, execute } = createMysqlPool([[]]);
+    const repository = new MysqlFriendQueryRepository(pool);
+    const cursor = {
+      blockedAt: '2026-08-06 13:00:00.000000',
+      friendshipId: FRIENDSHIP_ID,
+    };
+
+    await repository.findBlockedFriends({
+      currentUserId: CURRENT_USER_ID,
+      cursor,
+      limit: 21,
+    });
+
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining('ub.created_at > ?'),
+      [
+        CURRENT_USER_ID,
+        cursor.blockedAt,
+        cursor.blockedAt,
+        cursor.friendshipId,
+        '21',
+      ],
+    );
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining('ORDER BY ub.created_at ASC, f.id ASC'),
+      expect.any(Array),
+    );
+  });
+});
