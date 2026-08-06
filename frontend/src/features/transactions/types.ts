@@ -11,6 +11,12 @@ export interface Counterparty {
 /** お金の向き。sentは自分が送った、receivedは自分が受け取った。 */
 export type TransactionDirection = 'sent' | 'received';
 
+/** 取引履歴画面で使う並び替え条件。 */
+export type TransactionSort = 'created-desc' | 'created-asc';
+
+/** backendの既定値に合わせて新しい順を既定にする。 */
+export const DEFAULT_TRANSACTION_SORT: TransactionSort = 'created-desc';
+
 /**
  * 取引履歴の1件。
  * バックエンド GET /api/users/:userId/transactions のレスポンス要素に対応する

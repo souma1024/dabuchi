@@ -56,6 +56,9 @@ describe('TransactionsPage', () => {
     // mockTransactionsの先頭はシード同様「佐藤 花子」から始まる。
     expect(await screen.findByText('佐藤 花子')).toBeInTheDocument();
     expect(screen.getAllByRole('listitem')).toHaveLength(3);
+    expect(screen.getByRole('combobox', { name: '並び替え' })).toHaveValue(
+      'created-desc',
+    );
   });
 
   it('取引が無いときは次の行動を示す空状態を表示する', async () => {
@@ -94,7 +97,7 @@ describe('TransactionsPage', () => {
       expect(screen.getAllByRole('listitem')).toHaveLength(32);
     });
     expect(mockedFetch).toHaveBeenCalledTimes(2);
-    expect(mockedFetch).toHaveBeenLastCalledWith('20');
+    expect(mockedFetch).toHaveBeenLastCalledWith('20', 'created-desc');
   });
 
   it('取得に失敗したらエラーを表示する', async () => {
@@ -119,5 +122,29 @@ describe('TransactionsPage', () => {
     fireEvent.click(await screen.findByRole('button', { name: '戻る' }));
 
     expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('並び替えを古い順に変えると先頭ページを取り直す', async () => {
+    mockedFetch
+      .mockResolvedValueOnce({
+        transactions: mockTransactions.slice(0, 3),
+        nextCursor: null,
+      })
+      .mockResolvedValueOnce({
+        transactions: [...mockTransactions].reverse().slice(0, 3),
+        nextCursor: null,
+      });
+
+    render(<TransactionsPage />);
+
+    expect(await screen.findByText('佐藤 花子')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('combobox', { name: '並び替え' }), {
+      target: { value: 'created-asc' },
+    });
+
+    await waitFor(() => {
+      expect(mockedFetch).toHaveBeenNthCalledWith(2, null, 'created-asc');
+    });
   });
 });

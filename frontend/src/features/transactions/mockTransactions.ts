@@ -1,4 +1,10 @@
-import type { Counterparty, Transaction, TransactionPage } from './types';
+import {
+  DEFAULT_TRANSACTION_SORT,
+  type Counterparty,
+  type Transaction,
+  type TransactionPage,
+  type TransactionSort,
+} from './types';
 
 // 添字アクセスがundefinedにならないよう、先頭要素の存在を型で保証する。
 type NonEmpty<T> = readonly [T, ...T[]];
@@ -80,13 +86,16 @@ const PAGE_SIZE = 20;
  */
 export function fetchMockTransactionPage(
   cursor: string | null = null,
+  sort: TransactionSort = DEFAULT_TRANSACTION_SORT,
 ): Promise<TransactionPage> {
+  const sortedTransactions =
+    sort === 'created-asc' ? [...mockTransactions].reverse() : mockTransactions;
   const start = cursor === null ? 0 : Number(cursor);
   const end = start + PAGE_SIZE;
-  const transactions = mockTransactions.slice(start, end);
+  const transactions = sortedTransactions.slice(start, end);
 
   return Promise.resolve({
     transactions,
-    nextCursor: end < mockTransactions.length ? String(end) : null,
+    nextCursor: end < sortedTransactions.length ? String(end) : null,
   });
 }
