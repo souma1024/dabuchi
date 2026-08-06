@@ -2,9 +2,11 @@ import { Router } from 'express';
 
 import type { ListUserTransactions } from '../../application/usecases/listUserTransactions.js';
 import { requireCurrentUser } from './authentication.js';
+import { DEFAULT_TRANSACTION_SORT } from '../../application/ports/transactionRepository.js';
 import {
   decodeTransactionCursor,
   encodeTransactionCursor,
+  isTransactionSort,
 } from './transactionCursorCodec.js';
 
 export class InvalidTransactionRequestError extends Error {
@@ -22,14 +24,24 @@ export function createUserTransactionRouter(
   router.get('/', (request, response, next) => {
     void (async () => {
       const cursorValue = request.query.cursor;
+      const sortValue = request.query.sort;
 
       if (cursorValue !== undefined && typeof cursorValue !== 'string') {
         throw new InvalidTransactionRequestError('cursor must be a string.');
       }
+      if (sortValue !== undefined && typeof sortValue !== 'string') {
+        throw new InvalidTransactionRequestError('sort must be a string.');
+      }
+      if (sortValue !== undefined && !isTransactionSort(sortValue)) {
+        throw new InvalidTransactionRequestError(
+          'sort must be one of created-asc or created-desc.',
+        );
+      }
 
       const cursor = cursorValue ? decodeTransactionCursor(cursorValue) : null;
+      const sort = sortValue ?? DEFAULT_TRANSACTION_SORT;
 
-      if (cursorValue && !cursor) {
+      if (cursorValue && (!cursor || cursor.sort !== sort)) {
         throw new InvalidTransactionRequestError('cursor is invalid.');
       }
 
@@ -37,6 +49,7 @@ export function createUserTransactionRouter(
       const result = await listUserTransactions.execute(
         requireCurrentUser(response).userId,
         cursor,
+        sort,
       );
 
       response.status(200).json({

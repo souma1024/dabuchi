@@ -3,9 +3,11 @@ import type { CurrentUserRepository } from '../ports/currentUserRepository.js';
 import type { Transaction } from '../../domain/transaction.js';
 import { mysqlDateTimeToIso } from '../../shared/mysqlDateTime.js';
 import type {
+  TransactionSort,
   TransactionCursor,
   TransactionRepository,
 } from '../ports/transactionRepository.js';
+import { DEFAULT_TRANSACTION_SORT as DEFAULT_SORT } from '../ports/transactionRepository.js';
 
 const TRANSACTION_PAGE_SIZE = 20;
 
@@ -23,6 +25,7 @@ export class ListUserTransactions {
   async execute(
     currentUserId: string,
     cursor: TransactionCursor | null,
+    sort: TransactionSort = DEFAULT_SORT,
   ): Promise<ListUserTransactionsResult> {
     // currentUserId は server session の公開 user_id。内部UUIDへ解決し、
     // 同時に存在確認も兼ねる（client からユーザーを指定させない）。
@@ -37,6 +40,7 @@ export class ListUserTransactions {
       currentUserId: currentUser.id,
       cursor,
       limit: TRANSACTION_PAGE_SIZE + 1,
+      sort,
     });
     const hasNextPage = records.length > TRANSACTION_PAGE_SIZE;
     const visibleRecords = records.slice(0, TRANSACTION_PAGE_SIZE);
@@ -56,7 +60,13 @@ export class ListUserTransactions {
       })),
       nextCursor:
         hasNextPage && lastVisibleRecord
-          ? { createdAt: lastVisibleRecord.createdAt, id: lastVisibleRecord.id }
+          ? {
+              sort,
+              value: {
+                createdAt: lastVisibleRecord.createdAt,
+                id: lastVisibleRecord.id,
+              },
+            }
           : null,
     };
   }
