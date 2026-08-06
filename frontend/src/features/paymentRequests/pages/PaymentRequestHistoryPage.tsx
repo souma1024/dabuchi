@@ -26,7 +26,7 @@ interface PaymentRequestHistoryPageProps {
  * 1行に2つ必要で読みにくいため、方向はタブで固定し、行のバッジは状態だけにする。
  * 取引履歴にタブが無いのは軸が1つだからで、ここで増やすのは理由のある差。
  *
- * 承認画面（Issue #61）が未実装のため、現時点では行をタップできない。
+ * 決着していない請求の行は、確認画面へのリンクになる（Issue #61）。
  */
 export function PaymentRequestHistoryPage({
   onBack,

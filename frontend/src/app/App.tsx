@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { BillingAmountPage } from '../features/billing/pages/BillingAmountPage';
 import { TransferAmountPage } from '../features/transfer/pages/TransferAmountPage';
 import { HomePage } from './HomePage';
+import { PaymentRequestConfirmationRoute } from './PaymentRequestConfirmationRoute';
 import { PaymentRequestHistoryRoute } from './PaymentRequestHistoryRoute';
 import { RecipientSelectionRoute } from './RecipientSelectionRoute';
 import { TransactionsRoute } from './TransactionsRoute';
@@ -19,6 +20,10 @@ export function App() {
         <Route
           path="/payment-requests"
           element={<PaymentRequestHistoryRoute />}
+        />
+        <Route
+          path="/payment-requests/:id"
+          element={<PaymentRequestConfirmationRoute />}
         />
       </Routes>
     </BrowserRouter>

@@ -237,3 +237,46 @@ export function fetchMockPaymentRequestHistoryPage(
 ): Promise<PaymentRequestPage> {
   return Promise.resolve(slicePage(mockHistories[direction], cursor));
 }
+
+/**
+ * モックの請求を1件返す。承認画面が開いた時点で最新を取り直す用途（Issue #61）。
+ * 実APIは GET /api/payment-requests/:id 相当（未設計）。
+ * 一覧から渡された情報をそのまま信じず、開いた時点の状態を確認するために使う。
+ */
+export function fetchMockPaymentRequest(
+  direction: PaymentRequestDirection,
+  id: string,
+): Promise<PaymentRequest | null> {
+  const source =
+    direction === 'received'
+      ? [...mockReceivedPaymentRequests, ...mockHistories.received]
+      : mockHistories.sent;
+
+  return Promise.resolve(source.find((request) => request.id === id) ?? null);
+}
+
+/**
+ * モックの承認・拒否・取り消し。実APIは #71（未実装）。
+ * 対象が pending でなければ失敗させ、画面側が「すでに処理済み」を扱えるようにする。
+ */
+export function respondToMockPaymentRequest(
+  direction: PaymentRequestDirection,
+  id: string,
+  next: Exclude<PaymentRequestStatus, 'pending'>,
+): Promise<PaymentRequest> {
+  return fetchMockPaymentRequest(direction, id).then((request) => {
+    if (!request) {
+      throw new Error('この請求は見つかりませんでした');
+    }
+
+    if (request.status !== 'pending') {
+      throw new Error('この請求はすでに処理されています');
+    }
+
+    return {
+      ...request,
+      status: next,
+      respondedAt: new Date(Date.UTC(2026, 7, 6, 3, 0)).toISOString(),
+    } satisfies PaymentRequest;
+  });
+}
