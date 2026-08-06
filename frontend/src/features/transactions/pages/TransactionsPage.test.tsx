@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fetchTransactions } from '../api/transactionsClient';
 import type { Transaction } from '../types';
@@ -30,30 +30,28 @@ function makeTransactions(count: number, offset = 0): Transaction[] {
 // IntersectionObserverはjsdomに無いため、observe対象を保持して手動で発火させる。
 let triggerIntersection: (() => void) | null = null;
 
+class ManualIntersectionObserver {
+  constructor(private readonly callback: IntersectionObserverCallback) {}
+  observe() {
+    triggerIntersection = () => {
+      this.callback(
+        [{ isIntersecting: true } as IntersectionObserverEntry],
+        this as unknown as IntersectionObserver,
+      );
+    };
+  }
+  disconnect() {}
+  unobserve() {}
+}
+
+// setup.tsの既定スタブをこのファイル全体で差し替える。
+// テストごとにunstubすると、前テストの残りeffectがflushされる際に
+// IntersectionObserverが未定義となり、後続テストのeffectごと失敗する。
+vi.stubGlobal('IntersectionObserver', ManualIntersectionObserver);
+
 beforeEach(() => {
   mockedFetch.mockReset();
   triggerIntersection = null;
-
-  vi.stubGlobal(
-    'IntersectionObserver',
-    class {
-      constructor(private readonly callback: IntersectionObserverCallback) {}
-      observe() {
-        triggerIntersection = () => {
-          this.callback(
-            [{ isIntersecting: true } as IntersectionObserverEntry],
-            this as unknown as IntersectionObserver,
-          );
-        };
-      }
-      disconnect() {}
-      unobserve() {}
-    },
-  );
-});
-
-afterEach(() => {
-  vi.unstubAllGlobals();
 });
 
 function renderPage(onBack?: () => void) {
