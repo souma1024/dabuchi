@@ -14,6 +14,12 @@ export class TransferParticipantNotFoundError extends Error {
     this.name = 'TransferParticipantNotFoundError';
   }
 }
+export class InsufficientBalanceError extends Error {
+  constructor() {
+    super('sender does not have enough balance.');
+    this.name = 'InsufficientBalanceError';
+  }
+}
 
 export class CreateTransfer {
   constructor(private readonly repository: TransferRepository) {}
