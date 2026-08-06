@@ -21,3 +21,9 @@ export interface Friend {
   /** 現在ユーザーが書いた自分用メモ。未設定ならnull。 */
   note: string | null;
 }
+
+/** ブロック中の友達1人分。GET /api/friends/blocked のレスポンス要素に対応する。 */
+export interface BlockedFriend extends Friend {
+  /** ブロックした日時（ISO 8601）。 */
+  blockedAt: string;
+}

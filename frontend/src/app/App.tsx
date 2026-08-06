@@ -2,6 +2,8 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 
 import { BillingAmountPage } from '../features/billing/pages/BillingAmountPage';
 import { TransferAmountPage } from '../features/transfer/pages/TransferAmountPage';
+import { BlockedFriendsRoute } from './BlockedFriendsRoute';
+import { FriendsRoute } from './FriendsRoute';
 import { HomePage } from './HomePage';
 import { PaymentRequestConfirmationRoute } from './PaymentRequestConfirmationRoute';
 import { PaymentRequestHistoryRoute } from './PaymentRequestHistoryRoute';
@@ -25,6 +27,8 @@ export function App() {
           path="/payment-requests/:id"
           element={<PaymentRequestConfirmationRoute />}
         />
+        <Route path="/friends" element={<FriendsRoute />} />
+        <Route path="/friends/blocked" element={<BlockedFriendsRoute />} />
       </Routes>
     </BrowserRouter>
   );

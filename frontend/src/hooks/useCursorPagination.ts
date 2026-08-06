@@ -15,6 +15,8 @@ export interface UseCursorPaginationResult<T> {
   error: string | null;
   hasMore: boolean;
   loadMore: () => void;
+  /** 一覧を変える操作の後などに、1ページ目から取り直す。 */
+  reload: () => void;
 }
 
 function toErrorMessage(caught: unknown): string {
@@ -30,20 +32,34 @@ function toErrorMessage(caught: unknown): string {
  * 取引履歴・請求一覧のように「20件ずつ取ってスクロールで足す」画面が複数あり、
  * 読み込み状態・エラー・カーソルの管理が同じになるため共通化している。
  *
+ * 取得中にreloadすると、古い追加ページが後から届いて新しい一覧へ混ざる。
+ * それを防ぐため世代番号を持ち、reloadで進めた後は古い世代の結果を捨てる。
+ * AbortControllerでも打ち切るが、取り違えを防ぐのは世代番号の役目とし、
+ * 打ち切りは無駄な通信を止めるためだけに使う。
+ *
  * fetchPageは同一性が保たれている必要がある（モジュール直下の関数か、
  * useCallbackで包んだもの）。毎回新しい関数を渡すと初回ロードが繰り返される。
  */
 export function useCursorPagination<T>(
-  fetchPage: (cursor: string | null) => Promise<CursorPage<T>>,
+  fetchPage: (
+    cursor: string | null,
+    signal?: AbortSignal,
+  ) => Promise<CursorPage<T>>,
 ): UseCursorPaginationResult<T> {
   const [items, setItems] = useState<T[]>([]);
   const [isLoadingInitial, setIsLoadingInitial] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  // reloadのたびに進める世代番号。初回ロードのeffectを回す契機も兼ねる。
+  const [generation, setGeneration] = useState(0);
 
   const loadingRef = useRef(false);
   const cursorRef = useRef<string | null>(null);
+  // 世代の正はref側に置く。renderで書き戻すと、reload直後の再renderで巻き戻る余地が残る。
+  const generationRef = useRef(0);
+  // 進行中の追加取得。reload・取得対象の切り替え・アンマウントで打ち切る。
+  const loadMoreAbortRef = useRef<AbortController | null>(null);
 
   // fetchPageが変わる＝取得対象が変わったということ。前の結果を消してから読み直す。
   // 残したままだと、取得が終わるまで前の一覧が新しい対象のものとして表示される
@@ -58,6 +74,7 @@ export function useCursorPagination<T>(
     setNextCursor(null);
     setError(null);
     setIsLoadingInitial(true);
+    setIsLoadingMore(false);
   }
   // loadMoreはeffectの外から呼ばれるためcleanupを持てない。
   // アンマウント後に状態を更新しないよう、マウント状態をrefで保持する。
@@ -67,14 +84,19 @@ export function useCursorPagination<T>(
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      loadMoreAbortRef.current?.abort();
     };
   }, []);
 
-  // 初回ロード（1ページ目）。
+  // 初回ロード（1ページ目）。reloadでも同じ経路を通す。
   useEffect(() => {
     let active = true;
-    loadingRef.current = true;
+    // 取得対象の切り替えでもreloadでもここへ来る。進行中の追加取得は捨てる。
     // refは描画中に触れないため、リセットはここで行う。
+    generationRef.current += 1;
+    loadMoreAbortRef.current?.abort();
+    loadMoreAbortRef.current = null;
+    loadingRef.current = true;
     cursorRef.current = null;
 
     void fetchPage(null)
@@ -102,7 +124,7 @@ export function useCursorPagination<T>(
     return () => {
       active = false;
     };
-  }, [fetchPage]);
+  }, [fetchPage, generation]);
 
   // 追加ロード（次ページ）。スクロール到達などのイベントから呼ぶ。
   const loadMore = useCallback(() => {
@@ -112,8 +134,16 @@ export function useCursorPagination<T>(
     loadingRef.current = true;
     setIsLoadingMore(true);
 
-    void fetchPage(cursorRef.current)
+    const requestedGeneration = generationRef.current;
+    const controller = new AbortController();
+    loadMoreAbortRef.current = controller;
+
+    void fetchPage(cursorRef.current, controller.signal)
       .then((page) => {
+        // reload後に届いた古いページは、一覧にもカーソルにも反映しない。
+        if (requestedGeneration !== generationRef.current) {
+          return;
+        }
         // カーソルは次回のリクエストに使うため、アンマウント後でも進めておく。
         cursorRef.current = page.nextCursor;
         if (!mountedRef.current) {
@@ -124,17 +154,31 @@ export function useCursorPagination<T>(
         setError(null);
       })
       .catch((caught: unknown) => {
-        if (mountedRef.current) {
+        if (
+          requestedGeneration === generationRef.current &&
+          mountedRef.current
+        ) {
           setError(toErrorMessage(caught));
         }
       })
       .finally(() => {
+        if (requestedGeneration !== generationRef.current) {
+          return;
+        }
         loadingRef.current = false;
         if (mountedRef.current) {
           setIsLoadingMore(false);
         }
       });
   }, [fetchPage]);
+
+  const reload = useCallback(() => {
+    // 進行中の追加取得の打ち切りとカーソルの巻き戻しは、取得し直すeffectがまとめて行う。
+    setIsLoadingMore(false);
+    // 取り直しの間もローディング表示にする。effect内で立てると再レンダーが連鎖する。
+    setIsLoadingInitial(true);
+    setGeneration((current) => current + 1);
+  }, []);
 
   return {
     items,
@@ -143,5 +187,6 @@ export function useCursorPagination<T>(
     error,
     hasMore: nextCursor !== null,
     loadMore,
+    reload,
   };
 }
