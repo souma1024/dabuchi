@@ -48,17 +48,17 @@ GET /api/users/:currentUserId/transactions?cursor=<opaque cursor>
 
 ### フィールド
 
-| フィールド | 型 | 説明 |
-| --- | --- | --- |
-| `id` | string | 取引ID。`transfers.id`(BIGINT)を文字列で返す |
-| `counterparty.id` | string | 相手ユーザーの内部UUID |
-| `counterparty.name` | string | 相手の表示名 |
-| `counterparty.profileUrl` | string | 相手のプロフィール画像URL |
-| `amount` | number | 金額（正の整数・円） |
-| `direction` | `"sent"` \| `"received"` | 送金 / 受取の区別 |
-| `createdAt` | string | 取引日時（ISO 8601・UTC） |
-| `pageInfo.nextCursor` | string \| null | 次ページ取得用カーソル。最終ページは`null` |
-| `pageInfo.hasNextPage` | boolean | 次ページの有無 |
+| フィールド                | 型                       | 説明                                         |
+| ------------------------- | ------------------------ | -------------------------------------------- |
+| `id`                      | string                   | 取引ID。`transfers.id`(BIGINT)を文字列で返す |
+| `counterparty.id`         | string                   | 相手ユーザーの内部UUID                       |
+| `counterparty.name`       | string                   | 相手の表示名                                 |
+| `counterparty.profileUrl` | string                   | 相手のプロフィール画像URL                    |
+| `amount`                  | number                   | 金額（正の整数・円）                         |
+| `direction`               | `"sent"` \| `"received"` | 送金 / 受取の区別                            |
+| `createdAt`               | string                   | 取引日時（ISO 8601・UTC）                    |
+| `pageInfo.nextCursor`     | string \| null           | 次ページ取得用カーソル。最終ページは`null`   |
+| `pageInfo.hasNextPage`    | boolean                  | 次ページの有無                               |
 
 フロントエンド側では、`id`はBIGINTの文字列なので`Number()`で数値化しない（桁溢れの恐れ）。`createdAt`はISO 8601（UTC）なので`new Date(createdAt)`で整形できる。`counterparty.profileUrl`は`UserAvatar`の`iconSrc`に対応させる。
 
