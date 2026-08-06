@@ -11,6 +11,7 @@ import {
 import { createFriend, createFriends } from '../testing/friendFactory';
 import type { Friend } from '../types';
 import { FriendsPage } from './FriendsPage';
+import { installManualIntersectionObserver } from '../../../test/intersectionObserver';
 
 vi.mock('../api/friendsClient', () => ({
   addFriend: vi.fn(),
@@ -25,25 +26,8 @@ const mockedAddFriend = vi.mocked(addFriend);
 const mockedBlockFriend = vi.mocked(blockFriend);
 const mockedSaveNote = vi.mocked(saveFriendshipNote);
 
-// IntersectionObserverはjsdomに無いため、observe対象を保持して手動で発火させる。
-// setup.tsの既定スタブをこのファイル全体で差し替える。
-let triggerIntersection: (() => void) | null = null;
-
-class ManualIntersectionObserver {
-  constructor(private readonly callback: IntersectionObserverCallback) {}
-  observe() {
-    triggerIntersection = () => {
-      this.callback(
-        [{ isIntersecting: true } as IntersectionObserverEntry],
-        this as unknown as IntersectionObserver,
-      );
-    };
-  }
-  disconnect() {}
-  unobserve() {}
-}
-
-vi.stubGlobal('IntersectionObserver', ManualIntersectionObserver);
+// 一覧末尾の監視は手で発火させる（jsdomにIntersectionObserverが無いため）。
+const intersection = installManualIntersectionObserver();
 
 function page(friends: Friend[], nextCursor: string | null = null): FriendPage {
   return { friends, nextCursor };
@@ -55,7 +39,7 @@ describe('FriendsPage', () => {
     mockedAddFriend.mockReset();
     mockedBlockFriend.mockReset();
     mockedSaveNote.mockReset();
-    triggerIntersection = null;
+    intersection.reset();
   });
 
   it('友達を氏名とユーザーIDで一覧表示する', async () => {
@@ -146,8 +130,7 @@ describe('FriendsPage', () => {
     render(<FriendsPage />);
     await screen.findByText('友達 1');
 
-    expect(triggerIntersection).not.toBeNull();
-    triggerIntersection?.();
+    await intersection.trigger();
 
     await waitFor(() => {
       expect(mockedFetchFriends).toHaveBeenCalledTimes(2);

@@ -4,31 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import * as mockModule from '../mockPaymentRequests';
 import { PaymentRequestHistoryPage } from './PaymentRequestHistoryPage';
+import { installManualIntersectionObserver } from '../../../test/intersectionObserver';
 
-// IntersectionObserverはjsdomに無いため、observe対象を保持して手動で発火させる。
-let triggerIntersection: (() => void) | null = null;
-
-class ManualIntersectionObserver {
-  constructor(private readonly callback: IntersectionObserverCallback) {}
-  observe() {
-    triggerIntersection = () => {
-      this.callback(
-        [{ isIntersecting: true } as IntersectionObserverEntry],
-        this as unknown as IntersectionObserver,
-      );
-    };
-  }
-  disconnect() {}
-  unobserve() {}
-}
-
-// setup.tsの既定スタブをこのファイル全体で一度だけ差し替える。
-// テストごとに差し替えると、前テストの残りeffectがflushされる間に
-// クラスが入れ替わり、監視の登録先が食い違う余地が残る。
-vi.stubGlobal('IntersectionObserver', ManualIntersectionObserver);
+// 一覧末尾の監視は手で発火させる（jsdomにIntersectionObserverが無いため）。
+const intersection = installManualIntersectionObserver();
 
 beforeEach(() => {
-  triggerIntersection = null;
+  intersection.reset();
 });
 
 afterEach(() => {
@@ -121,11 +103,7 @@ describe('PaymentRequestHistoryPage', () => {
     render(<PaymentRequestHistoryPage />);
     const initial = (await screen.findAllByRole('listitem')).length;
 
-    // 監視の登録はeffectで行われるため、描画直後にはまだ揃っていないことがある。
-    await waitFor(() => {
-      expect(triggerIntersection).not.toBeNull();
-    });
-    triggerIntersection?.();
+    await intersection.trigger();
 
     await waitFor(() => {
       expect(screen.getAllByRole('listitem').length).toBeGreaterThan(initial);
