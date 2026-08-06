@@ -18,3 +18,19 @@ export class FriendshipAlreadyExistsError extends Error {
     this.name = 'FriendshipAlreadyExistsError';
   }
 }
+
+export class InvalidFriendshipIdError extends Error {
+  constructor() {
+    super('friendshipId must be a UUID.');
+    this.name = 'InvalidFriendshipIdError';
+  }
+}
+
+export { FriendshipNotFoundError } from './friendshipNotFoundError.js';
+
+export class FriendshipNoteAlreadyExistsError extends Error {
+  constructor() {
+    super('Friendship note already exists.');
+    this.name = 'FriendshipNoteAlreadyExistsError';
+  }
+}
