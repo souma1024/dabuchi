@@ -6,7 +6,7 @@ interface RecipientLocationState {
   recipient: Recipient;
 }
 
-function isRecipient(value: unknown): value is Recipient {
+export function isRecipient(value: unknown): value is Recipient {
   return (
     typeof value === 'object' &&
     value !== null &&

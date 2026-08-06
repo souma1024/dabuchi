@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import {
+  getAmountError,
+  isAmountInputValue,
+  isSubmittableAmount,
+} from '../lib/amount';
 import type { Recipient } from '../types/user';
 import { UserAvatar } from './UserAvatar';
 
@@ -51,21 +56,20 @@ export function RecipientAmountPage({
   const [submittedAmount, setSubmittedAmount] = useState(0);
 
   const numericAmount = Number(amount);
-  const isSafeAmount = Number.isSafeInteger(numericAmount);
+  const amountError = getAmountError(amount);
   const errorMessage =
-    amount !== '' && !isSafeAmount
-      ? '入力できる金額の桁数を超えています'
+    amountError !== ''
+      ? amountError
       : maxAmount !== undefined &&
           amount !== '' &&
           numericAmount > maxAmount.value
         ? maxAmount.exceededMessage
         : '';
-  const canSubmit =
-    amount !== '' && isSafeAmount && numericAmount > 0 && errorMessage === '';
+  const canSubmit = isSubmittableAmount(amount) && errorMessage === '';
 
   const handleAmountChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
-    if (value === '' || /^[0-9]+$/.test(value)) {
+    if (isAmountInputValue(value)) {
       setAmount(value);
     }
   };
