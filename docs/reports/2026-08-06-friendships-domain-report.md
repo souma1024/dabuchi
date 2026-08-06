@@ -94,3 +94,21 @@ domain PRを土台に、友達一覧・詳細・追加、メモ作成更新削�
 - ブロック作成は冪等にする。
 - ブロックされた相手一覧は公開APIにしない。
 - application以降もlayer単位でPRを分け、`app.ts`と`server.ts`の共通配線は最後の別PRにする。
+
+## 追記: main同期と競合解消
+
+### 作業日時
+
+2026年08月06日 13時05分35秒
+
+### 変更内容と意図
+
+最新`main`をPR #60へ取り込み、`docs/TODO.md`の完了欄で競合したdomain実装とPR #50・#52・#56の記録をすべて保持した。コードの競合やdomain仕様の変更はない。
+
+### 影響範囲
+
+`docs/TODO.md`とマージ履歴のみ。友達管理domain、既存API、DB、frontendの振る舞いは変更しない。
+
+### 確認・引き継ぎ
+
+最新`main`統合後に`npm run format`、`npm run lint`、`npm run typecheck`、`npm test`、`npm run build`、`git diff --check`を再実行した。frontend 138件、backend 108件が成功し、DB integration 4件は従来どおりスキップされた。次の作業と参照ファイルは上記記載から変更しない。
