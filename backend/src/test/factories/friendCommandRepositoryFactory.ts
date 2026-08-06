@@ -20,6 +20,7 @@ interface FriendCommandRepositoryFactoryOptions {
   savedFriendship?: Friendship | null;
   friendship?: FriendshipCommandRecord | null;
   savedNote?: FriendshipNote | null;
+  updatedNote?: FriendshipNote | null;
 }
 
 export function createFriendCommandRepository(
@@ -72,5 +73,21 @@ export function createFriendCommandRepository(
             : options.savedNote,
         ),
       ),
+    updateNote: vi
+      .fn<FriendCommandRepository['updateNote']>()
+      .mockImplementation((note) =>
+        Promise.resolve(
+          options.updatedNote === undefined
+            ? {
+                ...note,
+                createdAt: '2026-08-06 12:10:00.000000',
+                updatedAt: '2026-08-06 12:20:00.000000',
+              }
+            : options.updatedNote,
+        ),
+      ),
+    deleteNote: vi
+      .fn<FriendCommandRepository['deleteNote']>()
+      .mockResolvedValue(undefined),
   };
 }

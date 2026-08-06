@@ -25,6 +25,11 @@ export interface NewFriendshipNote {
   message: string;
 }
 
+export interface FriendshipNoteKey {
+  friendshipId: string;
+  userId: string;
+}
+
 export interface FriendCommandRepository {
   findUserByPublicId: (userId: string) => Promise<FriendProfile | null>;
   friendshipExists: (pair: FriendshipPair) => Promise<boolean>;
@@ -34,4 +39,6 @@ export interface FriendCommandRepository {
     friendshipId: string;
   }) => Promise<FriendshipCommandRecord | null>;
   createNote: (note: NewFriendshipNote) => Promise<FriendshipNote | null>;
+  updateNote: (note: NewFriendshipNote) => Promise<FriendshipNote | null>;
+  deleteNote: (key: FriendshipNoteKey) => Promise<void>;
 }
