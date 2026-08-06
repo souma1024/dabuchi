@@ -42,7 +42,8 @@ export function PaymentRequestConfirmationPage({
   const isReceived = direction === 'received';
   const title = isReceived ? '請求の確認' : '請求の詳細';
 
-  // 完了表示。送金画面の完了表示と同じ形に揃える。
+  // 完了表示。送金・請求画面（RecipientAmountPage）の完了表示に揃える。
+  // 読んで判断する画面ではないため、ヘッダーを置かずボタンまで中央に収める。
   if (completed !== null) {
     const doneMessage =
       completed.status === 'accepted'
@@ -50,43 +51,34 @@ export function PaymentRequestConfirmationPage({
         : isReceived
           ? '請求を拒否しました'
           : '請求を取り消しました';
+    // 承認は残高が変わるためホームへ。拒否・取り消しは来た一覧へ戻して
+    // 作業を続けられるようにする。取り消しは請求履歴からしか来ないため、
+    // ホームへ戻すと来た場所と違う画面に置き去りになる。
+    const isPaid = completed.status === 'accepted';
 
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white">
-        <ScreenHeader title="完了" />
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-          <div
-            aria-hidden="true"
-            className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-slate-800 text-2xl"
-          >
-            ✓
-          </div>
-          <p className="m-0 mt-3 text-base font-bold text-slate-900">
-            {doneMessage}
-          </p>
-          <p className="m-0 text-2xl font-bold text-slate-900">
-            {completed.amount.toLocaleString()}円
-          </p>
-          <p className="m-0 text-sm text-slate-500">
-            {completed.counterparty.name} さん
-            {completed.status === 'accepted' ? 'へ' : 'の請求'}
-          </p>
+      <main className="mx-auto flex min-h-screen w-full max-w-[420px] flex-col items-center justify-center gap-4 bg-white px-5 py-8 text-center">
+        <div
+          aria-hidden="true"
+          className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-slate-800 text-2xl"
+        >
+          ✓
         </div>
-        {/*
-          お金が動いた承認だけホームへ戻す。残高が変わったので確認したいため。
-          拒否・取り消しは残高が変わらないので、来た一覧へ戻して作業を続けられる
-          ようにする。特に取り消しは請求履歴からしか来ないため、ホームへ戻すと
-          来た場所と違う画面に置き去りになる。
-        */}
-        <div className="p-5">
-          <button
-            type="button"
-            onClick={completed.status === 'accepted' ? onDone : onBack}
-            className={`${primaryStyle} bg-slate-800 text-white`}
-          >
-            {completed.status === 'accepted' ? 'ホームに戻る' : '一覧に戻る'}
-          </button>
-        </div>
+        <p className="m-0 text-base font-bold text-slate-900">{doneMessage}</p>
+        <p className="m-0 text-2xl font-bold text-slate-900">
+          {completed.amount.toLocaleString()}円
+        </p>
+        <p className="m-0 text-sm text-slate-500">
+          {completed.counterparty.name} さん{isPaid ? 'へ' : 'の請求'}
+        </p>
+        <button
+          type="button"
+          onClick={isPaid ? onDone : onBack}
+          // 確認画面のボタンと同じ幅にする。中央寄せでも押しやすさを保つため。
+          className={`${primaryStyle} mt-4 bg-slate-800 text-white active:bg-slate-900`}
+        >
+          {isPaid ? 'ホームに戻る' : '一覧に戻る'}
+        </button>
       </main>
     );
   }
