@@ -1,8 +1,12 @@
-import type { TransactionCursor } from '../../application/ports/transactionRepository.js';
+import type {
+  TransactionCursor,
+  TransactionSort,
+} from '../../application/ports/transactionRepository.js';
 
 const NUMERIC_ID_PATTERN = /^\d+$/;
 const MYSQL_DATETIME_PATTERN =
   /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(?:\.\d{1,6})?$/;
+const TRANSACTION_SORTS = ['created-desc', 'created-asc'] as const;
 
 // 形式だけでなく、実在するカレンダー日時であることを検証する。
 // 2026-99-99 99:99:99 や 2026-02-30 のような値を弾き、不正カーソルを400に導く。
@@ -36,6 +40,13 @@ export function encodeTransactionCursor(cursor: TransactionCursor): string {
   return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64url');
 }
 
+function isTransactionSort(value: unknown): value is TransactionSort {
+  return (
+    typeof value === 'string' &&
+    TRANSACTION_SORTS.includes(value as TransactionSort)
+  );
+}
+
 export function decodeTransactionCursor(
   value: string,
 ): TransactionCursor | null {
@@ -47,17 +58,28 @@ export function decodeTransactionCursor(
     if (
       typeof parsed !== 'object' ||
       parsed === null ||
-      !('createdAt' in parsed) ||
-      !('id' in parsed) ||
-      typeof parsed.createdAt !== 'string' ||
-      typeof parsed.id !== 'string' ||
-      !isRealMysqlDateTime(parsed.createdAt) ||
-      !NUMERIC_ID_PATTERN.test(parsed.id)
+      !('sort' in parsed) ||
+      !('value' in parsed) ||
+      !isTransactionSort(parsed.sort) ||
+      typeof parsed.value !== 'object' ||
+      parsed.value === null ||
+      !('createdAt' in parsed.value) ||
+      !('id' in parsed.value) ||
+      typeof parsed.value.createdAt !== 'string' ||
+      typeof parsed.value.id !== 'string' ||
+      !isRealMysqlDateTime(parsed.value.createdAt) ||
+      !NUMERIC_ID_PATTERN.test(parsed.value.id)
     ) {
       return null;
     }
 
-    return { createdAt: parsed.createdAt, id: parsed.id };
+    return {
+      sort: parsed.sort,
+      value: {
+        createdAt: parsed.value.createdAt,
+        id: parsed.value.id,
+      },
+    };
   } catch {
     return null;
   }

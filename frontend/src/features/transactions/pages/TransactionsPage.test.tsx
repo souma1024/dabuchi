@@ -2,18 +2,16 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  fetchMockTransactionPage,
-  mockTransactions,
-} from '../mockTransactions';
+import { fetchTransactions } from '../api/fetchTransactions';
+import { mockTransactions } from '../mockTransactions';
 import { TransactionsPage } from './TransactionsPage';
 
-vi.mock('../mockTransactions', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../mockTransactions')>();
-  return { ...actual, fetchMockTransactionPage: vi.fn() };
-});
+vi.mock('../api/fetchTransactions', () => ({
+  fetchTransactions: vi.fn(),
+}));
 
-const mockedFetch = vi.mocked(fetchMockTransactionPage);
+const mockedFetch = vi.mocked(fetchTransactions);
+const CURRENT_USER_ID = '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001';
 
 // IntersectionObserverはjsdomに無いため、observe対象を保持して手動で発火させる。
 let triggerIntersection: (() => void) | null = null;
@@ -51,7 +49,7 @@ describe('TransactionsPage', () => {
       nextCursor: null,
     });
 
-    render(<TransactionsPage />);
+    render(<TransactionsPage currentUserId={CURRENT_USER_ID} />);
 
     // mockTransactionsの先頭はシード同様「佐藤 花子」から始まる。
     expect(await screen.findByText('佐藤 花子')).toBeInTheDocument();
@@ -64,7 +62,7 @@ describe('TransactionsPage', () => {
   it('取引が無いときは次の行動を示す空状態を表示する', async () => {
     mockedFetch.mockResolvedValue({ transactions: [], nextCursor: null });
 
-    render(<TransactionsPage />);
+    render(<TransactionsPage currentUserId={CURRENT_USER_ID} />);
 
     expect(await screen.findByText('まだ取引がありません')).toBeInTheDocument();
     expect(
@@ -84,7 +82,7 @@ describe('TransactionsPage', () => {
         nextCursor: null,
       });
 
-    render(<TransactionsPage />);
+    render(<TransactionsPage currentUserId={CURRENT_USER_ID} />);
 
     // 1ページ目の20件。追加読み込み用のsentinelはaria-hiddenのため件数に含まれない。
     await waitFor(() => {
@@ -97,13 +95,17 @@ describe('TransactionsPage', () => {
       expect(screen.getAllByRole('listitem')).toHaveLength(32);
     });
     expect(mockedFetch).toHaveBeenCalledTimes(2);
-    expect(mockedFetch).toHaveBeenLastCalledWith('20', 'created-desc');
+    expect(mockedFetch).toHaveBeenLastCalledWith(
+      CURRENT_USER_ID,
+      '20',
+      'created-desc',
+    );
   });
 
   it('取得に失敗したらエラーを表示する', async () => {
     mockedFetch.mockRejectedValue(new Error('取得に失敗しました'));
 
-    render(<TransactionsPage />);
+    render(<TransactionsPage currentUserId={CURRENT_USER_ID} />);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       '取得に失敗しました',
@@ -117,7 +119,9 @@ describe('TransactionsPage', () => {
     });
     const onBack = vi.fn();
 
-    render(<TransactionsPage onBack={onBack} />);
+    render(
+      <TransactionsPage currentUserId={CURRENT_USER_ID} onBack={onBack} />,
+    );
 
     fireEvent.click(await screen.findByRole('button', { name: '戻る' }));
 
@@ -135,7 +139,7 @@ describe('TransactionsPage', () => {
         nextCursor: null,
       });
 
-    render(<TransactionsPage />);
+    render(<TransactionsPage currentUserId={CURRENT_USER_ID} />);
 
     expect(await screen.findByText('佐藤 花子')).toBeInTheDocument();
 
@@ -144,7 +148,12 @@ describe('TransactionsPage', () => {
     });
 
     await waitFor(() => {
-      expect(mockedFetch).toHaveBeenNthCalledWith(2, null, 'created-asc');
+      expect(mockedFetch).toHaveBeenNthCalledWith(
+        2,
+        CURRENT_USER_ID,
+        null,
+        'created-asc',
+      );
     });
   });
 });

@@ -3,18 +3,19 @@ import { useEffect, useRef, useState } from 'react';
 import { TransactionSortSelect } from '../components/TransactionSortSelect';
 import { TransactionListItem } from '../components/TransactionListItem';
 import { useTransactions } from '../hooks/useTransactions';
-import {
-  DEFAULT_TRANSACTION_SORT,
-  type TransactionSort,
-} from '../types';
+import { DEFAULT_TRANSACTION_SORT, type TransactionSort } from '../types';
 
 interface TransactionsPageProps {
+  currentUserId: string;
   /** 戻る操作。未指定なら戻るボタンは表示しない。 */
   onBack?: () => void;
 }
 
 /** 取引履歴の一覧画面。スクロール末尾で次ページを追加取得する。 */
-export function TransactionsPage({ onBack }: TransactionsPageProps) {
+export function TransactionsPage({
+  currentUserId,
+  onBack,
+}: TransactionsPageProps) {
   const [sort, setSort] = useState<TransactionSort>(DEFAULT_TRANSACTION_SORT);
   const {
     transactions,
@@ -23,7 +24,7 @@ export function TransactionsPage({ onBack }: TransactionsPageProps) {
     error,
     hasMore,
     loadMore,
-  } = useTransactions(sort);
+  } = useTransactions(currentUserId, sort);
   const sentinelRef = useRef<HTMLLIElement | null>(null);
 
   useEffect(() => {

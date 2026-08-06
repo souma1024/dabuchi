@@ -2,6 +2,7 @@ import type { Pool, RowDataPacket } from 'mysql2/promise';
 
 import type {
   FindUserTransactionsInput,
+  TransactionCursor,
   TransactionRepository,
 } from '../../application/ports/transactionRepository.js';
 import type { TransactionRecord } from '../../domain/transaction.js';
@@ -55,12 +56,9 @@ export class MysqlTransactionRepository implements TransactionRepository {
   async findTransactions(
     input: FindUserTransactionsInput,
   ): Promise<TransactionRecord[]> {
-    const cursorClause = input.cursor
-      ? `AND (
-          t.created_at < ?
-          OR (t.created_at = ? AND t.id < ?)
-        )`
-      : '';
+    const { cursorClause, values: cursorValues } = buildCursorClause(
+      input.cursor,
+    );
     // BASE_TRANSACTION_QUERY 内の UUID_TO_BIN(?) は現在ユーザーIDを5回参照する。
     const values: string[] = [
       input.currentUserId,
@@ -70,21 +68,19 @@ export class MysqlTransactionRepository implements TransactionRepository {
       input.currentUserId,
     ];
 
-    if (input.cursor) {
-      values.push(
-        input.cursor.createdAt,
-        input.cursor.createdAt,
-        input.cursor.id,
-      );
-    }
+    values.push(...cursorValues);
 
     // mysql2 sends JavaScript numbers as DOUBLE values, which MySQL rejects for LIMIT.
     values.push(String(input.limit));
+    const orderByClause =
+      input.sort === 'created-asc'
+        ? 't.created_at ASC, t.id ASC'
+        : 't.created_at DESC, t.id DESC';
 
     const [rows] = await this.pool.execute<TransactionRow[]>(
       `${BASE_TRANSACTION_QUERY}
        ${cursorClause}
-       ORDER BY t.created_at DESC, t.id DESC
+       ORDER BY ${orderByClause}
        LIMIT ?`,
       values,
     );
@@ -99,4 +95,31 @@ export class MysqlTransactionRepository implements TransactionRepository {
       createdAt: row.createdAt,
     }));
   }
+}
+
+function buildCursorClause(cursor: TransactionCursor | null): {
+  cursorClause: string;
+  values: string[];
+} {
+  if (!cursor) {
+    return { cursorClause: '', values: [] };
+  }
+
+  if (cursor.sort === 'created-asc') {
+    return {
+      cursorClause: `AND (
+          t.created_at > ?
+          OR (t.created_at = ? AND t.id > ?)
+        )`,
+      values: [cursor.value.createdAt, cursor.value.createdAt, cursor.value.id],
+    };
+  }
+
+  return {
+    cursorClause: `AND (
+        t.created_at < ?
+        OR (t.created_at = ? AND t.id < ?)
+      )`,
+    values: [cursor.value.createdAt, cursor.value.createdAt, cursor.value.id],
+  };
 }

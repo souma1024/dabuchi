@@ -4,12 +4,14 @@ import { createApp } from './app.js';
 import { CreatePaymentRequests } from './application/createPaymentRequests.js';
 import { GetCurrentUser } from './application/usecases/getCurrentUser.js';
 import { ListUserRecipients } from './application/usecases/listUserRecipients.js';
+import { ListUserTransactions } from './application/usecases/listUserTransactions.js';
 import { loadMockAuthenticationConfig } from './infrastructure/auth/mockAuthenticationConfig.js';
 import { createDatabasePool } from './infrastructure/database/createDatabasePool.js';
 import { loadDatabaseConfig } from './infrastructure/database/databaseConfig.js';
 import { MysqlPaymentRequestRepository } from './infrastructure/mysqlPaymentRequestRepository.js';
 import { MysqlTransferRepository } from './infrastructure/mysqlTransferRepository.js';
 import { MysqlCurrentUserRepository } from './infrastructure/repositories/mysqlCurrentUserRepository.js';
+import { MysqlTransactionRepository } from './infrastructure/repositories/mysqlTransactionRepository.js';
 import { MysqlUserRecipientRepository } from './infrastructure/repositories/mysqlUserRecipientRepository.js';
 import { getErrorMessage } from './shared/errorMessage.js';
 
@@ -25,6 +27,7 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
     const pool = createDatabasePool(databaseConfig);
     const currentUserRepository = new MysqlCurrentUserRepository(pool);
     const userRecipientRepository = new MysqlUserRecipientRepository(pool);
+    const transactionRepository = new MysqlTransactionRepository(pool);
     const paymentRequestRepository = new MysqlPaymentRequestRepository(pool);
     const transferRepository = new MysqlTransferRepository(pool);
     const createPaymentRequests = new CreatePaymentRequests(
@@ -34,11 +37,15 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
     );
     const getCurrentUser = new GetCurrentUser(currentUserRepository);
     const listUserRecipients = new ListUserRecipients(userRecipientRepository);
+    const listUserTransactions = new ListUserTransactions(
+      transactionRepository,
+    );
     const server = createApp({
       createPaymentRequests,
       currentUserId: authenticationConfig.currentUserId,
       getCurrentUser,
       listUserRecipients,
+      listUserTransactions,
       transferRepository,
     }).listen(port, () => {
       console.info(`Backend is listening on port ${port}.`);

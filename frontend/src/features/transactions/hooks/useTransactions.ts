@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { fetchMockTransactionPage } from '../mockTransactions';
+import { fetchTransactions } from '../api/fetchTransactions';
 import {
   DEFAULT_TRANSACTION_SORT,
   type Transaction,
@@ -34,10 +34,9 @@ function toErrorMessage(caught: unknown): string {
 
 /**
  * 取引履歴をカーソルページングで取得するフック。
- * 現在の取得元はモック。API連携（Issue #20）でクライアントを差し替える想定で、
- * 返り値の形は変えない。
  */
 export function useTransactions(
+  currentUserId: string,
   sort: TransactionSort = DEFAULT_TRANSACTION_SORT,
 ): UseTransactionsResult {
   const [state, setState] = useState<TransactionsState>(() => ({
@@ -60,7 +59,7 @@ export function useTransactions(
     loadingRef.current = true;
     cursorRef.current = null;
 
-    void fetchMockTransactionPage(null, sort)
+    void fetchTransactions(currentUserId, null, sort)
       .then((page) => {
         if (!active || generationRef.current !== generation) {
           return;
@@ -97,7 +96,7 @@ export function useTransactions(
     return () => {
       active = false;
     };
-  }, [sort]);
+  }, [currentUserId, sort]);
 
   // 追加ロード（次ページ）。スクロール到達などのイベントから呼ぶ。
   const loadMore = useCallback(() => {
@@ -112,7 +111,7 @@ export function useTransactions(
     }));
     const generation = generationRef.current;
 
-    void fetchMockTransactionPage(cursorRef.current, sort)
+    void fetchTransactions(currentUserId, cursorRef.current, sort)
       .then((page) => {
         if (generationRef.current !== generation) {
           return;
@@ -143,7 +142,7 @@ export function useTransactions(
         }
         loadingRef.current = false;
       });
-  }, [sort]);
+  }, [currentUserId, sort]);
 
   const isStale = state.sort !== sort;
   const transactions = isStale ? [] : state.transactions;

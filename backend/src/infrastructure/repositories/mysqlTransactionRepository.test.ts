@@ -28,6 +28,7 @@ describe('MysqlTransactionRepository', () => {
         currentUserId: CURRENT_USER_ID,
         cursor: null,
         limit: 21,
+        sort: 'created-desc',
       }),
     ).resolves.toEqual([record]);
     expect(execute).toHaveBeenCalledWith(
@@ -53,14 +54,18 @@ describe('MysqlTransactionRepository', () => {
     const { pool, execute } = createMysqlPool([[]]);
     const repository = new MysqlTransactionRepository(pool);
     const cursor = {
-      createdAt: '2026-08-04 12:00:20.000000',
-      id: '20',
+      sort: 'created-desc' as const,
+      value: {
+        createdAt: '2026-08-04 12:00:20.000000',
+        id: '20',
+      },
     };
 
     await repository.findTransactions({
       currentUserId: CURRENT_USER_ID,
       cursor,
       limit: 21,
+      sort: 'created-desc',
     });
 
     expect(execute).toHaveBeenCalledWith(
@@ -71,9 +76,47 @@ describe('MysqlTransactionRepository', () => {
         CURRENT_USER_ID,
         CURRENT_USER_ID,
         CURRENT_USER_ID,
-        cursor.createdAt,
-        cursor.createdAt,
-        cursor.id,
+        cursor.value.createdAt,
+        cursor.value.createdAt,
+        cursor.value.id,
+        '21',
+      ],
+    );
+  });
+
+  it('created-ascでは古い順と順方向カーソル条件を使う', async () => {
+    const { pool, execute } = createMysqlPool([[]]);
+    const repository = new MysqlTransactionRepository(pool);
+    const cursor = {
+      sort: 'created-asc' as const,
+      value: {
+        createdAt: '2026-08-04 12:00:20.000000',
+        id: '20',
+      },
+    };
+
+    await repository.findTransactions({
+      currentUserId: CURRENT_USER_ID,
+      cursor,
+      limit: 21,
+      sort: 'created-asc',
+    });
+
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining('ORDER BY t.created_at ASC, t.id ASC'),
+      expect.anything(),
+    );
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining('t.created_at > ?'),
+      [
+        CURRENT_USER_ID,
+        CURRENT_USER_ID,
+        CURRENT_USER_ID,
+        CURRENT_USER_ID,
+        CURRENT_USER_ID,
+        cursor.value.createdAt,
+        cursor.value.createdAt,
+        cursor.value.id,
         '21',
       ],
     );

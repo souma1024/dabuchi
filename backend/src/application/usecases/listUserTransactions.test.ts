@@ -31,13 +31,17 @@ describe('ListUserTransactions', () => {
       createdAt: '2026-08-04T12:00:01.000Z',
     });
     expect(result.nextCursor).toEqual({
-      createdAt: records[19]?.createdAt,
-      id: records[19]?.id,
+      sort: 'created-desc',
+      value: {
+        createdAt: records[19]?.createdAt,
+        id: records[19]?.id,
+      },
     });
     expect(repository.findTransactions).toHaveBeenCalledWith({
       currentUserId: CURRENT_USER_ID,
       cursor: null,
       limit: 21,
+      sort: 'created-desc',
     });
   });
 
@@ -72,8 +76,11 @@ describe('ListUserTransactions', () => {
     const repository = createTransactionRepository();
     const useCase = new ListUserTransactions(repository);
     const cursor = {
-      createdAt: '2026-08-04 12:00:20.000000',
-      id: '20',
+      sort: 'created-desc' as const,
+      value: {
+        createdAt: '2026-08-04 12:00:20.000000',
+        id: '20',
+      },
     };
 
     await useCase.execute({ currentUserId: CURRENT_USER_ID, cursor });
@@ -82,9 +89,36 @@ describe('ListUserTransactions', () => {
       currentUserId: CURRENT_USER_ID,
       cursor,
       limit: 21,
+      sort: 'created-desc',
     });
     expect(vi.mocked(repository.existsById)).toHaveBeenCalledWith(
       CURRENT_USER_ID,
     );
+  });
+
+  it('created-ascでは同じsortで次のカーソルを返す', async () => {
+    const records = createTransactionRecords(21).reverse();
+    const repository = createTransactionRepository({ transactions: records });
+    const useCase = new ListUserTransactions(repository);
+
+    const result = await useCase.execute({
+      currentUserId: CURRENT_USER_ID,
+      cursor: null,
+      sort: 'created-asc',
+    });
+
+    expect(result.nextCursor).toEqual({
+      sort: 'created-asc',
+      value: {
+        createdAt: records[19]?.createdAt,
+        id: records[19]?.id,
+      },
+    });
+    expect(repository.findTransactions).toHaveBeenCalledWith({
+      currentUserId: CURRENT_USER_ID,
+      cursor: null,
+      limit: 21,
+      sort: 'created-asc',
+    });
   });
 });

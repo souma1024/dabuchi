@@ -5,14 +5,17 @@ import {
   type PaymentRequestIdGenerator,
 } from '../../application/createPaymentRequests.js';
 import type { CurrentUserRepository } from '../../application/ports/currentUserRepository.js';
+import type { TransactionRepository } from '../../application/ports/transactionRepository.js';
 import type { UserRecipientRepository } from '../../application/ports/userRecipientRepository.js';
 import { GetCurrentUser } from '../../application/usecases/getCurrentUser.js';
 import { ListUserRecipients } from '../../application/usecases/listUserRecipients.js';
+import { ListUserTransactions } from '../../application/usecases/listUserTransactions.js';
 import type { CurrentUser } from '../../domain/currentUser.js';
 import type { PaymentRequestRepository } from '../../domain/paymentRequestRepository.js';
 import type { UserRecipientRecord } from '../../domain/userRecipient.js';
 import { createCurrentUserRepository } from './currentUserRepositoryFactory.js';
 import { createPaymentRequestRepository } from './paymentRequestRepositoryFactory.js';
+import { createTransactionRepository } from './transactionRepositoryFactory.js';
 import { createUserRecipientRepository } from './userRecipientRepositoryFactory.js';
 
 interface AppFactoryOptions {
@@ -24,6 +27,7 @@ interface AppFactoryOptions {
   paymentRequestRepository?: PaymentRequestRepository;
   recipients?: UserRecipientRecord[];
   repository?: UserRecipientRepository;
+  transactionRepository?: TransactionRepository;
   transferRepository?: TransferRepository;
 }
 
@@ -39,6 +43,9 @@ export function createTestApp(options: AppFactoryOptions = {}) {
     });
   const getCurrentUser = new GetCurrentUser(currentUserRepository);
   const listUserRecipients = new ListUserRecipients(repository);
+  const transactionRepository =
+    options.transactionRepository ?? createTransactionRepository();
+  const listUserTransactions = new ListUserTransactions(transactionRepository);
   const paymentRequestRepository =
     options.paymentRequestRepository ?? createPaymentRequestRepository();
   let generatedId = 0;
@@ -61,10 +68,12 @@ export function createTestApp(options: AppFactoryOptions = {}) {
       currentUserId: options.currentUserId ?? 'friend-001',
       getCurrentUser,
       listUserRecipients,
+      listUserTransactions,
       transferRepository,
     }),
     currentUserRepository,
     paymentRequestRepository,
     repository,
+    transactionRepository,
   };
 }

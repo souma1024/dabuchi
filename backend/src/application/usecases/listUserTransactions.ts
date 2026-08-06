@@ -2,15 +2,18 @@ import { CurrentUserNotFoundError } from '../errors/currentUserNotFoundError.js'
 import type { Transaction } from '../../domain/transaction.js';
 import { mysqlDateTimeToIso } from '../../shared/mysqlDateTime.js';
 import type {
+  TransactionSort,
   TransactionCursor,
   TransactionRepository,
 } from '../ports/transactionRepository.js';
+import { DEFAULT_TRANSACTION_SORT as DEFAULT_SORT } from '../ports/transactionRepository.js';
 
 const TRANSACTION_PAGE_SIZE = 20;
 
 export interface ListUserTransactionsInput {
   currentUserId: string;
   cursor: TransactionCursor | null;
+  sort?: TransactionSort;
 }
 
 export interface ListUserTransactionsResult {
@@ -24,6 +27,7 @@ export class ListUserTransactions {
   async execute(
     input: ListUserTransactionsInput,
   ): Promise<ListUserTransactionsResult> {
+    const sort = input.sort ?? DEFAULT_SORT;
     const currentUserExists = await this.repository.existsById(
       input.currentUserId,
     );
@@ -36,6 +40,7 @@ export class ListUserTransactions {
       currentUserId: input.currentUserId,
       cursor: input.cursor,
       limit: TRANSACTION_PAGE_SIZE + 1,
+      sort,
     });
     const hasNextPage = records.length > TRANSACTION_PAGE_SIZE;
     const visibleRecords = records.slice(0, TRANSACTION_PAGE_SIZE);
@@ -55,7 +60,13 @@ export class ListUserTransactions {
       })),
       nextCursor:
         hasNextPage && lastVisibleRecord
-          ? { createdAt: lastVisibleRecord.createdAt, id: lastVisibleRecord.id }
+          ? {
+              sort,
+              value: {
+                createdAt: lastVisibleRecord.createdAt,
+                id: lastVisibleRecord.id,
+              },
+            }
           : null,
     };
   }

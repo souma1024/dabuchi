@@ -1,10 +1,17 @@
 import { vi } from 'vitest';
 
-import type { TransactionRepository } from '../../application/ports/transactionRepository.js';
+import type {
+  TransactionRepository,
+  TransactionSort,
+} from '../../application/ports/transactionRepository.js';
 import type { TransactionRecord } from '../../domain/transaction.js';
 
 interface RepositoryFactoryOptions {
   currentUserExists?: boolean;
+  sorter?: (
+    sort: TransactionSort,
+    transactions: TransactionRecord[],
+  ) => TransactionRecord[];
   transactions?: TransactionRecord[];
 }
 
@@ -17,6 +24,12 @@ export function createTransactionRepository(
       .mockResolvedValue(options.currentUserExists ?? true),
     findTransactions: vi
       .fn<TransactionRepository['findTransactions']>()
-      .mockResolvedValue(options.transactions ?? []),
+      .mockImplementation((input) =>
+        Promise.resolve(
+          options.sorter
+            ? options.sorter(input.sort, options.transactions ?? [])
+            : (options.transactions ?? []),
+        ),
+      ),
   };
 }

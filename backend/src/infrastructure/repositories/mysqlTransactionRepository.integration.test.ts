@@ -97,6 +97,7 @@ describe.skipIf(!shouldRun)('MysqlTransactionRepository (integration)', () => {
       currentUserId: USER_A,
       cursor: null,
       limit: 21,
+      sort: 'created-desc',
     });
 
     expect(result).toHaveLength(3);
@@ -134,6 +135,7 @@ describe.skipIf(!shouldRun)('MysqlTransactionRepository (integration)', () => {
       currentUserId: USER_A,
       cursor: null,
       limit: 21,
+      sort: 'created-desc',
     });
     const head = firstPage[0];
     if (!head) {
@@ -142,8 +144,12 @@ describe.skipIf(!shouldRun)('MysqlTransactionRepository (integration)', () => {
 
     const nextPage = await repository.findTransactions({
       currentUserId: USER_A,
-      cursor: { createdAt: head.createdAt, id: head.id },
+      cursor: {
+        sort: 'created-desc',
+        value: { createdAt: head.createdAt, id: head.id },
+      },
       limit: 21,
+      sort: 'created-desc',
     });
 
     expect(nextPage).toHaveLength(2);
@@ -156,5 +162,19 @@ describe.skipIf(!shouldRun)('MysqlTransactionRepository (integration)', () => {
     expect(next0.direction).toBe('sent');
     // created_at < head.createdAt の行
     expect(next1.amount).toBe(500);
+  });
+
+  it('created-ascでは古い順で返す', async () => {
+    const result = await repository.findTransactions({
+      currentUserId: USER_A,
+      cursor: null,
+      limit: 21,
+      sort: 'created-asc',
+    });
+
+    expect(result).toHaveLength(3);
+    expect(result[0]?.amount).toBe(500);
+    expect(result[1]?.amount).toBe(1500);
+    expect(result[2]?.amount).toBe(2500);
   });
 });
