@@ -43,10 +43,7 @@ describe('recipient cursor codec', () => {
         value: { createdAt: '2026-08-04 12:00:20.000000', id: 'x' },
       }),
     ).toString('base64url'),
-  ])(
-    '不正なカーソルを拒否する: %s',
-    (cursor) => {
-      expect(decodeRecipientCursor(cursor)).toBeNull();
-    },
-  );
+  ])('不正なカーソルを拒否する: %s', (cursor) => {
+    expect(decodeRecipientCursor(cursor)).toBeNull();
+  });
 });

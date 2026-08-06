@@ -71,9 +71,10 @@ export class MysqlUserRecipientRepository implements UserRecipientRepository {
   }
 }
 
-function buildCursorClause(
-  cursor: RecipientCursor | null,
-): { cursorClause: string; values: string[] } {
+function buildCursorClause(cursor: RecipientCursor | null): {
+  cursorClause: string;
+  values: string[];
+} {
   if (!cursor) {
     return { cursorClause: '', values: [] };
   }
@@ -94,11 +95,7 @@ function buildCursorClause(
           created_at < ?
           OR (created_at = ? AND id < UUID_TO_BIN(?))
         )`,
-      values: [
-        cursor.value.createdAt,
-        cursor.value.createdAt,
-        cursor.value.id,
-      ],
+      values: [cursor.value.createdAt, cursor.value.createdAt, cursor.value.id],
     };
   }
 

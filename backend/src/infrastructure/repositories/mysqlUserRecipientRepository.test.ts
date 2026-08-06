@@ -131,11 +131,23 @@ describe('MysqlUserRecipientRepository', () => {
 
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('ORDER BY user_name ASC, id ASC'),
-      [CURRENT_USER_ID, cursor.value.name, cursor.value.name, cursor.value.id, '21'],
+      [
+        CURRENT_USER_ID,
+        cursor.value.name,
+        cursor.value.name,
+        cursor.value.id,
+        '21',
+      ],
     );
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('user_name > ?'),
-      [CURRENT_USER_ID, cursor.value.name, cursor.value.name, cursor.value.id, '21'],
+      [
+        CURRENT_USER_ID,
+        cursor.value.name,
+        cursor.value.name,
+        cursor.value.id,
+        '21',
+      ],
     );
   });
 });
