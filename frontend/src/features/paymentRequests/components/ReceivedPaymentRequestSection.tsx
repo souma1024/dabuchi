@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 
 import { useReceivedPaymentRequests } from '../hooks/useReceivedPaymentRequests';
 import { PaymentRequestListItem } from './PaymentRequestListItem';
+import { useInfiniteScrollSentinel } from '../../../hooks/useInfiniteScrollSentinel';
 
 const noticeStyle = 'px-5 py-6 text-center text-sm text-slate-500';
 
@@ -26,27 +27,13 @@ export function ReceivedPaymentRequestSection() {
     hasMore,
     loadMore,
   } = useReceivedPaymentRequests();
-  const sentinelRef = useRef<HTMLLIElement | null>(null);
+  const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore, [
+    requests.length,
+  ]);
 
   // APIは総件数を返さない（Issue #70）。読み込み済みの件数を出し、
   // 続きがある場合は「20+」のように未確定であることを示す。
   const requestCount = isLoadingInitial ? null : requests.length;
-
-  useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel) {
-      return;
-    }
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        loadMore();
-      }
-    });
-    observer.observe(sentinel);
-    return () => {
-      observer.disconnect();
-    };
-  }, [loadMore, hasMore, requests.length]);
 
   return (
     <section
@@ -70,18 +57,13 @@ export function ReceivedPaymentRequestSection() {
             </span>
           )}
         </h2>
-        {/*
-          請求履歴一覧（Issue #61）は未実装。spanだと押せないことも押せることも
-          伝わらないため、無効なbuttonとして置く。メニューの未実装ボタンと同じ扱い。
-          画面ができたらLinkへ差し替える。
-        */}
-        <button
-          type="button"
-          disabled
-          className="cursor-not-allowed border-none bg-transparent p-0 text-xs text-slate-400"
+        {/* 決着済みも含む全記録は請求履歴で見る（Issue #61）。 */}
+        <Link
+          to="/payment-requests"
+          className="text-xs text-slate-500 underline"
         >
           請求履歴 ›
-        </button>
+        </Link>
       </div>
 
       {isLoadingInitial ? (
@@ -95,7 +77,11 @@ export function ReceivedPaymentRequestSection() {
       ) : (
         <ul className="m-0 list-none p-0">
           {requests.map((request) => (
-            <PaymentRequestListItem key={request.id} request={request} />
+            <PaymentRequestListItem
+              key={request.id}
+              request={request}
+              direction="received"
+            />
           ))}
           {hasMore && (
             <li ref={sentinelRef} aria-hidden="true" className="h-px" />

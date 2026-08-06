@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import * as mockModule from '../mockPaymentRequests';
@@ -29,21 +30,32 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  vi.unstubAllGlobals();
+  // unstubAllGlobalsは呼ばない。setup.tsが登録したIntersectionObserverまで
+  // 消えてしまい、テスト終了後に遅れて走るeffectがundefinedを参照するため。
+  // beforeEachで毎回登録し直しているので、テスト間の漏れはない。
   vi.restoreAllMocks();
 });
+
+// 請求履歴へのLinkを含むため、Router配下で描画する。
+function renderSection() {
+  return render(
+    <MemoryRouter>
+      <ReceivedPaymentRequestSection />
+    </MemoryRouter>,
+  );
+}
 
 describe('ReceivedPaymentRequestSection', () => {
   // 実APIは20件固定で返す（Issue #70）。取得した分をそのまま並べる。
   it('初期表示は1ページ分の20件にする', async () => {
-    render(<ReceivedPaymentRequestSection />);
+    renderSection();
 
     // 末尾の読み込み検知用の要素を除いた件数で数える。
     expect(await screen.findAllByRole('listitem')).toHaveLength(20);
   });
 
   it('相手の氏名・請求日・金額を表示する', async () => {
-    render(<ReceivedPaymentRequestSection />);
+    renderSection();
 
     const firstItem = (await screen.findAllByRole('listitem'))[0];
 
@@ -53,7 +65,7 @@ describe('ReceivedPaymentRequestSection', () => {
   });
 
   it('下端に達したら続きを読み込んで追記する', async () => {
-    render(<ReceivedPaymentRequestSection />);
+    renderSection();
 
     await screen.findAllByRole('listitem');
     triggerIntersection?.();
@@ -65,7 +77,7 @@ describe('ReceivedPaymentRequestSection', () => {
 
   // 元のアンバー色のボタンを一覧に置き換えたぶん、件数で気づけるようにする（Issue #44）。
   it('続きがあるときは件数に+を付ける', async () => {
-    render(<ReceivedPaymentRequestSection />);
+    renderSection();
 
     await screen.findAllByRole('listitem');
 
@@ -75,7 +87,7 @@ describe('ReceivedPaymentRequestSection', () => {
   });
 
   it('すべて読み込んだら実際の件数だけを出す', async () => {
-    render(<ReceivedPaymentRequestSection />);
+    renderSection();
 
     await screen.findAllByRole('listitem');
     triggerIntersection?.();
@@ -94,7 +106,7 @@ describe('ReceivedPaymentRequestSection', () => {
       'fetchMockReceivedPaymentRequestPage',
     ).mockResolvedValue({ requests: [], nextCursor: null });
 
-    render(<ReceivedPaymentRequestSection />);
+    renderSection();
 
     await screen.findByText('請求はありません');
 
@@ -108,21 +120,20 @@ describe('ReceivedPaymentRequestSection', () => {
 
   // 遷移先の請求履歴一覧（Issue #61）が未実装のため、押せないことを明示する。
   // spanだと押せないことも押せることも伝わらないため、無効なbuttonにしている。
-  it('請求履歴の入口は無効なボタンとして置く', async () => {
-    render(<ReceivedPaymentRequestSection />);
+  it('請求履歴へのリンクを置く', async () => {
+    renderSection();
 
     await screen.findAllByRole('listitem');
-    const historyButton = screen.getByRole('button', { name: '請求履歴 ›' });
 
-    expect(historyButton).toBeDisabled();
-    expect(
-      screen.queryByRole('link', { name: /請求履歴/ }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /請求履歴/ })).toHaveAttribute(
+      'href',
+      '/payment-requests',
+    );
   });
 
   // 「もっと見る」を押すたびにボタンが出直す違和感を避けるため、操作を置かない。
   it('読み込みのためのボタンを置かない', async () => {
-    render(<ReceivedPaymentRequestSection />);
+    renderSection();
 
     await screen.findAllByRole('listitem');
 
@@ -132,7 +143,7 @@ describe('ReceivedPaymentRequestSection', () => {
   });
 
   it('最後まで読み込んだらそれ以上増えない', async () => {
-    render(<ReceivedPaymentRequestSection />);
+    renderSection();
 
     await screen.findAllByRole('listitem');
     triggerIntersection?.();
@@ -153,7 +164,7 @@ describe('ReceivedPaymentRequestSection', () => {
       'fetchMockReceivedPaymentRequestPage',
     ).mockResolvedValue({ requests: [], nextCursor: null });
 
-    render(<ReceivedPaymentRequestSection />);
+    renderSection();
 
     expect(await screen.findByText('請求はありません')).toBeInTheDocument();
     expect(
@@ -168,7 +179,7 @@ describe('ReceivedPaymentRequestSection', () => {
       'fetchMockReceivedPaymentRequestPage',
     ).mockRejectedValue(new Error('取得に失敗しました'));
 
-    render(<ReceivedPaymentRequestSection />);
+    renderSection();
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       '取得に失敗しました',
