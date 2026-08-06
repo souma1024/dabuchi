@@ -21,9 +21,7 @@ export function TransactionsPage({ onBack }: TransactionsPageProps) {
     hasMore,
     loadMore,
   } = useTransactions();
-  const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore, [
-    transactions.length,
-  ]);
+  const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore);
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white">

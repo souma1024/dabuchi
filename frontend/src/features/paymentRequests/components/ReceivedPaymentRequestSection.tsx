@@ -27,9 +27,7 @@ export function ReceivedPaymentRequestSection() {
     hasMore,
     loadMore,
   } = useReceivedPaymentRequests();
-  const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore, [
-    requests.length,
-  ]);
+  const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore);
 
   // APIは総件数を返さない（Issue #70）。読み込み済みの件数を出し、
   // 続きがある場合は「20+」のように未確定であることを示す。

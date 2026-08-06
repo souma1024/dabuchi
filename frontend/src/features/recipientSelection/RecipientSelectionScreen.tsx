@@ -54,7 +54,7 @@ export function RecipientSelectionScreen(props: RecipientSelectionScreenProps) {
     loadMore,
     reload,
   } = useRecipients();
-  const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore, []);
+  const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore);
   // 選択済みの相手そのものを持つ。追加読み込みで一覧が伸びても選択が消えない。
   const [selected, setSelected] = useState<Recipient[]>([]);
 
