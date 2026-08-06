@@ -34,3 +34,10 @@ export class FriendshipNoteAlreadyExistsError extends Error {
     this.name = 'FriendshipNoteAlreadyExistsError';
   }
 }
+
+export class FriendshipNoteNotFoundError extends Error {
+  constructor() {
+    super('Friendship note was not found.');
+    this.name = 'FriendshipNoteNotFoundError';
+  }
+}
