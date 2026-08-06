@@ -7,6 +7,11 @@ import {
   InsufficientBalanceError,
   TransferParticipantNotFoundError,
 } from './application/createTransfer.js';
+import {
+  PaymentRequestAlreadyRespondedError,
+  PaymentRequestForbiddenError,
+  PaymentRequestNotFoundError,
+} from './application/errors/paymentRequestCommandErrors.js';
 import type {
   NewTransfer,
   TransferRepository,
@@ -24,6 +29,10 @@ import {
 } from './test/factories/friendQueryFactory.js';
 import { createFriendQueryRepository } from './test/factories/friendQueryRepositoryFactory.js';
 import {
+  createPaymentRequestCommandRepository,
+  createRespondedPaymentRequest,
+} from './test/factories/paymentRequestCommandFactory.js';
+import {
   createPaymentRequestListRepository,
   createPaymentRequestRecord,
   createPaymentRequestRecords,
@@ -40,6 +49,7 @@ import { createUserRecipientRepository } from './test/factories/userRecipientRep
 
 const CURRENT_USER_ID = '11111111-1111-4111-8111-111111111111';
 const MOCK_USER_ID = 'friend-001';
+const PAYMENT_REQUEST_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
 class InMemoryTransferRepository implements TransferRepository {
   transfers: NewTransfer[] = [];
@@ -697,6 +707,14 @@ describe('backend application', () => {
     };
   }
 
+  function asPaymentRequestResponseBody(body: unknown) {
+    return body as { request: { status: string }; balance?: number };
+  }
+
+  function asErrorBody(body: unknown) {
+    return body as { error: { code: string; message: string } };
+  }
+
   it('請求一覧を20件と次ページ情報で返す', async () => {
     const { app } = createTestApp({
       currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
@@ -851,5 +869,133 @@ describe('backend application', () => {
         message: 'Current user was not found.',
       },
     });
+  });
+
+  it('請求を承認し、確定後の請求と残高を返す', async () => {
+    const paymentRequestCommandRepository =
+      createPaymentRequestCommandRepository({
+        responded: createRespondedPaymentRequest({
+          id: PAYMENT_REQUEST_ID,
+          amount: 3000,
+          status: 'accepted',
+          respondedAt: '2026-08-06 02:00:00.000000',
+          recipientBalance: 117000,
+        }),
+      });
+    const { app } = createTestApp({
+      currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
+      paymentRequestCommandRepository,
+    });
+
+    const response = await request(app).post(
+      `/api/payment-requests/${PAYMENT_REQUEST_ID}/accept`,
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      request: {
+        id: PAYMENT_REQUEST_ID,
+        amount: 3000,
+        status: 'accepted',
+        respondedAt: '2026-08-06T02:00:00.000Z',
+      },
+      balance: 117000,
+    });
+    expect(paymentRequestCommandRepository.respond).toHaveBeenCalledWith({
+      paymentRequestId: PAYMENT_REQUEST_ID,
+      currentUserInternalId: CURRENT_USER_ID,
+      response: 'accepted',
+    });
+  });
+
+  it('請求を拒否し、残高を返さない', async () => {
+    const { app } = createTestApp({
+      currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
+      paymentRequestCommandRepository: createPaymentRequestCommandRepository({
+        responded: createRespondedPaymentRequest({
+          id: PAYMENT_REQUEST_ID,
+          status: 'rejected',
+          recipientBalance: null,
+        }),
+      }),
+    });
+
+    const response = await request(app).post(
+      `/api/payment-requests/${PAYMENT_REQUEST_ID}/reject`,
+    );
+
+    const body = asPaymentRequestResponseBody(response.body);
+
+    expect(response.status).toBe(200);
+    expect(body.balance).toBeUndefined();
+    expect(body.request.status).toBe('rejected');
+  });
+
+  it.each([
+    [
+      '存在しない請求',
+      new PaymentRequestNotFoundError(),
+      404,
+      'PAYMENT_REQUEST_NOT_FOUND',
+    ],
+    [
+      '被請求者でない',
+      new PaymentRequestForbiddenError(),
+      403,
+      'PAYMENT_REQUEST_FORBIDDEN',
+    ],
+    [
+      'すでに応答済み',
+      new PaymentRequestAlreadyRespondedError(),
+      409,
+      'PAYMENT_REQUEST_ALREADY_RESPONDED',
+    ],
+    ['残高不足', new InsufficientBalanceError(), 422, 'INSUFFICIENT_BALANCE'],
+  ])('承認の%sを%dにする', async (_name, error, status, code) => {
+    const { app } = createTestApp({
+      currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
+      paymentRequestCommandRepository: createPaymentRequestCommandRepository({
+        error,
+      }),
+    });
+
+    const response = await request(app).post(
+      `/api/payment-requests/${PAYMENT_REQUEST_ID}/accept`,
+    );
+
+    expect(response.status).toBe(status);
+    expect(asErrorBody(response.body).error.code).toBe(code);
+  });
+
+  it('請求IDがUUIDでなければ400にする', async () => {
+    const paymentRequestCommandRepository =
+      createPaymentRequestCommandRepository();
+    const { app } = createTestApp({
+      currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
+      paymentRequestCommandRepository,
+    });
+
+    const response = await request(app).post(
+      '/api/payment-requests/not-a-uuid/accept',
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: { code: 'INVALID_REQUEST', message: 'id must be a UUID' },
+    });
+    expect(paymentRequestCommandRepository.respond).not.toHaveBeenCalled();
+  });
+
+  it('承認で現在ユーザーが存在しなければ404にする', async () => {
+    const { app } = createTestApp({ currentUser: null });
+
+    const response = await request(app).post(
+      `/api/payment-requests/${PAYMENT_REQUEST_ID}/accept`,
+    );
+
+    expect(response.status).toBe(404);
+    expect(asErrorBody(response.body).error.code).toBe(
+      'CURRENT_USER_NOT_FOUND',
+    );
   });
 });

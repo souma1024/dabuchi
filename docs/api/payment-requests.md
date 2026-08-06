@@ -191,3 +191,92 @@ GET /api/payment-requests?direction=received&status=pending&cursor=<opaque curso
   }
 }
 ```
+
+# 請求の承認・拒否
+
+`pending` の請求に対して、被請求者が承認または拒否します。承認すると残高が動き、取引履歴にも記録されます。
+
+## Endpoint
+
+```http
+POST /api/payment-requests/:id/accept
+POST /api/payment-requests/:id/reject
+```
+
+- `:id` は `payment_requests.id` の内部UUID
+- request body はありません
+- 現在ユーザーは request から受け取らず、backendのcurrent userから決定します
+- **応答できるのは被請求者だけです。** 請求者や第三者は `403` になります
+
+承認と拒否で経路を分けているのは、URLに動詞を出して意図を明示するためです。
+
+## 承認 `POST /:id/accept`
+
+以下を**単一のDB transaction**で実行します。
+
+1. 対象の請求行を `FOR UPDATE` でロックする
+2. 対象が `pending` か、現在ユーザーが被請求者かを確認する
+3. 被請求者の残高を `amount` 減らし、請求者の残高を `amount` 増やす
+4. `transfers` に1件記録する（取引履歴に表示されるようにする）
+5. `status='accepted'`、`responded_at=CURRENT_TIMESTAMP(6)` に更新する
+
+3〜4は送金API（[docs/api/transfers.md](transfers.md)）と同じ手続きを再利用しています。途中で失敗した場合は全体が巻き戻り、残高だけが動いた状態にはなりません。
+
+状態の確認と更新の間に別の実行が割り込むと二重送金になるため、確認から更新までを同じtransactionの内側で行っています。
+
+### `200 OK`
+
+```json
+{
+  "request": {
+    "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "amount": 3000,
+    "status": "accepted",
+    "respondedAt": "2026-08-06T02:00:00.000Z"
+  },
+  "balance": 117000
+}
+```
+
+`balance` は送金後の被請求者の残高です。画面側が `GET /api/me` を取り直さずに完了表示を出せます。
+
+## 拒否 `POST /:id/reject`
+
+1. 対象が `pending` か、現在ユーザーが被請求者かを確認する
+2. `status='rejected'`、`responded_at=CURRENT_TIMESTAMP(6)` に更新する
+
+残高は動きません。そのため `balance` は返しません。
+
+### `200 OK`
+
+```json
+{
+  "request": {
+    "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "amount": 3000,
+    "status": "rejected",
+    "respondedAt": "2026-08-06T02:00:00.000Z"
+  }
+}
+```
+
+## エラー
+
+| status | code                                | 条件                                     |
+| ------ | ----------------------------------- | ---------------------------------------- |
+| `400`  | `INVALID_REQUEST`                   | `:id` がUUIDでない                       |
+| `403`  | `PAYMENT_REQUEST_FORBIDDEN`         | 現在ユーザーが被請求者でない             |
+| `404`  | `PAYMENT_REQUEST_NOT_FOUND`         | 対象の請求が存在しない                   |
+| `404`  | `CURRENT_USER_NOT_FOUND`            | 現在ユーザーが `users` に存在しない      |
+| `409`  | `PAYMENT_REQUEST_ALREADY_RESPONDED` | 対象が `pending` でない                  |
+| `422`  | `INSUFFICIENT_BALANCE`              | 被請求者の残高が不足している（承認のみ） |
+
+**`409` は画面側の制御だけでは防げません。** 一覧を読み込んだ後に別端末で処理される、といったことが起こりえます。二重送金を防ぐのはserver側の責務です。
+
+存在しない請求（`404`）と被請求者でない請求（`403`）を区別しています。請求IDは一覧APIで被請求者へ渡しており、当てずっぽうで到達できるものではないためです。
+
+**残高不足は `422` です。** Issue #71 の記載は `400` ですが、送金API（`POST /api/transfers`）が同じ条件で `422 INSUFFICIENT_BALANCE` を返しており、同一のエラー型を再利用しています。形式は正しいが状態のせいで処理できない、という意味でも `422` が適切です。
+
+## 未対応
+
+**請求の取り消し（請求者自身によるキャンセル）は含みません。** `payment_requests.status` のCHECK制約が `('pending', 'accepted', 'rejected')` のため、`canceled` を足すには migration が必要です。また `responded_at` は「被請求者が応答した日時」の意味なので、請求者の操作で使うかは別途判断が必要です（Issue #61）。
