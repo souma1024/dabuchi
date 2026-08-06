@@ -2,7 +2,8 @@
 
 ## 進行中
 
-- [進行中] PR #6の送金履歴保存APIをレビューする
+- [進行中] チームのMac・Windows環境でoverrideなしのCompose起動を確認する
+- [進行中] 友達関係・個別メモ・ブロックのV4 migrationをレビューする
 
 ## 未着手
 
@@ -15,9 +16,16 @@
 - [未着手] PR #2の送金相手型を候補一覧に必要な項目へ分離する
 - [未着手] 公開`user_id`の文字種・長さ・変更可否を決定する
 - [未着手] 送金時の残高更新と履歴管理をトランザクションとして設計する
+- [未着手] 請求承認時の残高更新・送金履歴作成・状態更新をDB transactionで実装する
+- [未着手] 被請求者向けpending一覧と承認・拒否APIを設計する
+- [未着手] 友達一覧・追加・個別メモ編集・ブロック・解除APIを実装する
+- [未着手] ブロック関係を通常の友達・送金・請求候補から双方除外する
+- [未着手] 友達管理・ブロックリスト画面を実装する
+- [未着手] ホーム画面へ公開user_idを表示する別PRを作成する
 
 ## 完了
 
+- [完了] PR #40のMySQL外部キー違反判定を共通化し、重複実装を解消する
 - [完了] PR #5の送る相手候補取得基盤をmainへマージする
 - [完了] PR #7のHTTP endpointとAPI仕様をmainへマージする
 - [完了] 実MySQLで候補一覧APIが500になるLIMITパラメータ型を修正する
@@ -40,6 +48,11 @@
 - [完了] 開発用mockログイン設定と`GET /api/me`を追加する
 - [完了] ローカルbackend起動時にルート`.env`を読み込む
 - [完了] Vite proxyをローカル起動とCompose起動の両方に対応させる
+- [完了] PR #6マージ後のmainを空のDocker volumeから再構築して実APIを確認する
+- [完了] Composeのworkspace指定とLinux ARM64 musl binding不足を修正する
+- [完了] 請求状態を送金履歴から分離するDB設計とV3 migrationを追加する
+- [完了] server側current userから複数人分の個別金額請求を作成するAPIを実装する
+- [完了] 請求作成backendをDockerと実MySQLで動作確認する
 
 ## 保留・要確認
 
@@ -52,7 +65,8 @@
 
 - DB CIはmigration・seed関連の変更時だけ起動する方針のため、backend repositoryはfactory-based testで検証している
 - users件数増加時に`created_at, id`の複合indexを検討する
+- npm auditで既存依存のhigh severity 2件が報告されるため、影響範囲と安全な更新先を確認する
 
 ## 次回最初に着手するタスク
 
-ホーム画面から`GET /api/me`を呼び出し、名前、アイコン、残高を表示する。
+友達関係・個別メモ・ブロックのV4 migration PRをレビューする。

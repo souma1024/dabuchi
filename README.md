@@ -188,6 +188,12 @@ mockログイン中のユーザーについて、ホーム画面に必要な内�
 
 詳細なresponse / status codeは[Current user API](docs/api/current-user.md)を参照してください。
 
+### `POST /api/payment-requests`
+
+backendのcurrent userを請求者とし、最大50人へ被請求者ごとの金額で請求を作成します。request bodyには`recipientId`と`amount`だけを送り、作成時点では残高を移動せず`pending`で保存します。
+
+詳細なrequest / response / status codeは[Payment requests API](docs/api/payment-requests.md)を参照してください。
+
 ## 品質チェック
 
 ```bash

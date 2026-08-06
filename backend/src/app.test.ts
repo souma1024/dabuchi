@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 
+import { PaymentRequestParticipantNotFoundError } from './application/createPaymentRequests.js';
 import { TransferParticipantNotFoundError } from './application/createTransfer.js';
 import type {
   NewTransfer,
@@ -253,6 +254,127 @@ describe('backend application', () => {
       error: {
         code: 'TRANSFER_PARTICIPANT_NOT_FOUND',
         message: 'senderId or recipientId was not found.',
+      },
+    });
+  });
+
+  it('server側current userを請求者として複数人分を保存する', async () => {
+    const { app, currentUserRepository, paymentRequestRepository } =
+      createTestApp();
+    const response = await request(app)
+      .post('/api/payment-requests')
+      .send({
+        requesterId: '99999999-9999-4999-8999-999999999999',
+        requests: [
+          {
+            recipientId: '22222222-2222-4222-8222-222222222222',
+            amount: 1_500,
+          },
+          {
+            recipientId: '33333333-3333-4333-8333-333333333333',
+            amount: 2_800,
+          },
+        ],
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toEqual({
+      requests: [
+        {
+          id: '00000000-0000-4000-8000-000000000001',
+          requesterId: CURRENT_USER_ID,
+          recipientId: '22222222-2222-4222-8222-222222222222',
+          amount: 1_500,
+          status: 'pending',
+        },
+        {
+          id: '00000000-0000-4000-8000-000000000002',
+          requesterId: CURRENT_USER_ID,
+          recipientId: '33333333-3333-4333-8333-333333333333',
+          amount: 2_800,
+          status: 'pending',
+        },
+      ],
+    });
+    expect(currentUserRepository.findByUserId).toHaveBeenCalledWith(
+      MOCK_USER_ID,
+    );
+    expect(paymentRequestRepository.saveAll).toHaveBeenCalledWith([
+      {
+        id: '00000000-0000-4000-8000-000000000001',
+        requesterId: CURRENT_USER_ID,
+        recipientId: '22222222-2222-4222-8222-222222222222',
+        amount: 1_500,
+      },
+      {
+        id: '00000000-0000-4000-8000-000000000002',
+        requesterId: CURRENT_USER_ID,
+        recipientId: '33333333-3333-4333-8333-333333333333',
+        amount: 2_800,
+      },
+    ]);
+  });
+
+  it('不正な請求入力に共通形式の400を返す', async () => {
+    const { app, paymentRequestRepository } = createTestApp();
+    const response = await request(app)
+      .post('/api/payment-requests')
+      .send({ requests: [] });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: {
+        code: 'INVALID_REQUEST',
+        message: 'requests must contain at least one item.',
+      },
+    });
+    expect(paymentRequestRepository.saveAll).not.toHaveBeenCalled();
+  });
+
+  it('mock current userが存在しなければ404を返す', async () => {
+    const { app } = createTestApp({ currentUser: null });
+    const response = await request(app)
+      .post('/api/payment-requests')
+      .send({
+        requests: [
+          {
+            recipientId: '22222222-2222-4222-8222-222222222222',
+            amount: 1_500,
+          },
+        ],
+      });
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({
+      error: {
+        code: 'CURRENT_USER_NOT_FOUND',
+        message: 'Current user was not found.',
+      },
+    });
+  });
+
+  it('存在しない被請求者が含まれていれば422を返す', async () => {
+    const { app, paymentRequestRepository } = createTestApp();
+    vi.mocked(paymentRequestRepository.saveAll).mockRejectedValue(
+      new PaymentRequestParticipantNotFoundError(),
+    );
+
+    const response = await request(app)
+      .post('/api/payment-requests')
+      .send({
+        requests: [
+          {
+            recipientId: '99999999-9999-4999-8999-999999999999',
+            amount: 1_500,
+          },
+        ],
+      });
+
+    expect(response.status).toBe(422);
+    expect(response.body).toEqual({
+      error: {
+        code: 'PAYMENT_REQUEST_PARTICIPANT_NOT_FOUND',
+        message: 'One or more recipients were not found.',
       },
     });
   });

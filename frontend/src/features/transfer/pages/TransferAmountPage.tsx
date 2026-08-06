@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import { UserAvatar } from '../../../components/UserAvatar';
+import { currentUser, recipients } from '../../../lib/mockUsers';
+import type { Recipient as TransferRecipient } from '../../../types/user';
 import { sendTransfer } from '../api/transferClient';
-import { UserAvatar } from '../components/UserAvatar';
-import { currentUser, recipients } from '../mockUsers';
-import type { TransferRecipient } from '../types';
 
 interface TransferLocationState {
   recipient: TransferRecipient;

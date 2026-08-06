@@ -7,6 +7,7 @@ import type {
   SavedTransfer,
   TransferRepository,
 } from '../domain/transferRepository.js';
+import { isForeignKeyViolation } from './database/mysqlError.js';
 
 export class MysqlTransferRepository implements TransferRepository {
   constructor(private readonly pool: Pool) {}
@@ -30,13 +31,4 @@ export class MysqlTransferRepository implements TransferRepository {
 
     return { id: result.insertId, ...transfer };
   }
-}
-
-function isForeignKeyViolation(error: unknown): error is { code: string } {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    error.code === 'ER_NO_REFERENCED_ROW_2'
-  );
 }
