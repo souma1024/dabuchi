@@ -1,12 +1,7 @@
-/** 取引の相手ユーザー。送金でも受取でも「相手」として同じ形で扱う。 */
-export interface Counterparty {
-  /** 内部UUID（users.id）。 */
-  id: string;
-  /** 表示名。 */
-  name: string;
-  /** アイコン画像の相対URL（例: /assets/profiles/human1.png）。 */
-  profileUrl: string;
-}
+import type { Counterparty } from '../../types/user';
+
+// 相手の形は請求一覧と同じため、共有型を使う。
+export type { Counterparty };
 
 /** お金の向き。sentは自分が送った、receivedは自分が受け取った。 */
 export type TransactionDirection = 'sent' | 'received';
