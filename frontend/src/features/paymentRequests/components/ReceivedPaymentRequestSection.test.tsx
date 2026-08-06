@@ -8,31 +8,32 @@ import { ReceivedPaymentRequestSection } from './ReceivedPaymentRequestSection';
 // IntersectionObserverはjsdomに無いため、observe対象を保持して手動で発火させる。
 let triggerIntersection: (() => void) | null = null;
 
+class ManualIntersectionObserver {
+  constructor(private readonly callback: IntersectionObserverCallback) {}
+  observe() {
+    triggerIntersection = () => {
+      this.callback(
+        [{ isIntersecting: true } as IntersectionObserverEntry],
+        this as unknown as IntersectionObserver,
+      );
+    };
+  }
+  disconnect() {}
+  unobserve() {}
+}
+
+// setup.tsの既定スタブをこのファイル全体で一度だけ差し替える。
+// テストごとに差し替え直すと、前テストの残りeffectがflushされる短い間に
+// 別のクラスが入れ替わり、監視の登録先が食い違う余地が残る。
+vi.stubGlobal('IntersectionObserver', ManualIntersectionObserver);
+
 beforeEach(() => {
   triggerIntersection = null;
-
-  vi.stubGlobal(
-    'IntersectionObserver',
-    class {
-      constructor(private readonly callback: IntersectionObserverCallback) {}
-      observe() {
-        triggerIntersection = () => {
-          this.callback(
-            [{ isIntersecting: true } as IntersectionObserverEntry],
-            this as unknown as IntersectionObserver,
-          );
-        };
-      }
-      disconnect() {}
-      unobserve() {}
-    },
-  );
 });
 
 afterEach(() => {
   // unstubAllGlobalsは呼ばない。setup.tsが登録したIntersectionObserverまで
   // 消えてしまい、テスト終了後に遅れて走るeffectがundefinedを参照するため。
-  // beforeEachで毎回登録し直しているので、テスト間の漏れはない。
   vi.restoreAllMocks();
 });
 
