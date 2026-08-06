@@ -198,6 +198,12 @@ backendのcurrent userを請求者とし、最大50人へ被請求者ごとの�
 
 詳細なrequest / response / status codeは[Payment requests API](docs/api/payment-requests.md)を参照してください。
 
+### `GET /api/payment-requests`
+
+backendのcurrent userから見た請求を、作成日時の降順で20件ずつ返します。`direction`で自分が請求された（`received`）／自分が請求した（`sent`）を選び、`status`で状態を絞り込みます。次ページは`cursor`で取得します。
+
+詳細なrequest / response / status codeは[Payment requests API](docs/api/payment-requests.md)を参照してください。
+
 ## 品質チェック
 
 ```bash
