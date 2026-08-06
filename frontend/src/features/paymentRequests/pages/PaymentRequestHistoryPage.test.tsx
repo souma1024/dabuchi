@@ -5,29 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import * as mockModule from '../mockPaymentRequests';
 import { PaymentRequestHistoryPage } from './PaymentRequestHistoryPage';
+import { installManualIntersectionObserver } from '../../../test/intersectionObserver';
 
-// IntersectionObserverはjsdomに無いため、observe対象を保持して手動で発火させる。
-let triggerIntersection: (() => void) | null = null;
+// 一覧末尾の監視は手で発火させる（jsdomにIntersectionObserverが無いため）。
+const intersection = installManualIntersectionObserver();
 
 beforeEach(() => {
-  triggerIntersection = null;
-
-  vi.stubGlobal(
-    'IntersectionObserver',
-    class {
-      constructor(private readonly callback: IntersectionObserverCallback) {}
-      observe() {
-        triggerIntersection = () => {
-          this.callback(
-            [{ isIntersecting: true } as IntersectionObserverEntry],
-            this as unknown as IntersectionObserver,
-          );
-        };
-      }
-      disconnect() {}
-      unobserve() {}
-    },
-  );
+  intersection.reset();
 });
 
 afterEach(() => {
@@ -145,7 +129,7 @@ describe('PaymentRequestHistoryPage', () => {
     renderPage();
     const initial = (await screen.findAllByRole('listitem')).length;
 
-    triggerIntersection?.();
+    await intersection.trigger();
 
     await waitFor(() => {
       expect(screen.getAllByRole('listitem').length).toBeGreaterThan(initial);

@@ -5,31 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as mockModule from '../mockPaymentRequests';
 import type { PaymentRequest } from '../types';
 import { ReceivedPaymentRequestSection } from './ReceivedPaymentRequestSection';
+import { installManualIntersectionObserver } from '../../../test/intersectionObserver';
 
-// IntersectionObserverはjsdomに無いため、observe対象を保持して手動で発火させる。
-let triggerIntersection: (() => void) | null = null;
-
-class ManualIntersectionObserver {
-  constructor(private readonly callback: IntersectionObserverCallback) {}
-  observe() {
-    triggerIntersection = () => {
-      this.callback(
-        [{ isIntersecting: true } as IntersectionObserverEntry],
-        this as unknown as IntersectionObserver,
-      );
-    };
-  }
-  disconnect() {}
-  unobserve() {}
-}
-
-// setup.tsの既定スタブをこのファイル全体で一度だけ差し替える。
-// テストごとに差し替え直すと、前テストの残りeffectがflushされる短い間に
-// 別のクラスが入れ替わり、監視の登録先が食い違う余地が残る。
-vi.stubGlobal('IntersectionObserver', ManualIntersectionObserver);
+// 一覧末尾の監視は手で発火させる（jsdomにIntersectionObserverが無いため）。
+const intersection = installManualIntersectionObserver();
 
 beforeEach(() => {
-  triggerIntersection = null;
+  intersection.reset();
 });
 
 afterEach(() => {
@@ -47,7 +29,7 @@ function renderSection() {
   );
 }
 
-// ページングの挙動は件数に依存しない。実データ（25件）を描画すると
+// ページングの挙動は件数に依存しない。実データ（25件）をそのまま描画すると
 // 並列実行時に描画待ちが伸びてタイムアウトすることがあるため、少件数で確認する。
 function stubPages(pageSizes: readonly number[]) {
   let index = 0;
@@ -94,13 +76,14 @@ describe('ReceivedPaymentRequestSection', () => {
   });
 
   it('下端に達したら続きを読み込んで追記する', async () => {
+    stubPages([2, 1]);
     renderSection();
 
     await screen.findAllByRole('listitem');
-    triggerIntersection?.();
+    await intersection.trigger();
 
     await waitFor(() => {
-      expect(screen.getAllByRole('listitem')).toHaveLength(25);
+      expect(screen.getAllByRole('listitem')).toHaveLength(3);
     });
   });
 
@@ -119,13 +102,13 @@ describe('ReceivedPaymentRequestSection', () => {
   it('すべて読み込んだら実際の件数だけを出す', async () => {
     stubPages([2, 1]);
     renderSection();
+
     await screen.findAllByRole('listitem');
-
-    triggerIntersection?.();
-
+    await intersection.trigger();
     await waitFor(() => {
       expect(screen.getAllByRole('listitem')).toHaveLength(3);
     });
+
     const heading = screen.getByRole('heading', { name: /請求されています/ });
     expect(heading).toHaveTextContent('3');
     expect(heading).not.toHaveTextContent('3+');
@@ -176,14 +159,14 @@ describe('ReceivedPaymentRequestSection', () => {
   it('最後まで読み込んだらそれ以上増えない', async () => {
     stubPages([2, 1]);
     renderSection();
+
     await screen.findAllByRole('listitem');
-    triggerIntersection?.();
+    await intersection.trigger();
     await waitFor(() => {
       expect(screen.getAllByRole('listitem')).toHaveLength(3);
     });
 
-    triggerIntersection?.();
-
+    await intersection.trigger();
     await waitFor(() => {
       expect(screen.getAllByRole('listitem')).toHaveLength(3);
     });
