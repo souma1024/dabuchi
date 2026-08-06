@@ -152,7 +152,17 @@ GET /api/payment-requests?direction=received&status=pending&cursor=<opaque curso
 
 `hasNextPage` が `true` なら、次回リクエストの `cursor` へ `nextCursor` をそのまま渡します。最終ページでは `nextCursor` は `null` になります。
 
-`createdAt` は請求日として表示に利用します。`respondedAt` は承認・拒否された日時で、`pending` のあいだは `null` です。
+`createdAt` は請求日として表示に利用します。`respondedAt` は決着した日時で、`pending` のあいだは `null` です。
+
+### `status` の意味
+
+| 値         | 意味                         |
+| ---------- | ---------------------------- |
+| `pending`  | まだ決着していない           |
+| `accepted` | 被請求者が承認し、送金された |
+| `rejected` | 成立しなかった               |
+
+`rejected` は「被請求者が拒否した」と「請求者が取り消した」の**両方**を表します。`payment_requests.status` のCHECK制約を変えずに取り消しを扱うためで、DBは誰が終わらせたかを持ちません（Issue #61）。画面のラベルも行為者を示さない「キャンセル」とします。
 
 ### `400 Bad Request`
 
