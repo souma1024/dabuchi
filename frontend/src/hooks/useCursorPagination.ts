@@ -60,6 +60,15 @@ export function useCursorPagination<T>(
     let active = true;
     loadingRef.current = true;
 
+    // fetchPageが変わる＝取得対象が変わったということ。前の結果を消してから読み直す。
+    // 残したままだと、取得が終わるまで前の一覧が新しい対象のものとして表示される
+    // （例: 受けた請求のpendingが「請求中」として並ぶ）。
+    setItems([]);
+    setNextCursor(null);
+    setError(null);
+    setIsLoadingInitial(true);
+    cursorRef.current = null;
+
     void fetchPage(null)
       .then((page) => {
         if (!active) {

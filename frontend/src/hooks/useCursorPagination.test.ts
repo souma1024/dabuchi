@@ -78,6 +78,30 @@ describe('useCursorPagination', () => {
     expect(fetchPage).toHaveBeenCalledTimes(2);
   });
 
+  // 取得対象が変わったのに前の結果が残ると、別の対象のものとして表示されてしまう。
+  it('fetchPageが変わったら前の結果を消して読み直す', async () => {
+    const first = vi.fn().mockResolvedValue(createPage(['a'], '1'));
+    const second = vi
+      .fn()
+      .mockImplementation(
+        () => new Promise<CursorPage<string>>(() => undefined),
+      );
+    const { result, rerender } = renderHook(
+      ({ fetchPage }) => useCursorPagination(fetchPage),
+      { initialProps: { fetchPage: first } },
+    );
+    await waitFor(() => {
+      expect(result.current.items).toEqual(['a']);
+    });
+
+    rerender({ fetchPage: second });
+
+    // 2つ目の取得は解決しないため、前の結果が残っていれば検出できる。
+    expect(result.current.items).toEqual([]);
+    expect(result.current.isLoadingInitial).toBe(true);
+    expect(result.current.hasMore).toBe(false);
+  });
+
   it('初回の失敗をエラーとして返す', async () => {
     const fetchPage = vi
       .fn()
