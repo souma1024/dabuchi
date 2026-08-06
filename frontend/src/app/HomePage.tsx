@@ -18,7 +18,7 @@ interface MenuItem {
 // お金を動かす操作。対になるため横に並べる。
 const actions: MenuItem[] = [
   { label: '送金する', to: '/recipients', tone: 'send' },
-  { label: '請求する', to: null, tone: 'request' },
+  { label: '請求する', to: '/recipients?purpose=billing', tone: 'request' },
 ];
 
 // 自分宛の通知。
@@ -30,7 +30,7 @@ const notice: MenuItem = {
 
 // 見る・管理する。
 const links: MenuItem[] = [
-  { label: '履歴一覧', to: null, tone: 'quiet' },
+  { label: '履歴一覧', to: '/transactions', tone: 'quiet' },
   { label: '友達管理', to: null, tone: 'quiet' },
 ];
 

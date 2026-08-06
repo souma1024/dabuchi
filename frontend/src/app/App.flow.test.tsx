@@ -20,6 +20,11 @@ describe('送金フローの結合', () => {
           name: '山田 太郎',
           imageUrl: '/assets/profiles/human1.png',
         },
+        {
+          id: 'uuid-2',
+          name: '佐藤 花子',
+          imageUrl: '/assets/profiles/human2.png',
+        },
       ],
       nextCursor: null,
     });
@@ -37,5 +42,26 @@ describe('送金フローの結合', () => {
       await screen.findByRole('heading', { name: '送金先' }),
     ).toBeInTheDocument();
     expect(screen.getByText('山田 太郎')).toBeInTheDocument();
+  });
+
+  // 請求は複数人を選んでから「次へ」で確定する。選んだ全員が請求画面へ並ぶ。
+  it('ホーム→相手選択（請求）→複数チェック→次へで、請求画面へ選んだ相手全員が渡る', async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('link', { name: '請求する' }));
+
+    expect(
+      await screen.findByRole('heading', { name: '請求相手を選ぶ' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: '山田 太郎' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: '佐藤 花子' }));
+    fireEvent.click(screen.getByRole('button', { name: '次へ' }));
+
+    expect(
+      await screen.findByRole('heading', { name: '請求先（2人）' }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('山田 太郎')).toBeInTheDocument();
+    expect(screen.getByLabelText('佐藤 花子')).toBeInTheDocument();
   });
 });

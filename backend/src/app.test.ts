@@ -9,6 +9,9 @@ import type {
 } from './domain/transferRepository.js';
 import { encodePaymentRequestCursor } from './presentation/http/paymentRequestCursorCodec.js';
 import { encodeRecipientCursor } from './presentation/http/recipientCursorCodec.js';
+import { encodeTransactionCursor } from './presentation/http/transactionCursorCodec.js';
+import type { TransactionRecord } from './domain/transaction.js';
+import { mysqlDateTimeToIso } from './shared/mysqlDateTime.js';
 import { createTestApp } from './test/factories/appFactory.js';
 import { createCurrentUser } from './test/factories/currentUserFactory.js';
 import {
@@ -16,6 +19,10 @@ import {
   createPaymentRequestRecord,
   createPaymentRequestRecords,
 } from './test/factories/paymentRequestListFactory.js';
+import {
+  createTransactionRecord,
+  createTransactionRecords,
+} from './test/factories/transactionFactory.js';
 import {
   createUserRecipientRecord,
   createUserRecipientRecords,
@@ -41,6 +48,20 @@ class InMemoryTransferRepository implements TransferRepository {
 
 function createTransferTestApp(repository: TransferRepository) {
   return createTestApp({ transferRepository: repository }).app;
+}
+
+function toTransactionResponse(record: TransactionRecord) {
+  return {
+    id: record.id,
+    counterparty: {
+      id: record.counterpartyId,
+      name: record.counterpartyName,
+      profileUrl: record.counterpartyProfileUrl,
+    },
+    amount: record.amount,
+    direction: record.direction,
+    createdAt: mysqlDateTimeToIso(record.createdAt),
+  };
 }
 
 describe('backend application', () => {
@@ -196,6 +217,89 @@ describe('backend application', () => {
     const responseBody: unknown = response.body;
     expect(JSON.stringify(responseBody)).not.toContain('database detail');
     consoleError.mockRestore();
+  });
+
+  it('ログイン中ユーザーの取引履歴を20件と次ページ情報で返す', async () => {
+    const records = createTransactionRecords(21);
+    const { app, transactionRepository } = createTestApp({
+      transactions: records,
+    });
+
+    const response = await request(app).get('/api/transactions');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      transactions: records.slice(0, 20).map(toTransactionResponse),
+      pageInfo: {
+        nextCursor: encodeTransactionCursor({
+          createdAt: createTransactionRecord(20).createdAt,
+          id: createTransactionRecord(20).id,
+        }),
+        hasNextPage: true,
+      },
+    });
+    // clientはユーザーを指定できず、server解決の内部UUIDで検索される
+    expect(transactionRepository.findTransactions).toHaveBeenCalledWith({
+      currentUserId: CURRENT_USER_ID,
+      cursor: null,
+      limit: 21,
+    });
+  });
+
+  it('取引履歴のカーソルを検索条件として使う', async () => {
+    const cursor = { createdAt: '2026-08-04 12:00:20.000000', id: '20' };
+    const { app, transactionRepository } = createTestApp();
+
+    const response = await request(app)
+      .get('/api/transactions')
+      .query({ cursor: encodeTransactionCursor(cursor) });
+
+    expect(response.status).toBe(200);
+    expect(transactionRepository.findTransactions).toHaveBeenCalledWith({
+      currentUserId: CURRENT_USER_ID,
+      cursor,
+      limit: 21,
+    });
+  });
+
+  it('取引履歴で不正なカーソルを400にする', async () => {
+    const { app } = createTestApp();
+
+    const response = await request(app)
+      .get('/api/transactions')
+      .query({ cursor: 'invalid' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: { code: 'INVALID_REQUEST', message: 'cursor is invalid.' },
+    });
+  });
+
+  it('ログイン中ユーザーが存在しなければ取引履歴を404にする', async () => {
+    const { app } = createTestApp({ currentUser: null });
+
+    const response = await request(app).get('/api/transactions');
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({
+      error: {
+        code: 'CURRENT_USER_NOT_FOUND',
+        message: 'Current user was not found.',
+      },
+    });
+  });
+
+  it('取引履歴エンドポイントはURLでのユーザー指定を受け付けない', async () => {
+    const { app } = createTestApp({
+      transactions: createTransactionRecords(1),
+    });
+
+    const response = await request(app).get(
+      `/api/users/${CURRENT_USER_ID}/transactions`,
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'Not Found' });
   });
 
   it('送信者ID、受取人IDと金額を保存する', async () => {

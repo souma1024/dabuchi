@@ -6,17 +6,21 @@ import {
 } from '../../application/createPaymentRequests.js';
 import type { CurrentUserRepository } from '../../application/ports/currentUserRepository.js';
 import type { PaymentRequestListRepository } from '../../application/ports/paymentRequestListRepository.js';
+import type { TransactionRepository } from '../../application/ports/transactionRepository.js';
 import type { UserRecipientRepository } from '../../application/ports/userRecipientRepository.js';
 import { GetCurrentUser } from '../../application/usecases/getCurrentUser.js';
 import { ListPaymentRequests } from '../../application/usecases/listPaymentRequests.js';
 import { ListUserRecipients } from '../../application/usecases/listUserRecipients.js';
+import { ListUserTransactions } from '../../application/usecases/listUserTransactions.js';
 import type { CurrentUser } from '../../domain/currentUser.js';
 import type { PaymentRequestRecord } from '../../domain/paymentRequest.js';
 import type { PaymentRequestRepository } from '../../domain/paymentRequestRepository.js';
+import type { TransactionRecord } from '../../domain/transaction.js';
 import type { UserRecipientRecord } from '../../domain/userRecipient.js';
 import { createCurrentUserRepository } from './currentUserRepositoryFactory.js';
 import { createPaymentRequestListRepository } from './paymentRequestListFactory.js';
 import { createPaymentRequestRepository } from './paymentRequestRepositoryFactory.js';
+import { createTransactionRepository } from './transactionRepositoryFactory.js';
 import { createUserRecipientRepository } from './userRecipientRepositoryFactory.js';
 
 interface AppFactoryOptions {
@@ -30,6 +34,8 @@ interface AppFactoryOptions {
   paymentRequestRepository?: PaymentRequestRepository;
   recipients?: UserRecipientRecord[];
   repository?: UserRecipientRepository;
+  transactions?: TransactionRecord[];
+  transactionRepository?: TransactionRepository;
   transferRepository?: TransferRepository;
 }
 
@@ -42,6 +48,11 @@ export function createTestApp(options: AppFactoryOptions = {}) {
     createUserRecipientRepository({
       currentUserExists: options.currentUserExists,
       recipients: options.recipients,
+    });
+  const transactionRepository =
+    options.transactionRepository ??
+    createTransactionRepository({
+      transactions: options.transactions,
     });
   const getCurrentUser = new GetCurrentUser(currentUserRepository);
   const listUserRecipients = new ListUserRecipients(repository);
@@ -64,6 +75,10 @@ export function createTestApp(options: AppFactoryOptions = {}) {
     currentUserRepository,
     paymentRequestListRepository,
   );
+  const listUserTransactions = new ListUserTransactions(
+    currentUserRepository,
+    transactionRepository,
+  );
   const transferRepository: TransferRepository =
     options.transferRepository ??
     ({
@@ -77,11 +92,13 @@ export function createTestApp(options: AppFactoryOptions = {}) {
       getCurrentUser,
       listPaymentRequests,
       listUserRecipients,
+      listUserTransactions,
       transferRepository,
     }),
     currentUserRepository,
     paymentRequestListRepository,
     paymentRequestRepository,
     repository,
+    transactionRepository,
   };
 }

@@ -122,12 +122,9 @@ describe('RecipientAmountPage', () => {
     expect(screen.getByRole('button', { name: '請求' })).toBeDisabled();
   });
 
-  it('showMessageFieldがtrueの場合のみメッセージ欄を表示する', () => {
-    renderPage({ showMessageField: true });
-    expect(screen.getByLabelText('メッセージ（任意）')).toBeInTheDocument();
-  });
-
-  it('showMessageFieldが未指定の場合はメッセージ欄を表示しない', () => {
+  // 入力しても送信されない項目は置かない。backendがmessageへ対応したら
+  // onSubmitへ渡す形で追加する。
+  it('送信されないメッセージ欄は表示しない', () => {
     renderPage();
     expect(
       screen.queryByLabelText('メッセージ（任意）'),
@@ -173,7 +170,7 @@ describe('RecipientAmountPage', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('送信中は金額欄・メッセージ欄を編集できず、応答待ち中に金額を変更しても完了画面には送信時点の金額を表示する', async () => {
+  it('送信中は金額欄を編集できず、応答待ち中に金額を変更しても完了画面には送信時点の金額を表示する', async () => {
     let resolveSubmit: () => void = () => {};
     const onSubmit = vi.fn(
       () =>
@@ -182,13 +179,12 @@ describe('RecipientAmountPage', () => {
         }),
     );
     const user = userEvent.setup();
-    renderPage({ onSubmit, showMessageField: true });
+    renderPage({ onSubmit });
 
     await user.type(screen.getByLabelText('請求金額'), '1000');
     await user.click(screen.getByRole('button', { name: '請求' }));
 
     expect(screen.getByLabelText('請求金額')).toBeDisabled();
-    expect(screen.getByLabelText('メッセージ（任意）')).toBeDisabled();
 
     resolveSubmit();
 
