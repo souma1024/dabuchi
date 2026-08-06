@@ -12,5 +12,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // findBy/waitForの上限（setup.tsのasyncUtilTimeout）より長くする。
+    // 同じ値だと、待ち切る前にtest自体が打ち切られ、原因の分からない
+    // 「Test timed out」になる。
+    testTimeout: 15_000,
   },
 });
