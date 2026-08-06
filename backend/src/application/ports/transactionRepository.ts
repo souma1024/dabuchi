@@ -12,7 +12,6 @@ export interface FindUserTransactionsInput {
 }
 
 export interface TransactionRepository {
-  existsById: (id: string) => Promise<boolean>;
   findTransactions: (
     input: FindUserTransactionsInput,
   ) => Promise<TransactionRecord[]>;

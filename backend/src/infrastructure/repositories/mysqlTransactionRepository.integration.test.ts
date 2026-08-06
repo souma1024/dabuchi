@@ -16,7 +16,6 @@ const shouldRun = process.env.RUN_DB_INTEGRATION === '1';
 
 const USER_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const USER_B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-const ABSENT_USER = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const SAME_TIME = '2026-08-04 12:00:20.000000';
 const EARLIER_TIME = '2026-08-04 12:00:10.000000';
 
@@ -85,11 +84,6 @@ describe.skipIf(!shouldRun)('MysqlTransactionRepository (integration)', () => {
     );
 
     expect(rows[0]?.tz).toBe('+00:00');
-  });
-
-  it('内部UUIDで現在ユーザーの存在を判定する', async () => {
-    await expect(repository.existsById(USER_A)).resolves.toBe(true);
-    await expect(repository.existsById(ABSENT_USER)).resolves.toBe(false);
   });
 
   it('両方向のcounterparty/directionを解決し、新しい順・同一日時はid DESCで返す', async () => {

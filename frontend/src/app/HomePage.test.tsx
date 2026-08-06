@@ -65,12 +65,23 @@ describe('HomePage', () => {
     );
   });
 
+  it('「請求する」は相手選択画面へ請求目的で遷移する', async () => {
+    renderHomePage();
+
+    await screen.findByText('山田 太郎 さん');
+
+    expect(screen.getByRole('link', { name: '請求する' })).toHaveAttribute(
+      'href',
+      '/recipients?purpose=billing',
+    );
+  });
+
   it('遷移先が未実装のボタンは配置するが押せない', async () => {
     renderHomePage();
 
     await screen.findByText('山田 太郎 さん');
 
-    for (const label of ['請求する', '請求されている', '友達管理']) {
+    for (const label of ['請求されている', '友達管理']) {
       const button = screen.getByText(label).closest('button');
 
       expect(button).toBeInTheDocument();

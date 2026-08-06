@@ -6,10 +6,6 @@ import type {
 } from '../../application/ports/transactionRepository.js';
 import type { TransactionRecord } from '../../domain/transaction.js';
 
-interface ExistsRow extends RowDataPacket {
-  found: number;
-}
-
 interface TransactionRow extends RowDataPacket, TransactionRecord {}
 
 // sender/recipient の両方向を統合し、現在ユーザーから見た「相手」を算出する。
@@ -42,15 +38,6 @@ const BASE_TRANSACTION_QUERY = `
 
 export class MysqlTransactionRepository implements TransactionRepository {
   constructor(private readonly pool: Pool) {}
-
-  async existsById(id: string): Promise<boolean> {
-    const [rows] = await this.pool.execute<ExistsRow[]>(
-      'SELECT 1 AS found FROM users WHERE id = UUID_TO_BIN(?) LIMIT 1',
-      [id],
-    );
-
-    return rows.length > 0;
-  }
 
   async findTransactions(
     input: FindUserTransactionsInput,

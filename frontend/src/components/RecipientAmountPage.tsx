@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import {
+  getAmountError,
+  isAmountInputValue,
+  isSubmittableAmount,
+} from '../lib/amount';
 import type { Recipient } from '../types/user';
 import { UserAvatar } from './UserAvatar';
 
@@ -23,11 +28,14 @@ export interface RecipientAmountPageProps {
   completeNote?: string;
   onSubmit: (amount: number) => Promise<void>;
   maxAmount?: MaxAmountConfig;
-  showMessageField?: boolean;
 }
 
 // 送金画面・請求画面共通の「相手表示＋金額入力＋バリデーション＋送信＋完了表示」UI。
-// 差分（ラベル文言・送金上限額チェックの要否・メッセージ欄の要否・送信処理・完了メッセージ）はpropsで切り替える。
+// 差分（ラベル文言・送金上限額チェックの要否・送信処理・完了メッセージ）はpropsで切り替える。
+//
+// メッセージ欄は設けていない。transfers・payment_requestsのどちらのテーブルにもmessage列が無く、
+// APIも受け付けないため、入力させても送信されず破棄されるだけになる。
+// backendが対応したらonSubmitへmessageを渡す形で追加する。
 export function RecipientAmountPage({
   recipient,
   heading,
@@ -40,32 +48,29 @@ export function RecipientAmountPage({
   completeNote,
   onSubmit,
   maxAmount,
-  showMessageField = false,
 }: RecipientAmountPageProps) {
   const navigate = useNavigate();
   const [amount, setAmount] = useState('');
-  const [message, setMessage] = useState('');
   const [isSent, setIsSent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submittedAmount, setSubmittedAmount] = useState(0);
 
   const numericAmount = Number(amount);
-  const isSafeAmount = Number.isSafeInteger(numericAmount);
+  const amountError = getAmountError(amount);
   const errorMessage =
-    amount !== '' && !isSafeAmount
-      ? '入力できる金額の桁数を超えています'
+    amountError !== ''
+      ? amountError
       : maxAmount !== undefined &&
           amount !== '' &&
           numericAmount > maxAmount.value
         ? maxAmount.exceededMessage
         : '';
-  const canSubmit =
-    amount !== '' && isSafeAmount && numericAmount > 0 && errorMessage === '';
+  const canSubmit = isSubmittableAmount(amount) && errorMessage === '';
 
   const handleAmountChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
-    if (value === '' || /^[0-9]+$/.test(value)) {
+    if (isAmountInputValue(value)) {
       setAmount(value);
     }
   };
@@ -155,26 +160,6 @@ export function RecipientAmountPage({
           <p className="mt-2 text-sm text-red-600">{errorMessage}</p>
         )}
       </div>
-
-      {showMessageField && (
-        <div>
-          <label
-            htmlFor="message"
-            className="text-sm font-semibold text-slate-600"
-          >
-            メッセージ（任意）
-          </label>
-          <textarea
-            id="message"
-            placeholder="メッセージ"
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            rows={3}
-            disabled={isSubmitting}
-            className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 shadow-sm outline-none focus:border-blue-400 disabled:opacity-60"
-          />
-        </div>
-      )}
 
       {submitError !== '' && (
         <p className="text-sm text-red-600">{submitError}</p>

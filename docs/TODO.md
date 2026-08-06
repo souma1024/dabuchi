@@ -4,6 +4,7 @@
 
 - [進行中] チームのMac・Windows環境でoverrideなしのCompose起動を確認する
 - [進行中] 友達関係・個別メモ・ブロックのV4 migrationをレビューする
+- [進行中] 友達管理backendをlayer単位のstacked PRで実装する
 
 ## 未着手
 
@@ -19,9 +20,14 @@
 - [未着手] 請求承認時の残高更新・送金履歴作成・状態更新をDB transactionで実装する
 - [未着手] 被請求者向けpending一覧と承認・拒否APIを設計する
 - [未着手] 友達一覧・追加・個別メモ編集・ブロック・解除APIを実装する
+- [未着手] 友達追加・note・ブロックのapplication更新系usecaseとfactory-based unit testを実装する
+- [未着手] 友達管理MySQL repositoryとprepared query unit testを実装する
+- [未着手] 友達管理HTTP router・共通error形式・API testを実装する
+- [未着手] 友達管理の依存をapp.tsとserver.tsへ配線する
 - [未着手] ブロック関係を通常の友達・送金・請求候補から双方除外する
 - [未着手] 友達管理・ブロックリスト画面を実装する
 - [未着手] ホーム画面へ公開user_idを表示する別PRを作成する
+- [未着手] 送金・請求へメッセージ欄を追加するか決定する（現状はDB・APIともmessage未対応のため画面から削除済み）
 
 ## 完了
 
@@ -53,6 +59,13 @@
 - [完了] 請求状態を送金履歴から分離するDB設計とV3 migrationを追加する
 - [完了] server側current userから複数人分の個別金額請求を作成するAPIを実装する
 - [完了] 請求作成backendをDockerと実MySQLで動作確認する
+- [完了] 友達ペア・個別メモ・自己ブロックのdomain制約とunit testを追加する
+- [完了] PR #50へ最新mainを取り込み、請求画面と取引履歴のroute競合を解消する
+- [完了] PR #52へ更新済み#50を取り込み、ホーム画面テストの競合を解消する
+- [完了] PR #56へ更新済み#52を取り込み、送信されないメッセージ欄の削除を再検証する
+- [完了] 友達一覧のapplication usecaseとfactory-based unit testを追加する
+- [完了] 友達詳細のapplication usecaseとブロック方向別の認可テストを追加する
+- [完了] 自分がブロックしている一覧のapplication usecaseとunit testを追加する
 
 ## 保留・要確認
 
@@ -69,4 +82,4 @@
 
 ## 次回最初に着手するタスク
 
-友達関係・個別メモ・ブロックのV4 migration PRをレビューする。
+友達追加のapplication command port/usecaseとfactory-based unit testを実装する。
