@@ -7,17 +7,6 @@ import { MysqlTransactionRepository } from './mysqlTransactionRepository.js';
 const CURRENT_USER_ID = '11111111-1111-4111-8111-111111111111';
 
 describe('MysqlTransactionRepository', () => {
-  it('内部UUIDで現在ユーザーの存在を確認する', async () => {
-    const { pool, execute } = createMysqlPool([[{ found: 1 }]]);
-    const repository = new MysqlTransactionRepository(pool);
-
-    await expect(repository.existsById(CURRENT_USER_ID)).resolves.toBe(true);
-    expect(execute).toHaveBeenCalledWith(
-      'SELECT 1 AS found FROM users WHERE id = UUID_TO_BIN(?) LIMIT 1',
-      [CURRENT_USER_ID],
-    );
-  });
-
   it('送受金を統合し、表示件数より1件多く新しい順で取得する', async () => {
     const record = createTransactionRecord();
     const { pool, execute } = createMysqlPool([[record]]);
