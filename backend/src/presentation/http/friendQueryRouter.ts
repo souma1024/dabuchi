@@ -9,6 +9,7 @@ import {
   decodeFriendCursor,
   encodeBlockedFriendCursor,
   encodeFriendCursor,
+  isFriendSort,
 } from './friendCursorCodec.js';
 import { isUuid } from './recipientCursorCodec.js';
 
@@ -32,10 +33,25 @@ export function createFriendQueryRouter(
 
   router.get('/', (request, response, next) => {
     void (async () => {
+      const sortValue = request.query.sort;
+      if (sortValue !== undefined && typeof sortValue !== 'string') {
+        throw new InvalidFriendRequestError('sort must be a string.');
+      }
+      if (sortValue !== undefined && !isFriendSort(sortValue)) {
+        throw new InvalidFriendRequestError(
+          'sort must be one of created-asc or created-desc.',
+        );
+      }
+
       const cursor = parseCursor(request.query.cursor, decodeFriendCursor);
+      const sort = sortValue ?? 'created-asc';
+      if (cursor && cursor.sort !== sort) {
+        throw new InvalidFriendRequestError('cursor is invalid.');
+      }
       const result = await dependencies.listFriends.execute({
         currentUserPublicId: requireCurrentUser(response).userId,
         cursor,
+        sort,
       });
 
       response.status(200).json({

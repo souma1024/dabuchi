@@ -4,6 +4,7 @@ import type { Pool } from 'mysql2/promise';
 import type {
   BlockedFriendCursor,
   BlockedFriendQueryRecord,
+  FriendSort,
   FriendQueryRecord,
   FriendQueryRepository,
   FriendshipCursor,
@@ -40,25 +41,20 @@ export class MysqlFriendQueryRepository implements FriendQueryRepository {
     currentUserId: string;
     cursor: FriendshipCursor | null;
     limit: number;
+    sort: FriendSort;
   }): Promise<FriendQueryRecord[]> {
-    const cursorClause = input.cursor
-      ? `AND (
-           f.created_at > ?
-           OR (f.created_at = ? AND f.id > UUID_TO_BIN(?))
-         )`
-      : '';
+    const { cursorClause, values: cursorValues } = buildFriendCursorClause(
+      input.cursor,
+    );
     const values = [input.currentUserId];
-
-    if (input.cursor) {
-      values.push(
-        input.cursor.createdAt,
-        input.cursor.createdAt,
-        input.cursor.id,
-      );
-    }
+    values.push(...cursorValues);
 
     // mysql2 sends JavaScript numbers as DOUBLE values, which MySQL rejects for LIMIT.
     values.push(String(input.limit));
+    const orderByClause =
+      input.sort === 'created-desc'
+        ? 'f.created_at DESC, f.id DESC'
+        : 'f.created_at ASC, f.id ASC';
 
     const [rows] = await this.pool.execute<FriendQueryRow[]>(
       `SELECT
@@ -91,7 +87,7 @@ export class MysqlFriendQueryRepository implements FriendQueryRepository {
               OR (ub.blocker_id = friend.id AND ub.blocked_user_id = viewer.id)
          )
        ${cursorClause}
-       ORDER BY f.created_at ASC, f.id ASC
+       ORDER BY ${orderByClause}
        LIMIT ?`,
       values,
     );
@@ -234,5 +230,32 @@ function toFriendQueryRecord(row: FriendQueryRow): FriendQueryRecord {
     },
     addedAt: row.addedAt,
     note: row.note,
+  };
+}
+
+function buildFriendCursorClause(cursor: FriendshipCursor | null): {
+  cursorClause: string;
+  values: string[];
+} {
+  if (!cursor) {
+    return { cursorClause: '', values: [] };
+  }
+
+  if (cursor.sort === 'created-desc') {
+    return {
+      cursorClause: `AND (
+           f.created_at < ?
+           OR (f.created_at = ? AND f.id < UUID_TO_BIN(?))
+         )`,
+      values: [cursor.value.createdAt, cursor.value.createdAt, cursor.value.id],
+    };
+  }
+
+  return {
+    cursorClause: `AND (
+         f.created_at > ?
+         OR (f.created_at = ? AND f.id > UUID_TO_BIN(?))
+       )`,
+    values: [cursor.value.createdAt, cursor.value.createdAt, cursor.value.id],
   };
 }

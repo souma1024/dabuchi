@@ -443,6 +443,39 @@ describe('backend application', () => {
       currentUserId: CURRENT_USER_ID,
       cursor: null,
       limit: 21,
+      sort: 'created-asc',
+    });
+  });
+
+  it('友達一覧でsort=created-descを検索条件として使う', async () => {
+    const { app, friendQueryRepository } = createTestApp();
+
+    const response = await request(app)
+      .get('/api/friends')
+      .query({ sort: 'created-desc' });
+
+    expect(response.status).toBe(200);
+    expect(friendQueryRepository.findFriends).toHaveBeenCalledWith({
+      currentUserId: CURRENT_USER_ID,
+      cursor: null,
+      limit: 21,
+      sort: 'created-desc',
+    });
+  });
+
+  it('友達一覧で不正なsortを400にする', async () => {
+    const { app } = createTestApp();
+
+    const response = await request(app)
+      .get('/api/friends')
+      .query({ sort: 'unknown' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: {
+        code: 'INVALID_REQUEST',
+        message: 'sort must be one of created-asc or created-desc.',
+      },
     });
   });
 
