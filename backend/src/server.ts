@@ -10,6 +10,8 @@ import { GetCurrentUser } from './application/usecases/getCurrentUser.js';
 import { GetFriendshipDetail } from './application/usecases/getFriendshipDetail.js';
 import { ListBlockedFriends } from './application/usecases/listBlockedFriends.js';
 import { ListFriends } from './application/usecases/listFriends.js';
+import { ListPaymentRequests } from './application/usecases/listPaymentRequests.js';
+import { RespondToPaymentRequest } from './application/usecases/respondToPaymentRequest.js';
 import { ListUserRecipients } from './application/usecases/listUserRecipients.js';
 import { ListUserTransactions } from './application/usecases/listUserTransactions.js';
 import { UnblockFriend } from './application/usecases/unblockFriend.js';
@@ -22,6 +24,8 @@ import { MysqlTransferRepository } from './infrastructure/mysqlTransferRepositor
 import { MysqlCurrentUserRepository } from './infrastructure/repositories/mysqlCurrentUserRepository.js';
 import { MysqlFriendCommandRepository } from './infrastructure/repositories/mysqlFriendCommandRepository.js';
 import { MysqlFriendQueryRepository } from './infrastructure/repositories/mysqlFriendQueryRepository.js';
+import { MysqlPaymentRequestCommandRepository } from './infrastructure/repositories/mysqlPaymentRequestCommandRepository.js';
+import { MysqlPaymentRequestListRepository } from './infrastructure/repositories/mysqlPaymentRequestListRepository.js';
 import { MysqlUserRecipientRepository } from './infrastructure/repositories/mysqlUserRecipientRepository.js';
 import { MysqlTransactionRepository } from './infrastructure/repositories/mysqlTransactionRepository.js';
 import { getErrorMessage } from './shared/errorMessage.js';
@@ -87,9 +91,17 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
       friendQueryRepository,
     );
     const listUserRecipients = new ListUserRecipients(userRecipientRepository);
+    const listPaymentRequests = new ListPaymentRequests(
+      currentUserRepository,
+      new MysqlPaymentRequestListRepository(pool),
+    );
     const listUserTransactions = new ListUserTransactions(
       currentUserRepository,
       transactionRepository,
+    );
+    const respondToPaymentRequest = new RespondToPaymentRequest(
+      currentUserRepository,
+      new MysqlPaymentRequestCommandRepository(pool),
     );
     const server = createApp({
       addFriend,
@@ -102,8 +114,10 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
       getFriendshipDetail,
       listBlockedFriends,
       listFriends,
+      listPaymentRequests,
       listUserRecipients,
       listUserTransactions,
+      respondToPaymentRequest,
       transferRepository,
       unblockFriend,
       updateFriendshipNote,
