@@ -30,8 +30,8 @@ function pendingRow(overrides = {}) {
 
 /**
  * 既に応答が確定している行。冪等リプレイの検証に使う。
- * 既定は被請求者が終わらせた行。null を明示すると、列の追加から
- * 取り消しAPI導入までの間に確定した行（responded_by が NULL）を表す。
+ * 既定は被請求者が終わらせた行。null を明示すると、V8のCHECK制約では
+ * ありえない「決着済みなのに終わらせた人が分からない」行を表す。
  */
 function respondedRow(
   status: 'accepted' | 'rejected',
@@ -280,7 +280,14 @@ describe('MysqlPaymentRequestCommandRepository', () => {
 
   it('非pendingなのにresponded_atが無ければ不変条件違反として失敗する', async () => {
     const { pool, connection } = createMysqlPool([
-      [pendingRow({ status: 'accepted', respondedAt: null })],
+      // responded_by は満たしたうえで、responded_at だけが欠けた行にする。
+      [
+        pendingRow({
+          status: 'accepted',
+          respondedAt: null,
+          respondedBy: RECIPIENT_ID,
+        }),
+      ],
     ]);
 
     await expect(
@@ -578,33 +585,26 @@ describe('MysqlPaymentRequestCommandRepository', () => {
       expect(connection.commit).not.toHaveBeenCalled();
     });
 
-    // 列の追加から取り消しAPI導入までの間に確定した行。その期間に請求を
-    // 終わらせられたのは被請求者だけなので、被請求者の再送として扱う。
-    it('responded_byがNULLなら被請求者の再送として冪等リプレイになる', async () => {
-      const { pool } = createMysqlPool([[respondedRow('rejected', null)]]);
+    // V8のCHECK制約により、決着済みでresponded_byがNULLの行は作れない。
+    // それでも取れたならDBの不変条件が壊れているので、誰かの再送とみなさず打ち切る。
+    it.each(['reject', 'cancel'] as const)(
+      '決着済みなのにresponded_byがNULLなら%sを不変条件違反として失敗させる',
+      async (action) => {
+        const { pool, connection } = createMysqlPool([
+          [respondedRow('rejected', null)],
+        ]);
 
-      const result = await new MysqlPaymentRequestCommandRepository(
-        pool,
-      ).respond({
-        paymentRequestId: PAYMENT_REQUEST_ID,
-        currentUserInternalId: RECIPIENT_ID,
-        action: 'reject',
-      });
-
-      expect(result.status).toBe('rejected');
-    });
-
-    it('responded_byがNULLの請求への取り消しは409用errorにする', async () => {
-      const { pool } = createMysqlPool([[respondedRow('rejected', null)]]);
-
-      await expect(
-        new MysqlPaymentRequestCommandRepository(pool).respond({
-          paymentRequestId: PAYMENT_REQUEST_ID,
-          currentUserInternalId: REQUESTER_ID,
-          action: 'cancel',
-        }),
-      ).rejects.toBeInstanceOf(PaymentRequestAlreadyRespondedError);
-    });
+        await expect(
+          new MysqlPaymentRequestCommandRepository(pool).respond({
+            paymentRequestId: PAYMENT_REQUEST_ID,
+            currentUserInternalId:
+              action === 'reject' ? RECIPIENT_ID : REQUESTER_ID,
+            action,
+          }),
+        ).rejects.toThrow(/no responded_by/);
+        expect(connection.commit).not.toHaveBeenCalled();
+      },
+    );
   });
 
   it('大文字小文字が違う内部UUIDでも被請求者として扱う', async () => {
