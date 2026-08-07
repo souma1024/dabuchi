@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FriendPage } from '../../friends/api/friendsClient';
 import { fetchFriends } from '../../friends/api/friendsClient';
 import { createFriend } from '../../friends/testing/friendFactory';
+import type { FriendSort } from '../../friends/types';
 import { useRecipients } from './useRecipients';
 
 vi.mock('../../friends/api/friendsClient', () => ({
@@ -111,6 +112,44 @@ describe('useRecipients', () => {
     expect(mockedFetchFriends).toHaveBeenLastCalledWith(
       null,
       'created-asc',
+      undefined,
+    );
+  });
+
+  it('sortが変わると1ページ目から取り直す', async () => {
+    mockedFetchFriends
+      .mockResolvedValueOnce(page1)
+      .mockResolvedValueOnce({ friends: [createFriend(3)], nextCursor: null });
+
+    const { result, rerender } = renderHook(
+      ({ sort }: { sort: FriendSort }) => useRecipients(sort),
+      { initialProps: { sort: 'created-asc' as FriendSort } },
+    );
+    await waitFor(() => {
+      expect(result.current.isLoadingInitial).toBe(false);
+    });
+
+    rerender({ sort: 'created-desc' as FriendSort });
+
+    await waitFor(() => {
+      expect(result.current.recipients).toEqual([
+        {
+          id: 'user-3',
+          name: '友達 3',
+          imageUrl: '/assets/profiles/human3.png',
+        },
+      ]);
+    });
+    expect(mockedFetchFriends).toHaveBeenNthCalledWith(
+      1,
+      null,
+      'created-asc',
+      undefined,
+    );
+    expect(mockedFetchFriends).toHaveBeenNthCalledWith(
+      2,
+      null,
+      'created-desc',
       undefined,
     );
   });
