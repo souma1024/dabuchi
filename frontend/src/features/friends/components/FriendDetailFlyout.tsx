@@ -111,7 +111,9 @@ export function FriendDetailFlyout({
   };
 
   return (
-    <div className="fixed inset-0 z-10 flex items-end justify-center">
+    // ヘッダーより手前に出す。ヘッダーもstickyでz-10を持つため、同じ値にすると
+    // 前後がDOMの並び順に左右され、置き場所を変えただけで背面へ回る。
+    <div className="fixed inset-0 z-20 flex items-end justify-center">
       {/* 背景タップでも閉じられるようにする。 */}
       <button
         type="button"
