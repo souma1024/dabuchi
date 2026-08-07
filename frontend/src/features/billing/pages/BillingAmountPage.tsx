@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 
+import { ScreenHeader } from '../../../components/ScreenHeader';
 import { useRecipientsFromLocationState } from '../../../hooks/useRecipientsFromLocationState';
 import { isSubmittableAmount } from '../../../lib/amount';
 import type { Recipient } from '../../../types/user';
@@ -12,7 +13,8 @@ import {
 import { BillingRecipientRow } from '../components/BillingRecipientRow';
 import { useBillingAmounts } from '../hooks/useBillingAmounts';
 
-/** 請求相手を選び直すための画面。相手選択画面は?purpose=billingで請求フローとして動く。 */
+/** 請求相手を選び直すための画面。相手選択画面は?purpose=billingで請求フローとして動く。
+ *  戻るボタンの遷移先と、相手が渡されなかった場合の差し戻し先を兼ねる。 */
 const RECIPIENT_SELECTION_PATH = '/recipients?purpose=billing';
 
 const SUBMIT_ERROR_MESSAGE =
@@ -49,6 +51,11 @@ function BillingAmountForm({ recipients }: BillingAmountFormProps) {
   const [submittedRequests, setSubmittedRequests] = useState<
     BillingRequestItem[]
   >([]);
+
+  // 戻るは請求相手の選択画面へ。金額入力の履歴を残さないようreplaceで置き換え、
+  // 相手選択→請求→戻るを繰り返しても履歴が積み上がらないようにする。
+  const handleBack = () =>
+    void navigate(RECIPIENT_SELECTION_PATH, { replace: true });
 
   const isTooManyRecipients = recipients.length > MAX_BILLING_RECIPIENTS;
   const enteredAmounts = recipients.map(
@@ -93,63 +100,57 @@ function BillingAmountForm({ recipients }: BillingAmountFormProps) {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col gap-6 bg-slate-50 px-5 py-8">
-      <div>
-        <h1 className="text-lg font-bold text-slate-900">
-          請求先（{recipients.length}人）
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">
+    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-slate-50">
+      <ScreenHeader
+        title={`請求先（${String(recipients.length)}人）`}
+        onBack={handleBack}
+      />
+
+      <div className="flex flex-1 flex-col gap-6 px-5 py-8">
+        <p className="text-sm text-slate-600">
           {isAutofillActive
             ? '最初に入力した金額が全員に反映されます。人ごとに変更もできます。'
             : '人ごとに請求金額を入力してください。'}
         </p>
+
+        {isTooManyRecipients && (
+          <p className="text-sm text-red-600">
+            {`一度に請求できるのは${MAX_BILLING_RECIPIENTS}人までです。相手を選び直してください。`}
+          </p>
+        )}
+
+        <ul className="flex list-none flex-col gap-3 p-0">
+          {recipients.map((recipient) => (
+            <BillingRecipientRow
+              key={recipient.id}
+              recipient={recipient}
+              amount={amounts[recipient.id] ?? ''}
+              disabled={isSubmitting}
+              onAmountChange={(value) => setAmount(recipient.id, value)}
+            />
+          ))}
+        </ul>
+
+        <div className="flex items-baseline justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <span className="text-sm font-semibold text-slate-600">合計</span>
+          <span className="text-xl font-bold text-slate-900">
+            {total.toLocaleString()}円
+          </span>
+        </div>
+
+        {submitError !== '' && (
+          <p className="text-sm text-red-600">{submitError}</p>
+        )}
+
+        <button
+          type="button"
+          disabled={!canSubmit || isSubmitting}
+          onClick={() => void handleSubmit()}
+          className="rounded-2xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+          {isSubmitting ? '送信中...' : '請求'}
+        </button>
       </div>
-
-      {isTooManyRecipients && (
-        <p className="text-sm text-red-600">
-          {`一度に請求できるのは${MAX_BILLING_RECIPIENTS}人までです。相手を選び直してください。`}
-        </p>
-      )}
-
-      <ul className="flex list-none flex-col gap-3 p-0">
-        {recipients.map((recipient) => (
-          <BillingRecipientRow
-            key={recipient.id}
-            recipient={recipient}
-            amount={amounts[recipient.id] ?? ''}
-            disabled={isSubmitting}
-            onAmountChange={(value) => setAmount(recipient.id, value)}
-          />
-        ))}
-      </ul>
-
-      <div className="flex items-baseline justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <span className="text-sm font-semibold text-slate-600">合計</span>
-        <span className="text-xl font-bold text-slate-900">
-          {total.toLocaleString()}円
-        </span>
-      </div>
-
-      {submitError !== '' && (
-        <p className="text-sm text-red-600">{submitError}</p>
-      )}
-
-      <button
-        type="button"
-        disabled={!canSubmit || isSubmitting}
-        onClick={() => void handleSubmit()}
-        className="rounded-2xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
-      >
-        {isSubmitting ? '送信中...' : '請求'}
-      </button>
-
-      <button
-        type="button"
-        onClick={() => void navigate(RECIPIENT_SELECTION_PATH)}
-        className="text-sm font-semibold text-blue-600 underline"
-      >
-        請求相手を選び直す
-      </button>
     </div>
   );
 }
