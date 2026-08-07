@@ -995,6 +995,19 @@ assert_equals \
   "${seeded_user_name}" \
   "development seed must preserve utf8mb4 user names"
 
+# upgrade path でV8を適用済みのschemaへseedを流すため、決着済みの請求が
+# responded_by を持たないとCHECK違反でseed自体が落ちる。落ちなかった場合に備えて
+# 中身も確認する。pendingはNULLのままでよい。
+seeded_responded_without_actor="$(query "
+  SELECT COUNT(*)
+  FROM payment_requests
+  WHERE status <> 'pending' AND responded_by IS NULL;
+")"
+assert_equals \
+  "0" \
+  "${seeded_responded_without_actor}" \
+  "development seed must record responded_by for responded payment requests"
+
 seeded_users_without_password="$(query "
   SELECT COUNT(*)
   FROM users

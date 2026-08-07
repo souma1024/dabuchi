@@ -300,7 +300,7 @@ ON DUPLICATE KEY UPDATE
 
 -- 受けた請求。ホーム画面の1ページ20件と「20+」表示を確認できるよう、pendingを22件入れる。
 INSERT INTO payment_requests
-  (id, requester_id, recipient_id, amount, status, created_at, responded_at)
+  (id, requester_id, recipient_id, amount, status, created_at, responded_at, responded_by)
 VALUES
   (
     UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77e9a710001'),
@@ -309,6 +309,7 @@ VALUES
     300,
     'pending',
     '2026-08-06 21:00:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -318,6 +319,7 @@ VALUES
     731,
     'pending',
     '2026-08-05 20:07:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -327,6 +329,7 @@ VALUES
     1162,
     'pending',
     '2026-08-04 19:14:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -336,6 +339,7 @@ VALUES
     1593,
     'pending',
     '2026-08-03 18:21:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -345,6 +349,7 @@ VALUES
     2024,
     'pending',
     '2026-08-02 17:28:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -354,6 +359,7 @@ VALUES
     2455,
     'pending',
     '2026-08-01 16:35:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -363,6 +369,7 @@ VALUES
     2886,
     'pending',
     '2026-07-31 15:42:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -372,6 +379,7 @@ VALUES
     3317,
     'pending',
     '2026-07-30 14:49:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -381,6 +389,7 @@ VALUES
     3748,
     'pending',
     '2026-07-29 13:56:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -390,6 +399,7 @@ VALUES
     4179,
     'pending',
     '2026-07-28 12:03:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -399,6 +409,7 @@ VALUES
     4610,
     'pending',
     '2026-07-27 11:10:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -408,6 +419,7 @@ VALUES
     5041,
     'pending',
     '2026-07-26 10:17:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -417,6 +429,7 @@ VALUES
     5472,
     'pending',
     '2026-07-25 21:24:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -426,6 +439,7 @@ VALUES
     5903,
     'pending',
     '2026-07-24 20:31:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -435,6 +449,7 @@ VALUES
     6334,
     'pending',
     '2026-07-23 19:38:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -444,6 +459,7 @@ VALUES
     6765,
     'pending',
     '2026-07-22 18:45:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -453,6 +469,7 @@ VALUES
     7196,
     'pending',
     '2026-07-21 17:52:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -462,6 +479,7 @@ VALUES
     7627,
     'pending',
     '2026-07-20 16:59:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -471,6 +489,7 @@ VALUES
     8058,
     'pending',
     '2026-07-19 15:06:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -480,6 +499,7 @@ VALUES
     8489,
     'pending',
     '2026-07-18 14:13:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -489,6 +509,7 @@ VALUES
     8920,
     'pending',
     '2026-07-17 13:20:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -498,6 +519,7 @@ VALUES
     351,
     'pending',
     '2026-07-16 12:27:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -507,7 +529,8 @@ VALUES
     782,
     'accepted',
     '2026-07-15 11:34:00.000000',
-    '2026-07-15 23:30:00.000000'
+    '2026-07-15 23:30:00.000000',
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001')
   ),
   (
     UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77e9a710024'),
@@ -516,7 +539,8 @@ VALUES
     1213,
     'rejected',
     '2026-07-14 10:41:00.000000',
-    '2026-07-14 23:30:00.000000'
+    '2026-07-14 23:30:00.000000',
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001')
   ),
   (
     UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77e9a710025'),
@@ -525,7 +549,8 @@ VALUES
     1644,
     'accepted',
     '2026-07-13 21:48:00.000000',
-    '2026-07-13 23:30:00.000000'
+    '2026-07-13 23:30:00.000000',
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001')
   )
 ON DUPLICATE KEY UPDATE
   requester_id = VALUES(requester_id),
@@ -533,12 +558,13 @@ ON DUPLICATE KEY UPDATE
   amount = VALUES(amount),
   status = VALUES(status),
   created_at = VALUES(created_at),
-  responded_at = VALUES(responded_at);
+  responded_at = VALUES(responded_at),
+  responded_by = VALUES(responded_by);
 
 
 -- 出した請求。履歴の「請求中／受取済／キャンセル」を1画面で確認できるよう3状態を混ぜる。
 INSERT INTO payment_requests
-  (id, requester_id, recipient_id, amount, status, created_at, responded_at)
+  (id, requester_id, recipient_id, amount, status, created_at, responded_at, responded_by)
 VALUES
   (
     UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77e9a720001'),
@@ -547,6 +573,7 @@ VALUES
     500,
     'pending',
     '2026-08-06 20:00:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -556,7 +583,8 @@ VALUES
     1117,
     'accepted',
     '2026-08-05 19:07:00.000000',
-    '2026-08-05 23:30:00.000000'
+    '2026-08-05 23:30:00.000000',
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf008')
   ),
   (
     UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77e9a720003'),
@@ -565,7 +593,8 @@ VALUES
     1734,
     'rejected',
     '2026-08-04 18:14:00.000000',
-    '2026-08-04 23:30:00.000000'
+    '2026-08-04 23:30:00.000000',
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001')
   ),
   (
     UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77e9a720004'),
@@ -574,6 +603,7 @@ VALUES
     2351,
     'pending',
     '2026-08-03 17:21:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -583,7 +613,8 @@ VALUES
     2968,
     'accepted',
     '2026-08-02 16:28:00.000000',
-    '2026-08-02 23:30:00.000000'
+    '2026-08-02 23:30:00.000000',
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf011')
   ),
   (
     UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77e9a720006'),
@@ -592,7 +623,8 @@ VALUES
     3585,
     'rejected',
     '2026-08-01 15:35:00.000000',
-    '2026-08-01 23:30:00.000000'
+    '2026-08-01 23:30:00.000000',
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001')
   ),
   (
     UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77e9a720007'),
@@ -601,6 +633,7 @@ VALUES
     4202,
     'pending',
     '2026-07-31 14:42:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -610,7 +643,8 @@ VALUES
     4819,
     'accepted',
     '2026-07-30 13:49:00.000000',
-    '2026-07-30 23:30:00.000000'
+    '2026-07-30 23:30:00.000000',
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf014')
   ),
   (
     UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77e9a720009'),
@@ -619,7 +653,8 @@ VALUES
     5436,
     'rejected',
     '2026-07-29 12:56:00.000000',
-    '2026-07-29 23:30:00.000000'
+    '2026-07-29 23:30:00.000000',
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001')
   ),
   (
     UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77e9a720010'),
@@ -628,6 +663,7 @@ VALUES
     6053,
     'pending',
     '2026-07-28 11:03:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -637,7 +673,8 @@ VALUES
     6670,
     'accepted',
     '2026-07-27 10:10:00.000000',
-    '2026-07-27 23:30:00.000000'
+    '2026-07-27 23:30:00.000000',
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf017')
   ),
   (
     UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77e9a720012'),
@@ -646,7 +683,8 @@ VALUES
     7287,
     'rejected',
     '2026-07-26 09:17:00.000000',
-    '2026-07-26 23:30:00.000000'
+    '2026-07-26 23:30:00.000000',
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001')
   ),
   (
     UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77e9a720013'),
@@ -655,6 +693,7 @@ VALUES
     7904,
     'pending',
     '2026-07-25 20:24:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -664,7 +703,8 @@ VALUES
     8521,
     'accepted',
     '2026-07-24 19:31:00.000000',
-    '2026-07-24 23:30:00.000000'
+    '2026-07-24 23:30:00.000000',
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf020')
   ),
   (
     UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77e9a720015'),
@@ -673,7 +713,8 @@ VALUES
     9138,
     'rejected',
     '2026-07-23 18:38:00.000000',
-    '2026-07-23 23:30:00.000000'
+    '2026-07-23 23:30:00.000000',
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001')
   ),
   (
     UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77e9a720016'),
@@ -682,6 +723,7 @@ VALUES
     755,
     'pending',
     '2026-07-22 17:45:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -691,7 +733,8 @@ VALUES
     1372,
     'accepted',
     '2026-07-21 16:52:00.000000',
-    '2026-07-21 23:30:00.000000'
+    '2026-07-21 23:30:00.000000',
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf023')
   ),
   (
     UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77e9a720018'),
@@ -700,7 +743,8 @@ VALUES
     1989,
     'rejected',
     '2026-07-20 15:59:00.000000',
-    '2026-07-20 23:30:00.000000'
+    '2026-07-20 23:30:00.000000',
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001')
   ),
   (
     UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77e9a720019'),
@@ -709,6 +753,7 @@ VALUES
     2606,
     'pending',
     '2026-07-19 14:06:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -718,7 +763,8 @@ VALUES
     3223,
     'accepted',
     '2026-07-18 13:13:00.000000',
-    '2026-07-18 23:30:00.000000'
+    '2026-07-18 23:30:00.000000',
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf003')
   ),
   (
     UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77e9a720021'),
@@ -727,7 +773,8 @@ VALUES
     3840,
     'rejected',
     '2026-07-17 12:20:00.000000',
-    '2026-07-17 23:30:00.000000'
+    '2026-07-17 23:30:00.000000',
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001')
   ),
   (
     UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77e9a720022'),
@@ -736,6 +783,7 @@ VALUES
     4457,
     'pending',
     '2026-07-16 11:27:00.000000',
+    NULL,
     NULL
   ),
   (
@@ -745,7 +793,8 @@ VALUES
     5074,
     'accepted',
     '2026-07-15 10:34:00.000000',
-    '2026-07-15 23:30:00.000000'
+    '2026-07-15 23:30:00.000000',
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf006')
   ),
   (
     UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77e9a720024'),
@@ -754,7 +803,8 @@ VALUES
     5691,
     'rejected',
     '2026-07-14 09:41:00.000000',
-    '2026-07-14 23:30:00.000000'
+    '2026-07-14 23:30:00.000000',
+    UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001')
   ),
   (
     UUID_TO_BIN('5e5a4a1e-3b42-4f47-8b1f-b77e9a720025'),
@@ -763,6 +813,7 @@ VALUES
     6308,
     'pending',
     '2026-07-13 20:48:00.000000',
+    NULL,
     NULL
   )
 ON DUPLICATE KEY UPDATE
@@ -771,4 +822,5 @@ ON DUPLICATE KEY UPDATE
   amount = VALUES(amount),
   status = VALUES(status),
   created_at = VALUES(created_at),
-  responded_at = VALUES(responded_at);
+  responded_at = VALUES(responded_at),
+  responded_by = VALUES(responded_by);
