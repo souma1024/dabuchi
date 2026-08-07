@@ -55,7 +55,7 @@ columns="$(query "
 ")"
 
 assert_equals \
-  "id:binary(16):NO,user_id:varchar(64):NO,balance:bigint unsigned:NO,user_name:varchar(100):NO,profile_url:varchar(255):NO,created_at:datetime(6):NO" \
+  "id:binary(16):NO,user_id:varchar(64):NO,password_hash:varchar(255):YES,balance:bigint unsigned:NO,user_name:varchar(100):NO,profile_url:varchar(255):NO,created_at:datetime(6):NO" \
   "${columns}" \
   "users table columns must match the migration"
 
@@ -829,6 +829,73 @@ assert_equals \
   "${backfilled_responded_by}" \
   "V6 must backfill responded_by with the recipient for responded requests only"
 
+sessions_columns="$(query "
+  SELECT GROUP_CONCAT(
+    CONCAT(column_name, ':', column_type, ':', is_nullable)
+    ORDER BY ordinal_position SEPARATOR ','
+  )
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'sessions';
+")"
+
+assert_equals \
+  "token_hash:binary(32):NO,user_id:binary(16):NO,created_at:datetime(6):NO,expires_at:datetime(6):NO" \
+  "${sessions_columns}" \
+  "sessions columns must match the migration"
+
+# 同じtokenで2件持てると、片方を消してももう片方が生き残る。
+if query "
+  INSERT INTO users (user_id, user_name, profile_url)
+  VALUES ('session-test', 'セッション 検証', '/assets/profiles/human1.png');
+
+  INSERT INTO sessions (token_hash, user_id, expires_at)
+  VALUES (
+    UNHEX(REPEAT('ab', 32)),
+    (SELECT id FROM users WHERE user_id = 'session-test'),
+    CURRENT_TIMESTAMP(6) + INTERVAL 7 DAY
+  );
+
+  INSERT INTO sessions (token_hash, user_id, expires_at)
+  VALUES (
+    UNHEX(REPEAT('ab', 32)),
+    (SELECT id FROM users WHERE user_id = 'session-test'),
+    CURRENT_TIMESTAMP(6) + INTERVAL 7 DAY
+  );
+" >/dev/null 2>&1; then
+  echo "FAIL: session tokens must be unique" >&2
+  exit 1
+fi
+
+# 期限が作成時刻より前のセッションは、作った時点で切れていることになる。
+if query "
+  INSERT INTO sessions (token_hash, user_id, created_at, expires_at)
+  VALUES (
+    UNHEX(REPEAT('cd', 32)),
+    (SELECT id FROM users WHERE user_id = 'session-test'),
+    '2026-08-06 00:00:00.000000',
+    '2026-08-05 00:00:00.000000'
+  );
+" >/dev/null 2>&1; then
+  echo "FAIL: sessions must expire after they are created" >&2
+  exit 1
+fi
+
+# ユーザーを消したらセッションも残さない。
+query "
+  DELETE FROM users WHERE user_id = 'session-test';
+" >/dev/null
+
+remaining_sessions="$(query "
+  SELECT COUNT(*)
+  FROM sessions
+  WHERE token_hash = UNHEX(REPEAT('ab', 32));
+")"
+
+assert_equals \
+  "0" \
+  "${remaining_sessions}" \
+  "sessions must be removed with their user"
+
 echo "Database migration tests passed."
 bash database/scripts/seed.sh
 
@@ -841,5 +908,16 @@ assert_equals \
   "山田 太郎" \
   "${seeded_user_name}" \
   "development seed must preserve utf8mb4 user names"
+
+seeded_users_without_password="$(query "
+  SELECT COUNT(*)
+  FROM users
+  WHERE user_id LIKE 'friend-%' AND password_hash IS NULL;
+")"
+
+assert_equals \
+  "0" \
+  "${seeded_users_without_password}" \
+  "development seed must set a password for every seeded user"
 
 echo "Database migration and seed tests passed."

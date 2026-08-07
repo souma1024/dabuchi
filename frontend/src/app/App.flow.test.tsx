@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fetchFriends } from '../features/friends/api/friendsClient';
 import { createFriend } from '../features/friends/testing/friendFactory';
@@ -69,14 +69,14 @@ describe('送金フローの結合', () => {
     );
   });
 
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
+  // unstubAllGlobalsは呼ばない。setup.tsが登録したIntersectionObserverまで
+  // 消えてしまい、次のtestでeffectがundefinedを参照するため。
+  // fetchはbeforeEachで毎回差し替えているので、testの間で漏れることはない。
 
   it('ホーム→相手選択→相手タップで、送金画面へ選んだ相手が渡る', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('link', { name: '送金する' }));
+    fireEvent.click(await screen.findByRole('link', { name: '送金する' }));
 
     fireEvent.click(await screen.findByRole('button', { name: '山田 太郎' }));
 
@@ -90,7 +90,7 @@ describe('送金フローの結合', () => {
   it('ホーム→相手選択（請求）→複数チェック→次へで、請求画面へ選んだ相手全員が渡る', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('link', { name: '請求する' }));
+    fireEvent.click(await screen.findByRole('link', { name: '請求する' }));
 
     expect(
       await screen.findByRole('heading', { name: '請求相手を選ぶ' }),

@@ -7,6 +7,9 @@ import { BlockFriend } from './application/usecases/blockFriend.js';
 import { CreateFriendshipNote } from './application/usecases/createFriendshipNote.js';
 import { DeleteFriendshipNote } from './application/usecases/deleteFriendshipNote.js';
 import { GetCurrentUser } from './application/usecases/getCurrentUser.js';
+import { LogIn } from './application/usecases/logIn.js';
+import { LogOut } from './application/usecases/logOut.js';
+import { SignUp } from './application/usecases/signUp.js';
 import { GetFriendshipDetail } from './application/usecases/getFriendshipDetail.js';
 import { ListBlockedFriends } from './application/usecases/listBlockedFriends.js';
 import { ListFriends } from './application/usecases/listFriends.js';
@@ -17,11 +20,11 @@ import { ListUserRecipients } from './application/usecases/listUserRecipients.js
 import { ListUserTransactions } from './application/usecases/listUserTransactions.js';
 import { UnblockFriend } from './application/usecases/unblockFriend.js';
 import { UpdateFriendshipNote } from './application/usecases/updateFriendshipNote.js';
-import { loadMockAuthenticationConfig } from './infrastructure/auth/mockAuthenticationConfig.js';
 import { createDatabasePool } from './infrastructure/database/createDatabasePool.js';
 import { loadDatabaseConfig } from './infrastructure/database/databaseConfig.js';
 import { MysqlPaymentRequestRepository } from './infrastructure/mysqlPaymentRequestRepository.js';
 import { MysqlTransferRepository } from './infrastructure/mysqlTransferRepository.js';
+import { MysqlAuthRepository } from './infrastructure/repositories/mysqlAuthRepository.js';
 import { MysqlCurrentUserRepository } from './infrastructure/repositories/mysqlCurrentUserRepository.js';
 import { MysqlFriendCommandRepository } from './infrastructure/repositories/mysqlFriendCommandRepository.js';
 import { MysqlFriendQueryRepository } from './infrastructure/repositories/mysqlFriendQueryRepository.js';
@@ -39,7 +42,6 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
 } else {
   try {
     const databaseConfig = loadDatabaseConfig(process.env);
-    const authenticationConfig = loadMockAuthenticationConfig(process.env);
     const pool = createDatabasePool(databaseConfig);
     const currentUserRepository = new MysqlCurrentUserRepository(pool);
     const userRecipientRepository = new MysqlUserRecipientRepository(pool);
@@ -53,6 +55,10 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
     );
     const friendCommandRepository = new MysqlFriendCommandRepository(pool);
     const friendQueryRepository = new MysqlFriendQueryRepository(pool);
+    const authRepository = new MysqlAuthRepository(pool);
+    const logIn = new LogIn(authRepository);
+    const logOut = new LogOut(authRepository);
+    const signUp = new SignUp(authRepository, randomUUID);
     const getCurrentUser = new GetCurrentUser(currentUserRepository);
     const addFriend = new AddFriend(
       currentUserRepository,
@@ -113,10 +119,10 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
     );
     const server = createApp({
       addFriend,
+      authRepository,
       blockFriend,
       createFriendshipNote,
       createPaymentRequests,
-      currentUserId: authenticationConfig.currentUserId,
       deleteFriendshipNote,
       getCurrentUser,
       getFriendshipDetail,
@@ -126,7 +132,10 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
       listPaymentRequests,
       listUserRecipients,
       listUserTransactions,
+      logIn,
+      logOut,
       respondToPaymentRequest,
+      signUp,
       transferRepository,
       unblockFriend,
       updateFriendshipNote,

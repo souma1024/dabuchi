@@ -31,11 +31,16 @@ export class IdempotencyKeyConflictError extends Error {
 export class CreateTransfer {
   constructor(private readonly repository: TransferRepository) {}
 
+  /**
+   * 送金する。送信者は認証済みユーザーで固定し、request bodyからは受け取らない。
+   * bodyで指定できると、他人になりすまして送金できてしまうため。
+   */
   async execute(
+    senderId: string,
     input: unknown,
     idempotencyKey: unknown,
   ): Promise<SavedTransfer> {
-    const transfer = parseTransfer(input);
+    const transfer = parseTransfer(senderId, input);
     return this.repository.save({
       ...transfer,
       idempotencyKey: parseIdempotencyKey(idempotencyKey),
@@ -58,16 +63,15 @@ function parseIdempotencyKey(value: unknown): string {
   return value;
 }
 
-function parseTransfer(input: unknown): NewTransfer {
+function parseTransfer(senderId: string, input: unknown): NewTransfer {
   if (typeof input !== 'object' || input === null) {
-    throw new InvalidTransferError(
-      'senderId, recipientId and amount are required',
-    );
+    throw new InvalidTransferError('recipientId and amount are required');
   }
 
-  const { senderId, recipientId, amount } = input as Record<string, unknown>;
+  // bodyにsenderIdがあっても読まない。送信者は認証済みユーザーで決まる。
+  const { recipientId, amount } = input as Record<string, unknown>;
 
-  if (typeof senderId !== 'string' || !UUID_PATTERN.test(senderId)) {
+  if (!UUID_PATTERN.test(senderId)) {
     throw new InvalidTransferError('senderId must be a UUID');
   }
 

@@ -1,5 +1,7 @@
 import { Router, type RequestHandler } from 'express';
 
+import { requireCurrentUser } from './authentication.js';
+
 import type { CreatePaymentRequests } from '../../application/createPaymentRequests.js';
 import type { PaymentRequestCursor } from '../../application/ports/paymentRequestListRepository.js';
 import type { GetPaymentRequest } from '../../application/usecases/getPaymentRequest.js';
@@ -69,8 +71,6 @@ function parseCursor(value: unknown): PaymentRequestCursor | null {
 
 interface PaymentRequestRouterDependencies {
   createPaymentRequests: CreatePaymentRequests;
-  /** mock認証で決まる現在ユーザーの公開user_id。内部UUIDはusecase側で解決する。 */
-  currentUserPublicId: string;
   getPaymentRequest: GetPaymentRequest;
   listPaymentRequests: ListPaymentRequests;
   respondToPaymentRequest: RespondToPaymentRequest;
@@ -83,7 +83,6 @@ function parsePathId(value: string | string[] | undefined): string {
 
 export function createPaymentRequestRouter({
   createPaymentRequests,
-  currentUserPublicId,
   getPaymentRequest,
   listPaymentRequests,
   respondToPaymentRequest,
@@ -96,8 +95,10 @@ export function createPaymentRequestRouter({
     (action: PaymentRequestAction): RequestHandler =>
     async (request, httpResponse, next) => {
       try {
+        // 認証を先に確かめる。未ログインの相手へ入力仕様を返さない。
+        const { userId } = requireCurrentUser(httpResponse);
         const result = await respondToPaymentRequest.execute({
-          currentUserId: currentUserPublicId,
+          currentUserId: userId,
           paymentRequestId: parsePathId(request.params.id),
           action,
         });
@@ -126,7 +127,7 @@ export function createPaymentRequestRouter({
   router.get('/:id', async (request, response, next) => {
     try {
       const paymentRequest = await getPaymentRequest.execute({
-        currentUserId: currentUserPublicId,
+        currentUserId: requireCurrentUser(response).userId,
         paymentRequestId: parsePathId(request.params.id),
       });
 
@@ -139,7 +140,7 @@ export function createPaymentRequestRouter({
   router.get('/', async (request, response, next) => {
     try {
       const result = await listPaymentRequests.execute({
-        currentUserId: currentUserPublicId,
+        currentUserId: requireCurrentUser(response).userId,
         direction: parseDirection(request.query.direction),
         status: parseStatus(request.query.status),
         cursor: parseCursor(request.query.cursor),
@@ -162,8 +163,9 @@ export function createPaymentRequestRouter({
 
   router.post('/', async (request, response, next) => {
     try {
+      // 請求者はセッションから決まる。clientからは指定できない。
       const paymentRequests = await createPaymentRequests.execute(
-        currentUserPublicId,
+        requireCurrentUser(response).userId,
         request.body,
       );
       response.status(201).json({ requests: paymentRequests });

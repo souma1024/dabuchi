@@ -1,6 +1,7 @@
 import { Router } from 'express';
 
 import type { ListUserTransactions } from '../../application/usecases/listUserTransactions.js';
+import { requireCurrentUser } from './authentication.js';
 import {
   decodeTransactionCursor,
   encodeTransactionCursor,
@@ -15,7 +16,6 @@ export class InvalidTransactionRequestError extends Error {
 
 export function createUserTransactionRouter(
   listUserTransactions: ListUserTransactions,
-  currentUserId: string,
 ): Router {
   const router = Router();
 
@@ -33,7 +33,11 @@ export function createUserTransactionRouter(
         throw new InvalidTransactionRequestError('cursor is invalid.');
       }
 
-      const result = await listUserTransactions.execute(currentUserId, cursor);
+      // 現在ユーザーはセッションから決まる。clientからは指定できない。
+      const result = await listUserTransactions.execute(
+        requireCurrentUser(response).userId,
+        cursor,
+      );
 
       response.status(200).json({
         transactions: result.transactions,
