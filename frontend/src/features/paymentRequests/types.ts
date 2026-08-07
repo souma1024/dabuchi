@@ -10,6 +10,15 @@ export type PaymentRequestDirection = 'received' | 'sent';
 export type PaymentRequestStatus = 'pending' | 'accepted' | 'rejected';
 
 /**
+ * 請求を終わらせる操作。バックエンドのエンドポイント名に対応する（Issue #71）。
+ *
+ * 状態は2種類なのに操作は3種類ある。拒否も取り消しもrejectedになるため、
+ * 状態名で受けると2つを区別できない。押せる人が逆（rejectは被請求者だけ、
+ * cancelは請求者だけ）で、記録される実行者も違うため、操作名で受ける。
+ */
+export type PaymentRequestAction = 'accept' | 'reject' | 'cancel';
+
+/**
  * 請求1件。
  * バックエンド GET /api/payment-requests のレスポンス要素に対応する（Issue #70）。
  * API連携時に型を変えずにクライアントを差し替えられるようにしている。

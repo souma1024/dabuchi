@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 
-import type { PaymentRequestListRepository } from '../../application/ports/paymentRequestListRepository.js';
+import type { PaymentRequestQueryRepository } from '../../application/ports/paymentRequestQueryRepository.js';
 import type { PaymentRequestRecord } from '../../domain/paymentRequest.js';
 
 export function createPaymentRequestRecord(
@@ -37,17 +37,17 @@ interface ListRepositoryOptions {
   record?: PaymentRequestRecord | null;
 }
 
-export function createPaymentRequestListRepository(
+export function createPaymentRequestQueryRepository(
   options: ListRepositoryOptions = {},
-): PaymentRequestListRepository {
+): PaymentRequestQueryRepository {
   const records = options.records ?? [];
 
   return {
     findPaymentRequests: vi
-      .fn<PaymentRequestListRepository['findPaymentRequests']>()
+      .fn<PaymentRequestQueryRepository['findPaymentRequests']>()
       .mockResolvedValue(records),
     findPaymentRequestById: vi
-      .fn<PaymentRequestListRepository['findPaymentRequestById']>()
+      .fn<PaymentRequestQueryRepository['findPaymentRequestById']>()
       .mockResolvedValue(
         options.record !== undefined ? options.record : (records[0] ?? null),
       ),

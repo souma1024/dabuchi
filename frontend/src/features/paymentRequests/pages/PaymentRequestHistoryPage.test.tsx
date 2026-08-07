@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -44,9 +45,18 @@ beforeEach(() => {
   });
 });
 
+// 行が確認画面へのLinkを持つため、Router配下で描画する。
+function renderPage(props: { onBack?: () => void } = {}) {
+  return render(
+    <MemoryRouter initialEntries={['/payment-requests']}>
+      <PaymentRequestHistoryPage {...props} />
+    </MemoryRouter>,
+  );
+}
+
 describe('PaymentRequestHistoryPage', () => {
   it('初期表示は受けた請求タブにする', async () => {
-    render(<PaymentRequestHistoryPage />);
+    renderPage();
 
     await screen.findAllByRole('listitem');
 
@@ -60,7 +70,7 @@ describe('PaymentRequestHistoryPage', () => {
 
   // 未払いも決着済みも含めた全記録を出す（Issue #61）。statusで絞らない。
   it('未払い・支払済・キャンセルをまとめて表示する', async () => {
-    render(<PaymentRequestHistoryPage />);
+    renderPage();
 
     const items = await screen.findAllByRole('listitem');
     const text = items.map((item) => item.textContent ?? '').join(' ');
@@ -76,7 +86,7 @@ describe('PaymentRequestHistoryPage', () => {
 
   // 同じstatusでも方向で意味が変わる（acceptedは支払済／受取済）。
   it('タブを切り替えると状態のラベルが変わる', async () => {
-    render(<PaymentRequestHistoryPage />);
+    renderPage();
     await screen.findAllByRole('listitem');
 
     await userEvent.click(screen.getByRole('button', { name: '出した請求' }));
@@ -92,7 +102,7 @@ describe('PaymentRequestHistoryPage', () => {
   });
 
   it('タブを切り替えると1ページ目から読み直す', async () => {
-    render(<PaymentRequestHistoryPage />);
+    renderPage();
     await screen.findAllByRole('listitem');
 
     await userEvent.click(screen.getByRole('button', { name: '出した請求' }));
@@ -107,7 +117,7 @@ describe('PaymentRequestHistoryPage', () => {
 
   // 前のタブのデータが、新しいタブのものとして一時表示されないようにする。
   it('タブ切り替え直後は前のタブの一覧を残さない', async () => {
-    render(<PaymentRequestHistoryPage />);
+    renderPage();
     await screen.findAllByRole('listitem');
     // 切り替え後の取得を解決させず、前の結果が残っていれば検出できるようにする。
     mockedFetch.mockImplementation(() => new Promise(() => undefined));
@@ -130,7 +140,7 @@ describe('PaymentRequestHistoryPage', () => {
         requests: makeRequests(['rejected'], 2),
         nextCursor: null,
       });
-    render(<PaymentRequestHistoryPage />);
+    renderPage();
     await screen.findAllByRole('listitem');
 
     await intersection.trigger();
@@ -143,7 +153,7 @@ describe('PaymentRequestHistoryPage', () => {
   it('1件も無ければ案内を出す', async () => {
     mockedFetch.mockResolvedValue({ requests: [], nextCursor: null });
 
-    render(<PaymentRequestHistoryPage />);
+    renderPage();
 
     expect(await screen.findByText('まだ請求がありません')).toBeInTheDocument();
     expect(screen.queryAllByRole('listitem')).toHaveLength(0);
@@ -152,7 +162,7 @@ describe('PaymentRequestHistoryPage', () => {
   it('取得に失敗したらエラーを伝える', async () => {
     mockedFetch.mockRejectedValue(new Error('取得に失敗しました'));
 
-    render(<PaymentRequestHistoryPage />);
+    renderPage();
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       '取得に失敗しました',
@@ -161,11 +171,27 @@ describe('PaymentRequestHistoryPage', () => {
 
   it('戻るでホームへ戻す', async () => {
     const onBack = vi.fn();
-    render(<PaymentRequestHistoryPage onBack={onBack} />);
+    renderPage({ onBack });
     await screen.findAllByRole('listitem');
 
     await userEvent.click(screen.getByRole('button', { name: '戻る' }));
 
     expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  // 決着していない請求だけ確認画面へ進める（Issue #61）。
+  it('未払いの行だけ確認画面へのリンクにする', async () => {
+    renderPage();
+
+    const items = await screen.findAllByRole('listitem');
+    const pendingItem = items.find((item) =>
+      (item.textContent ?? '').includes('未払い'),
+    );
+    const doneItem = items.find((item) =>
+      (item.textContent ?? '').includes('支払済'),
+    );
+
+    expect(within(pendingItem!).getByRole('link')).toBeInTheDocument();
+    expect(within(doneItem!).queryByRole('link')).not.toBeInTheDocument();
   });
 });

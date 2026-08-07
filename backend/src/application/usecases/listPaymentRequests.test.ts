@@ -3,19 +3,19 @@ import { describe, expect, it } from 'vitest';
 import { createCurrentUser } from '../../test/factories/currentUserFactory.js';
 import { createCurrentUserRepository } from '../../test/factories/currentUserRepositoryFactory.js';
 import {
-  createPaymentRequestListRepository,
+  createPaymentRequestQueryRepository,
   createPaymentRequestRecord,
   createPaymentRequestRecords,
-} from '../../test/factories/paymentRequestListFactory.js';
+} from '../../test/factories/paymentRequestQueryFactory.js';
 import { CurrentUserNotFoundError } from '../errors/currentUserNotFoundError.js';
-import type { PaymentRequestListRepository } from '../ports/paymentRequestListRepository.js';
+import type { PaymentRequestQueryRepository } from '../ports/paymentRequestQueryRepository.js';
 import { ListPaymentRequests } from './listPaymentRequests.js';
 
 // 受け取るのは公開user_id。内部UUIDへ解決してからpayment_requestsを引く。
 const CURRENT_USER_PUBLIC_ID = 'friend-001';
 const CURRENT_USER_INTERNAL_ID = '5e5a4a1e-3b42-4f47-8b1f-b77ef98bf001';
 
-function createUsecase(listRepository: PaymentRequestListRepository) {
+function createUsecase(listRepository: PaymentRequestQueryRepository) {
   return new ListPaymentRequests(
     createCurrentUserRepository({
       user: createCurrentUser({ id: CURRENT_USER_INTERNAL_ID }),
@@ -38,7 +38,7 @@ describe('ListPaymentRequests', () => {
   it('現在ユーザーが存在しなければエラーにする', async () => {
     const usecase = new ListPaymentRequests(
       createCurrentUserRepository({ user: null }),
-      createPaymentRequestListRepository(),
+      createPaymentRequestQueryRepository(),
     );
 
     await expect(usecase.execute(createInput())).rejects.toBeInstanceOf(
@@ -47,7 +47,7 @@ describe('ListPaymentRequests', () => {
   });
 
   it('公開user_idを内部UUIDへ解決してからrepositoryへ渡す', async () => {
-    const repository = createPaymentRequestListRepository();
+    const repository = createPaymentRequestQueryRepository();
 
     await createUsecase(repository).execute(createInput());
 
@@ -63,7 +63,7 @@ describe('ListPaymentRequests', () => {
   it('21件返ったら20件に切り、次ページカーソルを作る', async () => {
     const records = createPaymentRequestRecords(21);
     const usecase = createUsecase(
-      createPaymentRequestListRepository({ records }),
+      createPaymentRequestQueryRepository({ records }),
     );
 
     const result = await usecase.execute(createInput());
@@ -77,7 +77,7 @@ describe('ListPaymentRequests', () => {
 
   it('ちょうど20件なら次ページカーソルはnullになる', async () => {
     const usecase = createUsecase(
-      createPaymentRequestListRepository({
+      createPaymentRequestQueryRepository({
         records: createPaymentRequestRecords(20),
       }),
     );
@@ -90,7 +90,7 @@ describe('ListPaymentRequests', () => {
 
   it('1件も無ければ空配列と次ページなしを返す', async () => {
     const usecase = createUsecase(
-      createPaymentRequestListRepository({ records: [] }),
+      createPaymentRequestQueryRepository({ records: [] }),
     );
 
     const result = await usecase.execute(createInput());
@@ -107,7 +107,7 @@ describe('ListPaymentRequests', () => {
       respondedAt: '2026-08-04 02:30:00.500000',
     });
     const usecase = createUsecase(
-      createPaymentRequestListRepository({ records: [record] }),
+      createPaymentRequestQueryRepository({ records: [record] }),
     );
 
     const result = await usecase.execute(createInput());
@@ -128,7 +128,7 @@ describe('ListPaymentRequests', () => {
 
   it('未応答の請求はrespondedAtをnullのまま返す', async () => {
     const usecase = createUsecase(
-      createPaymentRequestListRepository({
+      createPaymentRequestQueryRepository({
         records: [createPaymentRequestRecord(1, { respondedAt: null })],
       }),
     );
@@ -139,7 +139,7 @@ describe('ListPaymentRequests', () => {
   });
 
   it('directionとstatusをrepositoryへそのまま渡す', async () => {
-    const repository = createPaymentRequestListRepository();
+    const repository = createPaymentRequestQueryRepository();
 
     await createUsecase(repository).execute(
       createInput({ direction: 'sent', status: 'pending' }),

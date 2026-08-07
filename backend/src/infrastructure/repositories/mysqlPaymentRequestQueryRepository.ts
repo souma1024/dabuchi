@@ -3,8 +3,8 @@ import type { Pool, RowDataPacket } from 'mysql2/promise';
 import type {
   FindPaymentRequestByIdInput,
   FindPaymentRequestsInput,
-  PaymentRequestListRepository,
-} from '../../application/ports/paymentRequestListRepository.js';
+  PaymentRequestQueryRepository,
+} from '../../application/ports/paymentRequestQueryRepository.js';
 import type { PaymentRequestRecord } from '../../domain/paymentRequest.js';
 
 interface PaymentRequestRow extends RowDataPacket, PaymentRequestRecord {}
@@ -17,7 +17,7 @@ const DIRECTION_COLUMNS = {
   sent: { owner: 'requester_id', counterparty: 'recipient_id' },
 } as const;
 
-export class MysqlPaymentRequestListRepository implements PaymentRequestListRepository {
+export class MysqlPaymentRequestQueryRepository implements PaymentRequestQueryRepository {
   constructor(private readonly pool: Pool) {}
 
   async findPaymentRequests(

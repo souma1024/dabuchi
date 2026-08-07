@@ -3,7 +3,7 @@ import { Router, type RequestHandler } from 'express';
 import { requireCurrentUser } from './authentication.js';
 
 import type { CreatePaymentRequests } from '../../application/createPaymentRequests.js';
-import type { PaymentRequestCursor } from '../../application/ports/paymentRequestListRepository.js';
+import type { PaymentRequestCursor } from '../../application/ports/paymentRequestQueryRepository.js';
 import type { GetPaymentRequest } from '../../application/usecases/getPaymentRequest.js';
 import type { ListPaymentRequests } from '../../application/usecases/listPaymentRequests.js';
 import type { RespondToPaymentRequest } from '../../application/usecases/respondToPaymentRequest.js';

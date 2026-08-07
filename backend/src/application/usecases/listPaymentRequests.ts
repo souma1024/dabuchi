@@ -8,8 +8,8 @@ import { CurrentUserNotFoundError } from '../errors/currentUserNotFoundError.js'
 import type { CurrentUserRepository } from '../ports/currentUserRepository.js';
 import type {
   PaymentRequestCursor,
-  PaymentRequestListRepository,
-} from '../ports/paymentRequestListRepository.js';
+  PaymentRequestQueryRepository,
+} from '../ports/paymentRequestQueryRepository.js';
 
 const PAYMENT_REQUEST_PAGE_SIZE = 20;
 
@@ -29,7 +29,7 @@ export interface ListPaymentRequestsResult {
 export class ListPaymentRequests {
   constructor(
     private readonly currentUserRepository: CurrentUserRepository,
-    private readonly repository: PaymentRequestListRepository,
+    private readonly repository: PaymentRequestQueryRepository,
   ) {}
 
   async execute(

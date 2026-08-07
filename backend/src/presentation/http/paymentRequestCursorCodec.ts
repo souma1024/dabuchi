@@ -1,4 +1,4 @@
-import type { PaymentRequestCursor } from '../../application/ports/paymentRequestListRepository.js';
+import type { PaymentRequestCursor } from '../../application/ports/paymentRequestQueryRepository.js';
 import { decodeBase64Url } from '../../shared/base64url.js';
 import { isRealMysqlDateTime } from '../../shared/mysqlDateTime.js';
 

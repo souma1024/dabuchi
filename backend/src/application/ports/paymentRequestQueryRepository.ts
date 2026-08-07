@@ -18,17 +18,17 @@ export interface FindPaymentRequestsInput {
   limit: number;
 }
 
-/**
- * 請求一覧の読み取り専用port。
- * 書き込み側のPaymentRequestRepositoryとは分けて、実装が必要なメソッドを最小限にする。
- */
 export interface FindPaymentRequestByIdInput {
   paymentRequestId: string;
   /** users.id の内部UUID。公開user_idではない。 */
   currentUserInternalId: string;
 }
 
-export interface PaymentRequestListRepository {
+/**
+ * 請求の読み取り専用port。一覧と1件取得を扱う。
+ * 書き込み側のPaymentRequestRepositoryとは分けて、実装が必要なメソッドを最小限にする。
+ */
+export interface PaymentRequestQueryRepository {
   findPaymentRequests: (
     input: FindPaymentRequestsInput,
   ) => Promise<PaymentRequestRecord[]>;
