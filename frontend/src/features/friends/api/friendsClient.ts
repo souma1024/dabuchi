@@ -169,10 +169,6 @@ function buildFriendsUrl(
   return url;
 }
 
-function isAbortSignal(value: unknown): value is AbortSignal {
-  return typeof AbortSignal !== 'undefined' && value instanceof AbortSignal;
-}
-
 /**
  * 友達を1ページ分（20件）取得する。
  * 対象ユーザーはserver側のログイン中ユーザーから決まるため、URLやクエリで指定しない。
