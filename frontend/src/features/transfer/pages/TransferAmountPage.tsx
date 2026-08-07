@@ -6,6 +6,7 @@ import { isRecipient } from '../../../hooks/useRecipientFromLocationState';
 import type { Recipient } from '../../../types/user';
 import { useCurrentUser } from '../../currentUser/hooks/useCurrentUser';
 import { sendTransfer } from '../api/transferClient';
+import { randomId } from '../../../lib/randomId';
 
 const containerStyle =
   'mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center bg-slate-50 px-5 py-8 text-center';
@@ -60,7 +61,7 @@ function TransferAmountForm({ recipient }: { recipient: Recipient }) {
     if (last && last.recipientId === recipient.id && last.amount === amount) {
       return last.key;
     }
-    const key = crypto.randomUUID();
+    const key = randomId();
     lastAttemptRef.current = { recipientId: recipient.id, amount, key };
     return key;
   };

@@ -5,6 +5,13 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    // Viteは既定でHostヘッダを検証し、知らないホスト名を拒否する（DNS再バインド対策）。
+    // Tailscale Funnelなど外から見えるホスト名で開くときは、ここへ足す必要がある。
+    // IPアドレスでのアクセスは既定で許可されるため、通常の開発では設定不要。
+    allowedHosts: (process.env.DEV_ALLOWED_HOSTS ?? '')
+      .split(',')
+      .map((host) => host.trim())
+      .filter((host) => host !== ''),
     proxy: {
       '/api': process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:3000',
     },

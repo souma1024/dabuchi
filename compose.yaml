@@ -8,10 +8,15 @@ services:
       - .:/workspace
       - frontend-node-modules:/workspace/node_modules
     ports:
-      - '127.0.0.1:5173:5173'
+      # 既定はこのマシンからのみ。実機で確認したいときだけ DEV_BIND_ADDRESS を
+      # 端末から届くアドレス（例: TailscaleのIP）にする。0.0.0.0にすると
+      # 同じネットワークの誰からでも開けるため、既定にはしない。
+      - '${DEV_BIND_ADDRESS:-127.0.0.1}:5173:5173'
     environment:
       CHOKIDAR_USEPOLLING: 'true'
       VITE_API_PROXY_TARGET: http://backend:3000
+      # Viteが受け付けるホスト名。Tailscale Funnelなどで公開するときだけ指定する。
+      DEV_ALLOWED_HOSTS: ${DEV_ALLOWED_HOSTS:-}
     command: sh -c "npm ci && npm run dev --workspace frontend -- --host 0.0.0.0"
     depends_on:
       backend:
@@ -24,7 +29,9 @@ services:
       - .:/workspace
       - backend-node-modules:/workspace/node_modules
     ports:
-      - '127.0.0.1:3000:3000'
+      # frontendの /api プロキシはcompose内部で完結するため、実機確認では公開不要。
+      # APIを直接叩いて確かめたいときのために、frontendと同じ設定へ揃える。
+      - '${DEV_BIND_ADDRESS:-127.0.0.1}:3000:3000'
     environment:
       PORT: 3000
       MYSQL_HOST: mysql
