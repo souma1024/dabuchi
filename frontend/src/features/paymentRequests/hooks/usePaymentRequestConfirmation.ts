@@ -129,9 +129,12 @@ export function usePaymentRequestConfirmation(
             return;
           }
           // 相手と請求日は操作で変わらないため返らない。元の請求へ重ねる。
+          // endedByMeも返らないが、押したのは自分なので必ずtrueになる。
+          // 重ねずにpendingのnullを残すと、statusと食い違った請求ができる。
           const updated: PaymentRequest = {
             ...requestRef.current,
             ...responded,
+            endedByMe: true,
           };
           requestRef.current = updated;
           setRequest(updated);

@@ -30,6 +30,11 @@ export interface PaymentRequest {
   /** 円単位の正の整数。 */
   amount: number;
   status: PaymentRequestStatus;
+  /**
+   * 決着させたのが自分か。pendingのあいだはnull。
+   * rejectedは拒否と取り下げの両方を表すため、これが無いとどちらか分からない。
+   */
+  endedByMe: boolean | null;
   /** ISO 8601（UTC）の請求日時。表示時にJSTへ変換する。 */
   createdAt: string;
   /** 承認・拒否された日時。pendingのあいだはnull。 */

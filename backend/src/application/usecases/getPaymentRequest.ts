@@ -57,6 +57,7 @@ export class GetPaymentRequest {
       },
       amount: record.amount,
       status: record.status,
+      endedByMe: record.endedByMe,
       createdAt: mysqlDateTimeToIso(record.createdAt),
       respondedAt:
         record.respondedAt === null

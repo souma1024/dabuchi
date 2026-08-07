@@ -7,7 +7,11 @@ import type {
 } from '../../application/ports/paymentRequestQueryRepository.js';
 import type { PaymentRequestRecord } from '../../domain/paymentRequest.js';
 
-interface PaymentRequestRow extends RowDataPacket, PaymentRequestRecord {}
+interface PaymentRequestRow
+  extends RowDataPacket, Omit<PaymentRequestRecord, 'endedByMe'> {
+  // MySQLは真偽値を1/0で返す。pendingはresponded_byがNULLのため、比較結果もNULLになる。
+  endedByMe: number | null;
+}
 
 // directionごとに、絞り込む列と相手として結合する列が入れ替わる。
 // SQLへ列名を埋め込むが、値は検証済みのdirectionでこの定数を引いた結果のみ。
@@ -56,6 +60,7 @@ export class MysqlPaymentRequestQueryRepository implements PaymentRequestQueryRe
          counterparty.profile_url AS counterpartyProfileUrl,
          pr.amount AS amount,
          pr.status AS status,
+         pr.responded_by = pr.${columns.owner} AS endedByMe,
          DATE_FORMAT(pr.created_at, '%Y-%m-%d %H:%i:%s.%f') AS createdAt,
          DATE_FORMAT(pr.responded_at, '%Y-%m-%d %H:%i:%s.%f') AS respondedAt
        FROM payment_requests pr
@@ -84,6 +89,7 @@ export class MysqlPaymentRequestQueryRepository implements PaymentRequestQueryRe
          counterparty.profile_url AS counterpartyProfileUrl,
          pr.amount AS amount,
          pr.status AS status,
+         pr.responded_by = UUID_TO_BIN(?) AS endedByMe,
          DATE_FORMAT(pr.created_at, '%Y-%m-%d %H:%i:%s.%f') AS createdAt,
          DATE_FORMAT(pr.responded_at, '%Y-%m-%d %H:%i:%s.%f') AS respondedAt
        FROM payment_requests pr
@@ -98,6 +104,8 @@ export class MysqlPaymentRequestQueryRepository implements PaymentRequestQueryRe
            OR pr.recipient_id = UUID_TO_BIN(?)
          )`,
       [
+        // SELECTのendedByMe、JOINのCASE、WHEREのidと当事者判定の順に対応する。
+        input.currentUserInternalId,
         input.currentUserInternalId,
         input.paymentRequestId,
         input.currentUserInternalId,
@@ -119,6 +127,8 @@ function toRecord(row: PaymentRequestRow): PaymentRequestRecord {
     counterpartyProfileUrl: row.counterpartyProfileUrl,
     amount: Number(row.amount),
     status: row.status,
+    // 1/0で返るため真偽値へ直す。pendingはNULLのまま渡す。
+    endedByMe: row.endedByMe === null ? null : Boolean(row.endedByMe),
     createdAt: row.createdAt,
     respondedAt: row.respondedAt,
   };

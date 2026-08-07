@@ -4,9 +4,8 @@ import type { PaymentRequestDirection, PaymentRequestStatus } from '../types';
  * 同じ状態でも、自分が請求された側か請求した側かで意味が変わる。
  * 例: accepted は受けた側なら「支払済」、出した側なら「受取済」。
  *
- * rejectedは「被請求者が拒否した」と「請求者が取り消した」の両方を表す。
- * DBが誰の行為かを持たないため、ラベルも行為者を示さない「キャンセル」にする。
- * 「拒否した」と出すと、相手が取り消した場合に事実と食い違う。
+ * rejectedは「被請求者が拒否した」と「請求者が取り下げた」の両方を表すため、
+ * statusだけでは決められない。endedByMe（Issue #135）と合わせて出し分ける。
  */
 const labels: Record<
   PaymentRequestDirection,
@@ -15,6 +14,7 @@ const labels: Record<
   received: {
     pending: '未払い',
     accepted: '支払済',
+    // rejectedの実際の表示はendedByMeで決まる。ここは判別できなかったときの控え。
     rejected: 'キャンセル',
   },
   sent: {
@@ -24,9 +24,26 @@ const labels: Record<
   },
 };
 
+/**
+ * 決着済みのrejectedを、行為者ではなく「行われた操作」で表す。
+ *
+ * 拒否できるのは被請求者、取り下げられるのは請求者だけなので、操作名を出せば
+ * 誰がやったかは一意に決まる。「相手が」「自分が」と書き分けるより短く済む。
+ */
+function endedLabel(
+  direction: PaymentRequestDirection,
+  endedByMe: boolean,
+): string {
+  const endedByRecipient = direction === 'received' ? endedByMe : !endedByMe;
+
+  return endedByRecipient ? '拒否' : '取り下げ';
+}
+
 interface PaymentRequestStatusBadgeProps {
   direction: PaymentRequestDirection;
   status: PaymentRequestStatus;
+  /** 決着させたのが自分か。pendingのあいだはnull。 */
+  endedByMe: boolean | null;
 }
 
 // 塗り／枠線で「決着しているか」、色で「自分が対応すべきか」を示す。
@@ -53,14 +70,20 @@ function badgeStyle(
 export function PaymentRequestStatusBadge({
   direction,
   status,
+  endedByMe,
 }: PaymentRequestStatusBadgeProps) {
   const style = badgeStyle(direction, status);
+  // endedByMeが欠けた場合だけ、行為者を示さない従来の言い方へ落とす。
+  const label =
+    status === 'rejected' && endedByMe !== null
+      ? endedLabel(direction, endedByMe)
+      : labels[direction][status];
 
   return (
     <span
       className={`flex-none rounded border px-1.5 py-px text-[10px] font-bold ${style}`}
     >
-      {labels[direction][status]}
+      {label}
     </span>
   );
 }

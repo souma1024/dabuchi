@@ -77,6 +77,7 @@ describe('MysqlPaymentRequestQueryRepository', () => {
     'counterparty.profile_url AS counterpartyProfileUrl',
     'pr.amount AS amount',
     'pr.status AS status',
+    'pr.responded_by = pr.recipient_id AS endedByMe',
     'AS createdAt',
     'AS respondedAt',
   ])('SELECT句に %s を含む', async (alias) => {
@@ -218,9 +219,10 @@ describe('MysqlPaymentRequestQueryRepository', () => {
 
       await findById(pool);
 
-      // 相手の判定用に1回、WHEREの請求ID、当事者判定に2回。
+      // SELECTのendedByMe、相手の判定用に1回、WHEREの請求ID、当事者判定に2回。
       // 順序がずれると他人の請求が読めてしまう。
       expect(execute.mock.calls[0]?.[1]).toEqual([
+        CURRENT_USER_INTERNAL_ID,
         CURRENT_USER_INTERNAL_ID,
         PAYMENT_REQUEST_ID,
         CURRENT_USER_INTERNAL_ID,

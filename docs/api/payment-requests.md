@@ -139,6 +139,7 @@ GET /api/payment-requests?direction=received&status=pending&cursor=<opaque curso
       },
       "amount": 3000,
       "status": "pending",
+      "endedByMe": null,
       "createdAt": "2026-08-03T01:00:00.000Z",
       "respondedAt": null
     }
@@ -164,7 +165,7 @@ GET /api/payment-requests?direction=received&status=pending&cursor=<opaque curso
 | `accepted` | 被請求者が承認し、送金された |
 | `rejected` | 成立しなかった               |
 
-`rejected` は「被請求者が拒否した」と「請求者が取り消した」の**両方**を表します。`payment_requests.status` のCHECK制約を変えずに取り消しを扱うためです。どちらの操作だったかは `payment_requests.responded_by` に記録されますが、**一覧のレスポンスには含めていません。** 画面のラベルも行為者を示さない「キャンセル」とします。
+`rejected` は「被請求者が拒否した」と「請求者が取り消した」の**両方**を表します。`payment_requests.status` のCHECK制約を変えずに取り消しを扱うためです。どちらの操作だったかは `payment_requests.responded_by` に記録され、レスポンスでは **`endedByMe`** として返します（後述）。画面はこれを使って「拒否」と「取り下げ」を出し分けます。
 
 ### `400 Bad Request`
 
@@ -225,6 +226,7 @@ GET /api/payment-requests/:id
     },
     "amount": 3000,
     "status": "pending",
+    "endedByMe": null,
     "createdAt": "2026-08-03T01:00:00.000Z",
     "respondedAt": null
   }
@@ -271,7 +273,7 @@ POST /api/payment-requests/:id/cancel
 
 `payment_requests.status` のCHECK制約を変えずに取り消しを扱うため、`rejected` が「被請求者の拒否」と「請求者の取り消し」の両方を表します。**どちらの操作だったかは `payment_requests.responded_by` で区別します。**
 
-`status` に `canceled` を足す案より影響が小さく、後から区別できなくなる事態も避けられます。画面のラベルは行為者を示さない「キャンセル」で統一します。
+`status` に `canceled` を足す案より影響が小さく、後から区別できなくなる事態も避けられます。画面のラベルは、読み取り系が返す `endedByMe` から「拒否」「取り下げ」を出し分けます。
 
 ## 承認 `POST /:id/accept`
 
@@ -355,7 +357,7 @@ DBのCOMMITは完了したのに応答がclientへ届かない、ということ
 
 請求者が取り消した請求へ被請求者が `reject` して `200` が返ると、画面に「請求を拒否しました」と誤って表示されます。**終わらせた本人かどうかまで確認**しているのはこのためです。
 
-`responded_by` が `NULL` の行（列の追加から取り消しAPI導入までの間に確定した行）は、**被請求者が終わらせたものとして扱います。** その期間に請求を終わらせられたのは被請求者だけだからです。
+**決着済みの請求は必ず `responded_by` を持ちます**（V8で必須化）。列の追加から取り消しAPI導入までの間に確定した行も、そこで被請求者として埋めてあります。`NULL` になるのは `pending` のあいだだけです。
 
 冪等リプレイで返す `balance` は**現時点の残高**で、承認した瞬間の残高とは限りません。その後に別の送金があれば変わります。画面が必要とするのは最新の残高なので、これで問題ありません。
 
@@ -367,4 +369,17 @@ DBのCOMMITは完了したのに応答がclientへ届かない、ということ
 
 `responded_at` は列名のうえでは「被請求者が応答した日時」ですが、取り消しでは請求者の操作時刻が入ります。`responded_by` と合わせて「誰がいつ請求を終わらせたか」として読んでください。
 
-一覧（`GET /api/payment-requests`）と1件取得（`GET /api/payment-requests/:id`）のレスポンスには `responded_by` を含めていません。画面のラベルを行為者で出し分ける必要が出た段階で追加を検討します。
+一覧（`GET /api/payment-requests`）と1件取得（`GET /api/payment-requests/:id`）は、`responded_by` そのものではなく **`endedByMe`（決着させたのが現在ユーザーか）** を返します。`pending` のあいだは `null` です。
+
+UUIDをそのまま返すと、画面側が現在ユーザーのIDを取り直して突き合わせることになります。`counterparty` を「現在ユーザーでない側」に解決しているのと同じく、サーバー側で解決して返します。
+
+`rejected` は拒否と取り下げの両方を表すため、画面はこれを使ってラベルを出し分けます。**拒否できるのは被請求者、取り下げられるのは請求者だけ**なので、`direction` と `endedByMe` の組み合わせで操作が一意に決まります。
+
+| direction  | `endedByMe` | 実際の操作       |
+| ---------- | ----------- | ---------------- |
+| `received` | `true`      | 自分が拒否した   |
+| `received` | `false`     | 相手が取り下げた |
+| `sent`     | `true`      | 自分が取り下げた |
+| `sent`     | `false`     | 相手に拒否された |
+
+承認・拒否・取り消しのレスポンスには含めません。操作した本人が呼ぶため、必ず自分が終わらせたことになるからです。
