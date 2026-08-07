@@ -11,7 +11,7 @@ import {
   PaymentRequestAlreadyRespondedError,
   PaymentRequestForbiddenError,
   PaymentRequestNotFoundError,
-} from './application/errors/paymentRequestCommandErrors.js';
+} from './application/errors/paymentRequestErrors.js';
 import type {
   NewTransfer,
   TransferRepository,
@@ -33,10 +33,10 @@ import {
   createRespondedPaymentRequest,
 } from './test/factories/paymentRequestCommandFactory.js';
 import {
-  createPaymentRequestListRepository,
+  createPaymentRequestQueryRepository,
   createPaymentRequestRecord,
   createPaymentRequestRecords,
-} from './test/factories/paymentRequestListFactory.js';
+} from './test/factories/paymentRequestQueryFactory.js';
 import {
   createTransactionRecord,
   createTransactionRecords,
@@ -790,10 +790,10 @@ describe('backend application', () => {
       createdAt: '2026-08-04 12:00:20.000000',
       id: '00000000-0000-4000-8000-000000000020',
     };
-    const paymentRequestListRepository = createPaymentRequestListRepository();
+    const paymentRequestQueryRepository = createPaymentRequestQueryRepository();
     const { app } = createTestApp({
       currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
-      paymentRequestListRepository,
+      paymentRequestQueryRepository,
     });
 
     const response = await request(app)
@@ -806,7 +806,7 @@ describe('backend application', () => {
 
     expect(response.status).toBe(200);
     expect(
-      paymentRequestListRepository.findPaymentRequests,
+      paymentRequestQueryRepository.findPaymentRequests,
     ).toHaveBeenCalledWith({
       currentUserInternalId: CURRENT_USER_ID,
       direction: 'sent',
@@ -1060,12 +1060,12 @@ describe('backend application', () => {
       createdAt: '2026-08-03 01:00:00.000000',
       respondedAt: null,
     });
-    const paymentRequestListRepository = createPaymentRequestListRepository({
+    const paymentRequestQueryRepository = createPaymentRequestQueryRepository({
       record,
     });
     const { app } = createTestApp({
       currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
-      paymentRequestListRepository,
+      paymentRequestQueryRepository,
     });
 
     const response = await request(app).get(
@@ -1088,7 +1088,7 @@ describe('backend application', () => {
       },
     });
     expect(
-      paymentRequestListRepository.findPaymentRequestById,
+      paymentRequestQueryRepository.findPaymentRequestById,
     ).toHaveBeenCalledWith({
       paymentRequestId: PAYMENT_REQUEST_ID,
       currentUserInternalId: CURRENT_USER_ID,
@@ -1099,7 +1099,7 @@ describe('backend application', () => {
   it('当事者でない請求は404にする', async () => {
     const { app } = createTestApp({
       currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
-      paymentRequestListRepository: createPaymentRequestListRepository({
+      paymentRequestQueryRepository: createPaymentRequestQueryRepository({
         record: null,
       }),
     });
@@ -1115,10 +1115,10 @@ describe('backend application', () => {
   });
 
   it('請求1件の取得でIDがUUIDでなければ400にする', async () => {
-    const paymentRequestListRepository = createPaymentRequestListRepository();
+    const paymentRequestQueryRepository = createPaymentRequestQueryRepository();
     const { app } = createTestApp({
       currentUser: createCurrentUser({ id: CURRENT_USER_ID }),
-      paymentRequestListRepository,
+      paymentRequestQueryRepository,
     });
 
     const response = await request(app).get('/api/payment-requests/not-a-uuid');
@@ -1128,7 +1128,7 @@ describe('backend application', () => {
       error: { code: 'INVALID_REQUEST', message: 'id must be a UUID' },
     });
     expect(
-      paymentRequestListRepository.findPaymentRequestById,
+      paymentRequestQueryRepository.findPaymentRequestById,
     ).not.toHaveBeenCalled();
   });
 

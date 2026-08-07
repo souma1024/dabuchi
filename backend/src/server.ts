@@ -26,7 +26,7 @@ import { MysqlCurrentUserRepository } from './infrastructure/repositories/mysqlC
 import { MysqlFriendCommandRepository } from './infrastructure/repositories/mysqlFriendCommandRepository.js';
 import { MysqlFriendQueryRepository } from './infrastructure/repositories/mysqlFriendQueryRepository.js';
 import { MysqlPaymentRequestCommandRepository } from './infrastructure/repositories/mysqlPaymentRequestCommandRepository.js';
-import { MysqlPaymentRequestListRepository } from './infrastructure/repositories/mysqlPaymentRequestListRepository.js';
+import { MysqlPaymentRequestQueryRepository } from './infrastructure/repositories/mysqlPaymentRequestQueryRepository.js';
 import { MysqlUserRecipientRepository } from './infrastructure/repositories/mysqlUserRecipientRepository.js';
 import { MysqlTransactionRepository } from './infrastructure/repositories/mysqlTransactionRepository.js';
 import { getErrorMessage } from './shared/errorMessage.js';
@@ -92,16 +92,15 @@ if (!Number.isInteger(port) || port < 1 || port > 65_535) {
       friendQueryRepository,
     );
     const listUserRecipients = new ListUserRecipients(userRecipientRepository);
-    const paymentRequestListRepository = new MysqlPaymentRequestListRepository(
-      pool,
-    );
+    const paymentRequestQueryRepository =
+      new MysqlPaymentRequestQueryRepository(pool);
     const listPaymentRequests = new ListPaymentRequests(
       currentUserRepository,
-      paymentRequestListRepository,
+      paymentRequestQueryRepository,
     );
     const getPaymentRequest = new GetPaymentRequest(
       currentUserRepository,
-      paymentRequestListRepository,
+      paymentRequestQueryRepository,
     );
     const listUserTransactions = new ListUserTransactions(
       currentUserRepository,

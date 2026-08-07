@@ -4,7 +4,7 @@ import type {
 } from '../../domain/paymentRequest.js';
 import { mysqlDateTimeToIso } from '../../shared/mysqlDateTime.js';
 import { CurrentUserNotFoundError } from '../errors/currentUserNotFoundError.js';
-import { InvalidPaymentRequestIdError } from '../errors/paymentRequestCommandErrors.js';
+import { InvalidPaymentRequestIdError } from '../errors/paymentRequestErrors.js';
 import type { CurrentUserRepository } from '../ports/currentUserRepository.js';
 import type { PaymentRequestCommandRepository } from '../ports/paymentRequestCommandRepository.js';
 

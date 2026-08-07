@@ -8,7 +8,7 @@ import type { CurrentUserRepository } from '../../application/ports/currentUserR
 import type { FriendCommandRepository } from '../../application/ports/friendCommandRepository.js';
 import type { FriendQueryRepository } from '../../application/ports/friendQueryRepository.js';
 import type { PaymentRequestCommandRepository } from '../../application/ports/paymentRequestCommandRepository.js';
-import type { PaymentRequestListRepository } from '../../application/ports/paymentRequestListRepository.js';
+import type { PaymentRequestQueryRepository } from '../../application/ports/paymentRequestQueryRepository.js';
 import type { TransactionRepository } from '../../application/ports/transactionRepository.js';
 import type { UserRecipientRepository } from '../../application/ports/userRecipientRepository.js';
 import { AddFriend } from '../../application/usecases/addFriend.js';
@@ -35,7 +35,7 @@ import { createCurrentUserRepository } from './currentUserRepositoryFactory.js';
 import { createFriendCommandRepository } from './friendCommandRepositoryFactory.js';
 import { createFriendQueryRepository } from './friendQueryRepositoryFactory.js';
 import { createPaymentRequestCommandRepository } from './paymentRequestCommandFactory.js';
-import { createPaymentRequestListRepository } from './paymentRequestListFactory.js';
+import { createPaymentRequestQueryRepository } from './paymentRequestQueryFactory.js';
 import { createPaymentRequestRepository } from './paymentRequestRepositoryFactory.js';
 import { createTransactionRepository } from './transactionRepositoryFactory.js';
 import { createUserRecipientRepository } from './userRecipientRepositoryFactory.js';
@@ -49,7 +49,7 @@ interface AppFactoryOptions {
   friendQueryRepository?: FriendQueryRepository;
   paymentRequestCommandRepository?: PaymentRequestCommandRepository;
   paymentRequestIdGenerator?: PaymentRequestIdGenerator;
-  paymentRequestListRepository?: PaymentRequestListRepository;
+  paymentRequestQueryRepository?: PaymentRequestQueryRepository;
   paymentRequestRecords?: PaymentRequestRecord[];
   paymentRequestRepository?: PaymentRequestRepository;
   recipients?: UserRecipientRecord[];
@@ -86,9 +86,9 @@ export function createTestApp(options: AppFactoryOptions = {}) {
       (() =>
         `00000000-0000-4000-8000-${String(++generatedId).padStart(12, '0')}`),
   );
-  const paymentRequestListRepository =
-    options.paymentRequestListRepository ??
-    createPaymentRequestListRepository({
+  const paymentRequestQueryRepository =
+    options.paymentRequestQueryRepository ??
+    createPaymentRequestQueryRepository({
       records: options.paymentRequestRecords,
     });
   const paymentRequestCommandRepository =
@@ -100,11 +100,11 @@ export function createTestApp(options: AppFactoryOptions = {}) {
   );
   const listPaymentRequests = new ListPaymentRequests(
     currentUserRepository,
-    paymentRequestListRepository,
+    paymentRequestQueryRepository,
   );
   const getPaymentRequest = new GetPaymentRequest(
     currentUserRepository,
-    paymentRequestListRepository,
+    paymentRequestQueryRepository,
   );
   const listUserTransactions = new ListUserTransactions(
     currentUserRepository,
@@ -176,7 +176,7 @@ export function createTestApp(options: AppFactoryOptions = {}) {
     friendCommandRepository,
     friendQueryRepository,
     paymentRequestCommandRepository,
-    paymentRequestListRepository,
+    paymentRequestQueryRepository,
     paymentRequestRepository,
     repository,
     transactionRepository,
