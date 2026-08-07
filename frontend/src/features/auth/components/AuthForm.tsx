@@ -63,8 +63,10 @@ export function AuthForm({
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center bg-white px-6 py-10">
-      <h1 className="m-0 text-center text-xl font-bold text-slate-900">
-        dabuchi
+      {/* ロゴは飾りで、名前は下のh1が読ませる。 */}
+      <img src="/logo.svg" alt="" width={56} height={56} className="mx-auto" />
+      <h1 className="mt-3 mb-0 text-center text-xl font-bold text-slate-900">
+        DABUCHI
       </h1>
       <h2 className="mt-8 mb-0 text-base font-semibold text-slate-900">
         {title}
