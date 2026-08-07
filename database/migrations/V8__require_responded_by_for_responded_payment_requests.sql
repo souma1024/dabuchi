@@ -19,8 +19,12 @@ UPDATE payment_requests
 -- 各枝の IS NOT NULL は省略できない。responded_by が NULL のとき
 -- `responded_by = recipient_id` は FALSE ではなく UNKNOWN になり、
 -- CHECK は UNKNOWN を違反とみなさないため素通りしてしまう。
+--
+-- 制約の付け替えは文を分ける。TiDBは1つのALTERでDROP CHECKと他の変更を混ぜられない。
 ALTER TABLE payment_requests
-  DROP CHECK chk_payment_requests_responded_by,
+  DROP CHECK chk_payment_requests_responded_by;
+
+ALTER TABLE payment_requests
   ADD CONSTRAINT chk_payment_requests_responded_by
     CHECK (
       -- 応答前は誰も終わらせていない。

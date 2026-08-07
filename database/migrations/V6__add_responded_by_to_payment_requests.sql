@@ -5,10 +5,17 @@
 --
 -- NULL 許容: 列を足す前に確定した行と、取り消しAPI導入前のアプリケーションからの
 -- 書き込みを許すため。pending のあいだは必ず NULL であることだけを制約で保証する。
+--
+-- 列の追加と、その列への制約追加は文を分ける。
+-- TiDBは同じALTER内で追加したばかりの列を参照できず、column does not existで失敗する。
 ALTER TABLE payment_requests
-  ADD COLUMN responded_by BINARY(16) DEFAULT NULL,
+  ADD COLUMN responded_by BINARY(16) DEFAULT NULL;
+
+ALTER TABLE payment_requests
   ADD CONSTRAINT fk_payment_requests_responded_by
-    FOREIGN KEY (responded_by) REFERENCES users (id),
+    FOREIGN KEY (responded_by) REFERENCES users (id);
+
+ALTER TABLE payment_requests
   ADD CONSTRAINT chk_payment_requests_responded_by
     CHECK (
       -- 応答前は誰も終わらせていない。

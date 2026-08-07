@@ -16,12 +16,15 @@
 
 ## 1. TiDB Cloud
 
-1. Serverlessのクラスタを作る
-2. 接続情報（host / port / user / password）を控える。portは`4000`
-3. データベースを作る（例: `dabuchi`）
+1. Starterプランのクラスタを作る
+2. **Connect**から接続情報（host / port / user / password）を控える。portは`4000`。
+   passwordは発行時に1度しか表示されない
+3. データベースとCHECK制約を用意する
 
 ```sql
 CREATE DATABASE dabuchi CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+-- TiDBは既定でCHECK制約を無視する。付けたつもりの不変条件がDBで効かなくなるため有効にする。
+SET GLOBAL tidb_enable_check_constraint = ON;
 ```
 
 ## 2. マイグレーション
@@ -29,13 +32,17 @@ CREATE DATABASE dabuchi CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 Flywayをローカルから実行する。TiDBはTLS必須。
 
 ```bash
-docker run --rm -v "$(pwd)/database/migrations:/flyway/sql" flyway/flyway:13.1.0 \
-  -url="jdbc:mysql://<host>:4000/dabuchi?sslMode=VERIFY_IDENTITY" \
-  -user=<user> -password=<password> migrate
+docker run --rm -v "$(pwd)/database/migrations:/flyway/sql" \
+  -e FLYWAY_PASSWORD='<password>' flyway/flyway:13.1.0 \
+  -url="jdbc:mysql://<host>:4000/dabuchi?useSsl=true&sslMode=verify-full" \
+  -user='<user>' migrate
 ```
 
-シード（`database/seeds/development.sql`）は**投入しない**。全ユーザーが共通パスワードのため、
-公開環境へ入れると誰でもログインできてしまう。動作確認用のアカウントは新規登録で作る。
+`useSsl=true`は省略できない。Flywayが使うMariaDBドライバは`sslMode`だけでは平文で接続し、
+TiDBに`Connections using insecure transport are prohibited`で拒否される。
+
+シード（`database/seeds/development.sql`）を入れると、30ユーザー全員が共通パスワード
+`dabuchi-dev`でログインできる状態になる。デモとして意図的に入れる場合を除き、投入しない。
 
 ## 3. Render
 
