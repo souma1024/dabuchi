@@ -1,5 +1,6 @@
 import { CurrentUserNotFoundError } from './errors/currentUserNotFoundError.js';
 import type { CurrentUserRepository } from './ports/currentUserRepository.js';
+import { AMOUNT_LIMIT } from '../domain/amountLimit.js';
 import type {
   NewPaymentRequest,
   PaymentRequestRepository,
@@ -116,6 +117,13 @@ function parsePaymentRequestItem(
   if (!Number.isSafeInteger(amount) || (amount as number) <= 0) {
     throw new InvalidPaymentRequestError(
       `requests[${index}].amount must be a positive safe integer.`,
+    );
+  }
+
+  // 想定外の高額な請求を防ぐ上限。クライアント側だけでは回避できるためserver側でも検証する。
+  if ((amount as number) > AMOUNT_LIMIT) {
+    throw new InvalidPaymentRequestError(
+      `requests[${index}].amount must be at most ${AMOUNT_LIMIT}.`,
     );
   }
 
