@@ -1,9 +1,11 @@
 import type { Counterparty } from '../../../types/user';
 import type {
   PaymentRequest,
+  PaymentRequestAction,
   PaymentRequestDirection,
   PaymentRequestPage,
   PaymentRequestStatus,
+  RespondedPaymentRequest,
 } from '../types';
 
 // 未設定なら同一オリジン（Vite dev serverの /api プロキシ経由）を使う。
@@ -124,4 +126,126 @@ export async function fetchPaymentRequests(
 
   const data: unknown = await response.json();
   return parsePaymentRequestsResponse(data);
+}
+
+function readRequestField(data: unknown): unknown {
+  if (typeof data !== 'object' || data === null) {
+    throw invalidResponseError();
+  }
+  return (data as Record<string, unknown>).request;
+}
+
+/**
+ * 請求を1件取得する（Issue #61）。当事者でなければnullを返す。
+ *
+ * 一覧を読み込んだ時刻と行をタップする時刻の間に状態が変わりうるため、確認画面を
+ * 開いた時点で取り直す。一覧APIで代用しないのは、20件ずつのページングでは
+ * 古い請求へ到達できないため。
+ *
+ * 当事者でない場合もserverは404を返す。存在するが読めない状態と存在しない状態を
+ * 区別しないことで、他人の請求IDを当てられても存在を確認できないようにしている。
+ * 画面としてはどちらも「見つからない」なので、まとめてnullにする。
+ */
+export async function fetchPaymentRequest(
+  id: string,
+  signal?: AbortSignal,
+): Promise<PaymentRequest | null> {
+  const base = API_BASE_URL || window.location.origin;
+  const response = await fetch(
+    new URL(`/api/payment-requests/${encodeURIComponent(id)}`, base),
+    { signal },
+  );
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new Error(`請求の取得に失敗しました (HTTP ${response.status})`);
+  }
+
+  const request: unknown = readRequestField(await response.json());
+  if (!isPaymentRequest(request)) {
+    throw invalidResponseError();
+  }
+  return request;
+}
+
+/** エラーレスポンスからcodeを取り出す。形が違えばnull。 */
+function readErrorCode(data: unknown): string | null {
+  if (typeof data !== 'object' || data === null) {
+    return null;
+  }
+  const error = (data as Record<string, unknown>).error;
+  if (typeof error !== 'object' || error === null) {
+    return null;
+  }
+  const code = (error as Record<string, unknown>).code;
+  return typeof code === 'string' ? code : null;
+}
+
+// 失敗の理由によって利用者の次の行動が変わるため、codeごとに文言を分ける。
+const RESPOND_MESSAGES: Record<string, string> = {
+  PAYMENT_REQUEST_NOT_FOUND: 'この請求は見つかりませんでした',
+  PAYMENT_REQUEST_FORBIDDEN: 'この請求を操作する権限がありません',
+  // 画面の制御だけでは防げない。別端末での処理や、一覧が古かった場合に起きる。
+  PAYMENT_REQUEST_ALREADY_RESPONDED: 'この請求はすでに処理されています',
+  INSUFFICIENT_BALANCE: '残高が足りません',
+};
+
+function isRespondedPaymentRequest(
+  value: unknown,
+): value is RespondedPaymentRequest {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const request = value as Record<string, unknown>;
+  return (
+    typeof request.id === 'string' &&
+    typeof request.amount === 'number' &&
+    Number.isSafeInteger(request.amount) &&
+    request.amount > 0 &&
+    // 決着した結果しか返らないため、pendingは想定外として弾く。
+    (request.status === 'accepted' || request.status === 'rejected') &&
+    isIsoDateTime(request.respondedAt)
+  );
+}
+
+/**
+ * 請求を承認・拒否・取り消しする（Issue #71）。
+ *
+ * 操作ごとにエンドポイントが分かれている。拒否も取り消しもDB上はrejectedになるが、
+ * 実行できる人が逆（rejectは被請求者、cancelは請求者）で、誰が終わらせたかも
+ * 記録されるため、状態ではなく操作で送る。
+ *
+ * 承認のレスポンスには更新後の残高も入るが、受け取らない。完了表示は送金フローと
+ * 同じく残高を出さず、ホームへ戻った時点でGET /api/meが取り直すため。
+ *
+ * 同じ操作の再送は409ではなく200になる（server側で冪等にしてある）。COMMITは
+ * 済んだのに応答が届かなかった場合に、再送すれば正しい結果へ収束させるため。
+ */
+export async function respondToPaymentRequest(
+  id: string,
+  action: PaymentRequestAction,
+  signal?: AbortSignal,
+): Promise<RespondedPaymentRequest> {
+  const base = API_BASE_URL || window.location.origin;
+  const response = await fetch(
+    new URL(`/api/payment-requests/${encodeURIComponent(id)}/${action}`, base),
+    { method: 'POST', signal },
+  );
+
+  if (!response.ok) {
+    const code = readErrorCode(await response.json().catch(() => null));
+    throw new Error(
+      (code === null ? undefined : RESPOND_MESSAGES[code]) ??
+        `請求の処理に失敗しました (HTTP ${response.status})`,
+    );
+  }
+
+  const request: unknown = readRequestField(await response.json());
+  if (!isRespondedPaymentRequest(request)) {
+    throw invalidResponseError();
+  }
+  return request;
 }
