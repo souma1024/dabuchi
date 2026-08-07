@@ -4,7 +4,7 @@ import {
   useCursorPagination,
   type CursorPage,
 } from '../../../hooks/useCursorPagination';
-import { fetchMockPaymentRequestHistoryPage } from '../mockPaymentRequests';
+import { fetchPaymentRequests } from '../api/paymentRequestsClient';
 import type { PaymentRequest, PaymentRequestDirection } from '../types';
 
 /** 請求履歴の取得結果と操作。 */
@@ -24,15 +24,15 @@ export interface UsePaymentRequestHistoryResult {
  * directionが変わるとfetchPageの同一性も変わるため、タブ切り替えで1ページ目から
  * 読み直す。読み込み済みの保持はしない。
  *
- * 現在の取得元はモック。請求一覧API（Issue #70）でクライアントを差し替える想定で、
- * 返り値の形は変えない。
+ * 取得は GET /api/payment-requests?direction=<direction>（Issue #70）。
+ * statusで絞らないため、決着済みも含めた全記録が返る。
  */
 export function usePaymentRequestHistory(
   direction: PaymentRequestDirection,
 ): UsePaymentRequestHistoryResult {
   const fetchPage = useCallback(
     async (cursor: string | null): Promise<CursorPage<PaymentRequest>> => {
-      const page = await fetchMockPaymentRequestHistoryPage(direction, cursor);
+      const page = await fetchPaymentRequests({ direction, cursor });
 
       return { items: page.requests, nextCursor: page.nextCursor };
     },

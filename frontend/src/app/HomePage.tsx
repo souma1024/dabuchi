@@ -181,7 +181,9 @@ function LogOutButton() {
 
 export function HomePage() {
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-[420px] flex-col bg-white">
+    // 残高とメニューは常に見えるようにし、請求リストだけをスクロールさせる。
+    // ページ全体がスクロールすると、一覧に入った時点で残高が画面外へ消えるため。
+    <main className="mx-auto flex h-dvh w-full max-w-[420px] flex-col overflow-hidden bg-white">
       <header className="border-b border-slate-200 px-5 py-4">
         <h1 className="m-0 text-base font-semibold text-slate-900">dabuchi</h1>
       </header>

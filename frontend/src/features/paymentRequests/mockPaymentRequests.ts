@@ -1,10 +1,13 @@
 import type {
   Counterparty,
   PaymentRequest,
+  PaymentRequestAction,
   PaymentRequestDirection,
-  PaymentRequestPage,
   PaymentRequestStatus,
 } from './types';
+
+// 確認画面だけがまだモックを使う。一覧2画面は実APIへ繋いだため、
+// ページングを模していた関数はここから消している（Issue #70）。
 
 // 添字アクセスがundefinedにならないよう、先頭要素の存在を型で保証する。
 type NonEmpty<T> = readonly [T, ...T[]];
@@ -200,40 +203,69 @@ const mockHistories: Record<PaymentRequestDirection, PaymentRequest[]> = {
   ]),
 };
 
-// 実APIは20件固定で返す（Issue #70）。取得と表示の単位を分けず、そのまま並べる。
-const PAGE_SIZE = 20;
-
-function slicePage(
-  source: PaymentRequest[],
-  cursor: string | null,
-): PaymentRequestPage {
-  const start = cursor === null ? 0 : Number(cursor);
-  const end = start + PAGE_SIZE;
-
-  return {
-    requests: source.slice(start, end),
-    nextCursor: end < source.length ? String(end) : null,
-  };
-}
-
 /**
- * モックの受けた請求（未払い）を1ページ分返す。ホーム画面用。
- * 実APIは GET /api/payment-requests?direction=received&status=pending（Issue #70）。
- * カーソルは次ページ先頭のindexを文字列にしただけの簡易版。
+ * モックの請求を1件返す。承認画面が開いた時点で最新を取り直す用途（Issue #61）。
+ * 実APIは GET /api/payment-requests/:id（#122でマージ済み、繋ぎ込みは未着手）。
+ * 一覧から渡された情報をそのまま信じず、開いた時点の状態を確認するために使う。
  */
-export function fetchMockReceivedPaymentRequestPage(
-  cursor: string | null = null,
-): Promise<PaymentRequestPage> {
-  return Promise.resolve(slicePage(mockReceivedPaymentRequests, cursor));
-}
-
-/**
- * モックの請求履歴を1ページ分返す。状態で絞らず、決着済みも含める。
- * 実APIは GET /api/payment-requests?direction=<direction>（Issue #70）。
- */
-export function fetchMockPaymentRequestHistoryPage(
+export function fetchMockPaymentRequest(
   direction: PaymentRequestDirection,
-  cursor: string | null = null,
-): Promise<PaymentRequestPage> {
-  return Promise.resolve(slicePage(mockHistories[direction], cursor));
+  id: string,
+): Promise<PaymentRequest | null> {
+  const source =
+    direction === 'received'
+      ? [...mockReceivedPaymentRequests, ...mockHistories.received]
+      : mockHistories.sent;
+
+  return Promise.resolve(source.find((request) => request.id === id) ?? null);
+}
+
+// 操作を実行できる向き。実APIはacceptとrejectを被請求者だけ、cancelを請求者だけに
+// 許し、違反すると403を返す（Issue #71）。モックでも同じ範囲に絞り、繋ぎ間違いが
+// 実APIに繋いだ後ではなくこの段階で分かるようにする。
+const actorDirections: Record<PaymentRequestAction, PaymentRequestDirection> = {
+  accept: 'received',
+  reject: 'received',
+  cancel: 'sent',
+};
+
+// 拒否と取り消しはどちらもrejectedになる。実APIはresponded_byで実行者を残して
+// 区別するが、モックは状態しか持たないため、ここでは同じ状態へ倒す。
+const resultStatuses: Record<
+  PaymentRequestAction,
+  Exclude<PaymentRequestStatus, 'pending'>
+> = {
+  accept: 'accepted',
+  reject: 'rejected',
+  cancel: 'rejected',
+};
+
+/**
+ * モックの承認・拒否・取り消し。実APIは #71（マージ済み、繋ぎ込みは未着手）。
+ * 対象が pending でなければ失敗させ、画面側が「すでに処理済み」を扱えるようにする。
+ */
+export function respondToMockPaymentRequest(
+  direction: PaymentRequestDirection,
+  id: string,
+  action: PaymentRequestAction,
+): Promise<PaymentRequest> {
+  return fetchMockPaymentRequest(direction, id).then((request) => {
+    if (!request) {
+      throw new Error('この請求は見つかりませんでした');
+    }
+
+    if (actorDirections[action] !== direction) {
+      throw new Error('この請求を操作する権限がありません');
+    }
+
+    if (request.status !== 'pending') {
+      throw new Error('この請求はすでに処理されています');
+    }
+
+    return {
+      ...request,
+      status: resultStatuses[action],
+      respondedAt: new Date(Date.UTC(2026, 7, 6, 3, 0)).toISOString(),
+    } satisfies PaymentRequest;
+  });
 }

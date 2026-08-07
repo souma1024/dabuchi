@@ -140,8 +140,11 @@ npm run db:test
 │       └── presentation/ # HTTPの入出力
 └── docs/
     ├── adr/
+    ├── api/
     └── reports/
 ```
+
+全体像は[システム構成](docs/architecture.md)にまとめています。
 
 機能固有のコードは`features`または各バックエンドレイヤーへ配置します。共有化は複数箇所で必要になってから行い、将来利用するかもしれないという理由だけで抽象化しません。
 
