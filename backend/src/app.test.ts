@@ -452,6 +452,7 @@ describe('backend application', () => {
 
     const response = await request(app)
       .get('/api/friends')
+      .set('Cookie', TEST_SESSION_COOKIE)
       .query({ sort: 'created-desc' });
 
     expect(response.status).toBe(200);
