@@ -36,6 +36,15 @@ ON DUPLICATE KEY UPDATE
   profile_url = VALUES(profile_url);
 
 
+-- 開発用の共通パスワード。全シードユーザーが 'dabuchi-dev' でログインできる。
+-- 開発環境のシードにしか入れないため、値が知られていても問題にならない。
+-- 新規登録で作ったユーザーは自分のパスワードを持つので、ここでは上書きしない。
+UPDATE users
+   SET password_hash = 'scrypt$16384$8$1$MQx5e6w/ambN4+Z+GnLBQw==$BLkzG6EzapkORHNc3pqtQnLf3D5+b/gKBk77ZMxiuAc='
+ WHERE user_id LIKE 'friend-%'
+   AND password_hash IS NULL;
+
+
 -- 取引履歴の「受取」表示を確認するための開発用データ。
 -- アプリからは自分が送る取引しか作れず、他ユーザーから自分への送金を用意できないため、
 -- MOCK_USER_ID既定のfriend-001宛の取引をシードで用意する。

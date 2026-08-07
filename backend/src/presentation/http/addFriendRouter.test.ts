@@ -8,8 +8,10 @@ import { InvalidFriendshipNoteError } from '../../domain/friendshipNote.js';
 import { createCurrentUserRepository } from '../../test/factories/currentUserRepositoryFactory.js';
 import { createFriendCommandRepository } from '../../test/factories/friendCommandRepositoryFactory.js';
 import { createAddFriendRouter } from './addFriendRouter.js';
+import { withCurrentUser } from '../../test/withCurrentUser.js';
 
 const CURRENT_USER_PUBLIC_ID = '001';
+const CURRENT_USER_INTERNAL_ID = '11111111-1111-4111-8111-111111111111';
 const FRIENDSHIP_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
 describe('add friend router', () => {
@@ -81,9 +83,12 @@ function createTestApp() {
 
   app.use(express.json());
   app.use(
-    '/api/friends',
-    createAddFriendRouter(addFriend, CURRENT_USER_PUBLIC_ID),
+    withCurrentUser({
+      id: CURRENT_USER_INTERNAL_ID,
+      userId: CURRENT_USER_PUBLIC_ID,
+    }),
   );
+  app.use('/api/friends', createAddFriendRouter(addFriend));
   app.use(testErrorHandler);
 
   return { app, friendCommandRepository };

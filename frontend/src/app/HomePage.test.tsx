@@ -6,9 +6,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fetchCurrentUser } from '../features/currentUser/api/fetchCurrentUser';
 import { HomePage } from './HomePage';
 
-vi.mock('../features/currentUser/api/fetchCurrentUser', () => ({
-  fetchCurrentUser: vi.fn(),
-}));
+// NotAuthenticatedErrorはuseCurrentUserがinstanceofで判定するため、実物を残す。
+vi.mock(
+  '../features/currentUser/api/fetchCurrentUser',
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import('../features/currentUser/api/fetchCurrentUser')
+    >()),
+    fetchCurrentUser: vi.fn(),
+  }),
+);
 
 const mockedFetchCurrentUser = vi.mocked(fetchCurrentUser);
 

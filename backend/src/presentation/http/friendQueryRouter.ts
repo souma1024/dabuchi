@@ -3,6 +3,7 @@ import { Router } from 'express';
 import type { GetFriendshipDetail } from '../../application/usecases/getFriendshipDetail.js';
 import type { ListBlockedFriends } from '../../application/usecases/listBlockedFriends.js';
 import type { ListFriends } from '../../application/usecases/listFriends.js';
+import { requireCurrentUser } from './authentication.js';
 import {
   decodeBlockedFriendCursor,
   decodeFriendCursor,
@@ -19,7 +20,6 @@ export class InvalidFriendRequestError extends Error {
 }
 
 export interface FriendQueryRouterDependencies {
-  currentUserPublicId: string;
   getFriendshipDetail: GetFriendshipDetail;
   listBlockedFriends: ListBlockedFriends;
   listFriends: ListFriends;
@@ -34,7 +34,7 @@ export function createFriendQueryRouter(
     void (async () => {
       const cursor = parseCursor(request.query.cursor, decodeFriendCursor);
       const result = await dependencies.listFriends.execute({
-        currentUserPublicId: dependencies.currentUserPublicId,
+        currentUserPublicId: requireCurrentUser(response).userId,
         cursor,
       });
 
@@ -57,7 +57,7 @@ export function createFriendQueryRouter(
         decodeBlockedFriendCursor,
       );
       const result = await dependencies.listBlockedFriends.execute({
-        currentUserPublicId: dependencies.currentUserPublicId,
+        currentUserPublicId: requireCurrentUser(response).userId,
         cursor,
       });
 
@@ -82,7 +82,7 @@ export function createFriendQueryRouter(
       }
 
       const friend = await dependencies.getFriendshipDetail.execute({
-        currentUserPublicId: dependencies.currentUserPublicId,
+        currentUserPublicId: requireCurrentUser(response).userId,
         friendshipId,
       });
 

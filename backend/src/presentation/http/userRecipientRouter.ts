@@ -1,7 +1,10 @@
 import { Router } from 'express';
 
+import { NotAuthenticatedError } from '../../application/errors/authErrors.js';
+
 import type { ListUserRecipients } from '../../application/usecases/listUserRecipients.js';
 import type { RecipientSort } from '../../application/ports/userRecipientRepository.js';
+import { requireCurrentUser } from './authentication.js';
 import {
   decodeRecipientCursor,
   encodeRecipientCursor,
@@ -50,6 +53,15 @@ export function createUserRecipientRouter(
 
       if (!currentUserId || !isUuid(currentUserId)) {
         throw new InvalidRecipientRequestError('currentUserId must be a UUID.');
+      }
+
+      // 自分以外のIDを指定して他人の候補一覧を覗けないようにする。
+      // pathにユーザーを含む形は認証前の名残なので、いずれ廃止する。
+      if (
+        currentUserId.toLowerCase() !==
+        requireCurrentUser(response).id.toLowerCase()
+      ) {
+        throw new NotAuthenticatedError();
       }
 
       if (cursorValue !== undefined && typeof cursorValue !== 'string') {

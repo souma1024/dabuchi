@@ -43,7 +43,9 @@ npm run dev:backend
 
 `npm run dev:backend`は、セットアップで作成したルートの`.env`を読み込みます。Composeでは同じ設定値をbackendコンテナへ環境変数として渡します。バックエンドのポートは`PORT`環境変数で変更できます。秘密情報をリポジトリやログへ含めないでください。
 
-ログイン機能を実装するまでは、`.env`の`MOCK_USER_ID`に設定した公開`user_id`を現在ユーザーとして扱います。mock認証は開発・テスト専用で、本番環境では起動を拒否します。
+ログインは`POST /api/auth/login`で行い、セッションはHttpOnly Cookieで保持します。詳細は[認証API](docs/api/auth.md)を参照してください。
+
+現在ユーザーはセッションから決まります。`/health`と`/api/auth/*`以外のAPIは、有効なセッションが無ければ`401`を返します。
 
 ## データベース
 
@@ -74,7 +76,7 @@ npm run db:down
 
 内部UUIDと公開用`user_id`は別の識別子です。APIでは内部UUIDを文字列へ変換して扱い、友達追加では一意な`user_id`を利用する想定です。
 
-開発用シードは30ユーザーです。`human1.png`〜`human6.png`を循環して参照します。シードは本番migrationへ含めず、`npm run db:seed`を明示的に実行した場合だけ投入されます。
+開発用シードは30ユーザーです。`human1.png`〜`human6.png`を循環して参照し、いずれも共通のパスワード`dabuchi-dev`でログインできます。シードは本番migrationへ含めず、`npm run db:seed`を明示的に実行した場合だけ投入されます。
 
 提供画像は再配布せず、各自のローカル環境で`frontend/public/assets/profiles/`へ配置してください。必要なファイル名と注意事項は[プロフィール画像の配置手順](frontend/public/assets/profiles/README.md)に記載しています。PNGファイルは`.gitignore`でGit管理から除外しています。
 
@@ -204,9 +206,17 @@ backendのcurrent userから見た請求を、作成日時の降順で20件ず�
 
 詳細なrequest / response / status codeは[Payment requests API](docs/api/payment-requests.md)を参照してください。
 
-### `POST /api/payment-requests/:id/accept` / `POST /api/payment-requests/:id/reject`
+### `GET /api/payment-requests/:id`
 
-`pending`の請求へ被請求者が応答します。承認では残高更新・送金履歴の記録・請求の状態更新を単一のDB transactionで実行し、拒否では状態だけを更新します。応答できるのは被請求者だけで、すでに応答済みなら409を返します。
+請求を1件だけ、一覧の要素と同じ形で返します。確認画面を開いた時点の状態を取り直す用途です。取得できるのは当事者だけで、それ以外は存在の有無を区別せず404を返します。
+
+詳細なrequest / response / status codeは[Payment requests API](docs/api/payment-requests.md)を参照してください。
+
+### `POST /api/payment-requests/:id/accept` / `/reject` / `/cancel`
+
+`pending`の請求を終わらせます。承認では残高更新・送金履歴の記録・請求の状態更新を単一のDB transactionで実行し、拒否・取り消しでは状態だけを更新します。
+
+承認と拒否は被請求者、取り消しは請求者だけが実行できます。取り消しはDB上`rejected`になり、拒否とは`responded_by`で区別します。自分が同じ操作で終わらせた請求への再送は冪等に200を返し、それ以外の決着済みは409になります。
 
 詳細なrequest / response / status codeは[Payment requests API](docs/api/payment-requests.md)を参照してください。
 

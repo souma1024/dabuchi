@@ -1,6 +1,6 @@
 # Current user API
 
-ホーム画面に表示する現在ユーザーを返すAPIです。ログイン機能を実装するまでは、開発環境の`MOCK_USER_ID`に設定した公開`user_id`を現在ユーザーとして扱います。
+ホーム画面に表示する現在ユーザーを返すAPIです。現在ユーザーはセッションから決まります。
 
 ## Endpoint
 
@@ -36,7 +36,7 @@ request body、path parameter、query parameterはありません。
 
 ### `404 Not Found`
 
-`MOCK_USER_ID`に対応するユーザーが存在しない場合です。
+セッションが指すユーザーが削除された場合などです。有効なセッションが無い場合は`401 NOT_AUTHENTICATED`になります。
 
 ```json
 {
@@ -55,8 +55,6 @@ DB接続失敗などの想定外エラーです。内部エラーの詳細はレ
 
 ```env
 NODE_ENV=development
-AUTH_MODE=mock
-MOCK_USER_ID=friend-001
 ```
 
 mock認証は開発・テスト専用です。`NODE_ENV`が`development`または`test`以外の場合はbackend起動時に拒否します。ログイン実装時はHTTP層から認証済みの公開ユーザーIDをusecaseへ渡す方式に置き換えます。

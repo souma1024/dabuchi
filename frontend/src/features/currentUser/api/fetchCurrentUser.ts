@@ -36,15 +36,27 @@ function parseCurrentUserResponse(data: unknown): CurrentUser {
   return user;
 }
 
+/** 未ログインだったことを表す。呼び出し側でログイン画面へ促すために区別する。 */
+export class NotAuthenticatedError extends Error {
+  constructor() {
+    super('ログインが必要です');
+    this.name = 'NotAuthenticatedError';
+  }
+}
+
 /**
- * 現在ユーザーを取得する。
- * ログイン実装までは、バックエンドがMOCK_USER_IDで解決したユーザーを返す。
+ * 現在ユーザーを取得する。ユーザーはserver側のセッションから決まる。
+ * 未ログイン（401）は他の失敗と区別できるようにする。
  */
 export async function fetchCurrentUser(
   signal?: AbortSignal,
 ): Promise<CurrentUser> {
   const base = API_BASE_URL || window.location.origin;
   const response = await fetch(new URL('/api/me', base), { signal });
+  if (response.status === 401) {
+    throw new NotAuthenticatedError();
+  }
+
   if (!response.ok) {
     throw new Error(
       `ユーザー情報の取得に失敗しました (HTTP ${response.status})`,

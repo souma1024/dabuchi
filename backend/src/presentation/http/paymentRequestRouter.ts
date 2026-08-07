@@ -1,12 +1,15 @@
 import { Router, type RequestHandler } from 'express';
 
+import { requireCurrentUser } from './authentication.js';
+
 import type { CreatePaymentRequests } from '../../application/createPaymentRequests.js';
 import type { PaymentRequestCursor } from '../../application/ports/paymentRequestListRepository.js';
+import type { GetPaymentRequest } from '../../application/usecases/getPaymentRequest.js';
 import type { ListPaymentRequests } from '../../application/usecases/listPaymentRequests.js';
 import type { RespondToPaymentRequest } from '../../application/usecases/respondToPaymentRequest.js';
 import type {
+  PaymentRequestAction,
   PaymentRequestDirection,
-  PaymentRequestResponse,
   PaymentRequestState,
 } from '../../domain/paymentRequest.js';
 import {
@@ -68,36 +71,39 @@ function parseCursor(value: unknown): PaymentRequestCursor | null {
 
 interface PaymentRequestRouterDependencies {
   createPaymentRequests: CreatePaymentRequests;
-  /** mock認証で決まる現在ユーザーの公開user_id。内部UUIDはusecase側で解決する。 */
-  currentUserPublicId: string;
+  getPaymentRequest: GetPaymentRequest;
   listPaymentRequests: ListPaymentRequests;
   respondToPaymentRequest: RespondToPaymentRequest;
 }
 
+/** 単一のpath parameterだが型上は配列もありうる。配列ならusecase側のUUID検証で400にする。 */
+function parsePathId(value: string | string[] | undefined): string {
+  return typeof value === 'string' ? value : '';
+}
+
 export function createPaymentRequestRouter({
   createPaymentRequests,
-  currentUserPublicId,
+  getPaymentRequest,
   listPaymentRequests,
   respondToPaymentRequest,
 }: PaymentRequestRouterDependencies) {
   const router = Router();
 
-  // 承認と拒否は同じ手続きで、残高が動くかどうかだけが違う。
+  // 承認・拒否・取り消しは同じ手続きで、実行できる当事者・遷移先・残高が動くかだけが違う。
   // 経路を分けるのは、URLに動詞を出して意図を明示するため。
   const respond =
-    (response: PaymentRequestResponse): RequestHandler =>
+    (action: PaymentRequestAction): RequestHandler =>
     async (request, httpResponse, next) => {
       try {
+        // 認証を先に確かめる。未ログインの相手へ入力仕様を返さない。
+        const { userId } = requireCurrentUser(httpResponse);
         const result = await respondToPaymentRequest.execute({
-          currentUserId: currentUserPublicId,
-          // 単一のpath parameterだが、型上は配列もありうる。
-          // 配列なら空文字にしてusecase側のUUID検証で400にする。
-          paymentRequestId:
-            typeof request.params.id === 'string' ? request.params.id : '',
-          response,
+          currentUserId: userId,
+          paymentRequestId: parsePathId(request.params.id),
+          action,
         });
 
-        // 残高は承認時のみ返す。拒否では動かないため項目ごと省く。
+        // 残高は承認時のみ返す。拒否・取り消しでは動かないため項目ごと省く。
         httpResponse
           .status(200)
           .json(
@@ -110,13 +116,31 @@ export function createPaymentRequestRouter({
       }
     };
 
-  router.post('/:id/accept', respond('accepted'));
-  router.post('/:id/reject', respond('rejected'));
+  router.post('/:id/accept', respond('accept'));
+  router.post('/:id/reject', respond('reject'));
+  // 取り消しは請求者の操作。DB上はrejectedになり、responded_byで拒否と区別する。
+  router.post('/:id/cancel', respond('cancel'));
+
+  // 確認画面を開いた時点の状態を取り直す用途（Issue #61）。
+  // 一覧を読んでからタップするまでに状態が変わりうるため、古い情報のまま
+  // 承認ボタンを出さないようにする。
+  router.get('/:id', async (request, response, next) => {
+    try {
+      const paymentRequest = await getPaymentRequest.execute({
+        currentUserId: requireCurrentUser(response).userId,
+        paymentRequestId: parsePathId(request.params.id),
+      });
+
+      response.status(200).json({ request: paymentRequest });
+    } catch (error) {
+      next(error);
+    }
+  });
 
   router.get('/', async (request, response, next) => {
     try {
       const result = await listPaymentRequests.execute({
-        currentUserId: currentUserPublicId,
+        currentUserId: requireCurrentUser(response).userId,
         direction: parseDirection(request.query.direction),
         status: parseStatus(request.query.status),
         cursor: parseCursor(request.query.cursor),
@@ -139,8 +163,9 @@ export function createPaymentRequestRouter({
 
   router.post('/', async (request, response, next) => {
     try {
+      // 請求者はセッションから決まる。clientからは指定できない。
       const paymentRequests = await createPaymentRequests.execute(
-        currentUserPublicId,
+        requireCurrentUser(response).userId,
         request.body,
       );
       response.status(201).json({ requests: paymentRequests });
