@@ -343,7 +343,8 @@ query "
     amount,
     status,
     created_at,
-    responded_at
+    responded_at,
+    responded_by
   )
   SELECT
     requester.id,
@@ -351,7 +352,8 @@ query "
     100,
     'accepted',
     '2026-08-05 12:00:00.000000',
-    '2026-08-05 12:00:00.000000'
+    '2026-08-05 12:00:00.000000',
+    recipient.id
   FROM users AS requester
   CROSS JOIN users AS recipient
   WHERE requester.user_id = 'auto-id-test'
@@ -369,6 +371,38 @@ assert_equals \
   "${valid_response_time_count}" \
   "responded_at equal to created_at must be accepted"
 
+# responded_by は満たしたうえで、応答時刻だけが不正な入力にする。
+# これを省くとresponded_by必須のCHECKで落ち、時刻の検証にならない。
+for responded_status in accepted rejected; do
+  if query "
+    INSERT INTO payment_requests (
+      requester_id,
+      recipient_id,
+      amount,
+      status,
+      created_at,
+      responded_at,
+      responded_by
+    )
+    SELECT
+      requester.id,
+      recipient.id,
+      100,
+      '${responded_status}',
+      '2026-08-05 12:00:00.000000',
+      '2026-08-05 11:59:59.999999',
+      recipient.id
+    FROM users AS requester
+    CROSS JOIN users AS recipient
+    WHERE requester.user_id = 'auto-id-test'
+      AND recipient.user_id = 'recipient-test';
+  " >/dev/null 2>&1; then
+    echo "FAIL: ${responded_status} payment request must not predate created_at" >&2
+    exit 1
+  fi
+done
+
+# 決着済みには responded_by が必須。V7で NULL を許す枝を落としている。
 for responded_status in accepted rejected; do
   if query "
     INSERT INTO payment_requests (
@@ -385,13 +419,13 @@ for responded_status in accepted rejected; do
       100,
       '${responded_status}',
       '2026-08-05 12:00:00.000000',
-      '2026-08-05 11:59:59.999999'
+      '2026-08-05 12:30:00.000000'
     FROM users AS requester
     CROSS JOIN users AS recipient
     WHERE requester.user_id = 'auto-id-test'
       AND recipient.user_id = 'recipient-test';
   " >/dev/null 2>&1; then
-    echo "FAIL: ${responded_status} payment request must not predate created_at" >&2
+    echo "FAIL: ${responded_status} payment request must record responded_by" >&2
     exit 1
   fi
 done
@@ -777,10 +811,14 @@ if query "
   exit 1
 fi
 
-# --- V6 のupgrade path -------------------------------------------------------
-# ここまでのテストはV6適用済みのschemaに対して行うため、migration内のUPDATE文が
-# 壊れても素通りしてしまう。V6を一度戻し、responded_byが無い状態で請求を作ってから
-# 適用し直すことで、バックフィルそのものを検証する。
+# --- V6・V7 のupgrade path ----------------------------------------------------
+# ここまでのテストは適用済みのschemaに対して行うため、migration内のUPDATE文が
+# 壊れても素通りしてしまう。V7・V6を順に戻し、responded_byが無い状態で請求を
+# 作ってから適用し直すことで、両方のバックフィルそのものを検証する。
+#
+# V7 → V6 の順で戻す。V6のrollbackはV7が張り替えたCHECKごと列を落とすため、
+# 先にV7を戻しておかないと制約の状態が実際のmigration順と食い違う。
+query "$(cat "${repository_root}/database/rollback/V7__allow_null_responded_by_for_responded_payment_requests.sql")"
 query "$(cat "${repository_root}/database/rollback/V6__drop_responded_by_from_payment_requests.sql")"
 
 query "
@@ -828,6 +866,50 @@ assert_equals \
   "1:2:0" \
   "${backfilled_responded_by}" \
   "V6 must backfill responded_by with the recipient for responded requests only"
+
+# 互換期間（V6適用から取り消しAPI投入まで）に、responded_byを書かないアプリケーションが
+# 確定させた行を再現する。V6のCHECKはこれを許すため、V7が埋め直す必要がある。
+query "
+  UPDATE payment_requests
+     SET responded_by = NULL
+   WHERE status = 'rejected';
+"
+
+query "$(cat "${repository_root}/database/migrations/V7__require_responded_by_for_responded_payment_requests.sql")"
+
+required_responded_by="$(query "
+  SELECT CONCAT(
+    SUM(status = 'pending' AND responded_by IS NULL), ':',
+    SUM(status <> 'pending' AND responded_by = recipient_id), ':',
+    SUM(status <> 'pending' AND responded_by IS NULL)
+  )
+  FROM payment_requests;
+")"
+assert_equals \
+  "1:2:0" \
+  "${required_responded_by}" \
+  "V7 must backfill the rows left NULL during the compatibility window"
+
+# 締めたあとは、決着済みでresponded_byが無い行を作れない。
+if query "
+  UPDATE payment_requests
+     SET responded_by = NULL
+   WHERE status = 'rejected';
+" >/dev/null 2>&1; then
+  echo "FAIL: V7 must reject a responded payment request without responded_by" >&2
+  exit 1
+fi
+
+# pending は締めたあとも NULL のままでよい。
+pending_responded_by="$(query "
+  SELECT COUNT(*)
+  FROM payment_requests
+  WHERE status = 'pending' AND responded_by IS NULL;
+")"
+assert_equals \
+  "1" \
+  "${pending_responded_by}" \
+  "V7 must keep responded_by nullable while the request is pending"
 
 echo "Database migration tests passed."
 bash database/scripts/seed.sh
