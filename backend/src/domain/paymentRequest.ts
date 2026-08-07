@@ -43,6 +43,15 @@ export interface PaymentRequestSummary {
   counterparty: PaymentRequestCounterparty;
   amount: number;
   status: PaymentRequestState;
+  /**
+   * 決着させたのが現在ユーザーか。pendingのあいだはnull。
+   *
+   * rejectedは「被請求者の拒否」と「請求者の取り下げ」の両方を表すため、statusだけでは
+   * どちらか分からない。誰が終わらせたかはresponded_byにあるが、UUIDをそのまま返すと
+   * 画面側が現在ユーザーのIDを取り直して突き合わせることになる。counterpartyを
+   * 「現在ユーザーでない側」に解決しているのと同じく、ここで解決して返す。
+   */
+  endedByMe: boolean | null;
   createdAt: string;
   respondedAt: string | null;
 }
@@ -55,6 +64,8 @@ export interface PaymentRequestRecord {
   counterpartyProfileUrl: string;
   amount: number;
   status: PaymentRequestState;
+  /** 決着させたのが現在ユーザーか。pendingのあいだはnull。 */
+  endedByMe: boolean | null;
   createdAt: string;
   respondedAt: string | null;
 }

@@ -17,7 +17,7 @@ const mockedFetch = vi.mocked(fetchPaymentRequests);
 // 一覧末尾の監視は手で発火させる（jsdomにIntersectionObserverが無いため）。
 const intersection = installManualIntersectionObserver();
 
-/** 状態を指定して請求を作る。決着済みはrespondedAtを持つ。 */
+/** 状態を指定して請求を作る。決着済みはrespondedAtとendedByMeを持つ。 */
 function makeRequests(
   statuses: readonly PaymentRequestStatus[],
   offset = 0,
@@ -31,6 +31,7 @@ function makeRequests(
     },
     amount: 3000,
     status,
+    endedByMe: status === 'pending' ? null : true,
     createdAt: '2026-08-03T01:00:00.000Z',
     respondedAt: status === 'pending' ? null : '2026-08-04T01:00:00.000Z',
   }));
@@ -69,7 +70,7 @@ describe('PaymentRequestHistoryPage', () => {
   });
 
   // 未払いも決着済みも含めた全記録を出す（Issue #61）。statusで絞らない。
-  it('未払い・支払済・キャンセルをまとめて表示する', async () => {
+  it('未払い・支払済・決着済みをまとめて表示する', async () => {
     renderPage();
 
     const items = await screen.findAllByRole('listitem');
@@ -77,7 +78,8 @@ describe('PaymentRequestHistoryPage', () => {
 
     expect(text).toContain('未払い');
     expect(text).toContain('支払済');
-    expect(text).toContain('キャンセル');
+    // rejectedは拒否と取り下げに分かれる。fixtureは自分が終わらせた扱い。
+    expect(text).toContain('拒否');
     expect(mockedFetch).toHaveBeenCalledWith({
       direction: 'received',
       cursor: null,

@@ -15,6 +15,7 @@ const validRequest = {
   },
   amount: 3000,
   status: 'pending',
+  endedByMe: null,
   createdAt: '2026-08-03T01:00:00.000Z',
   respondedAt: null,
 };

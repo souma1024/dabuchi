@@ -31,6 +31,7 @@ const request: PaymentRequest = {
   },
   amount: 3000,
   status: 'pending',
+  endedByMe: null,
   createdAt: '2026-08-03T01:00:00.000Z',
   respondedAt: null,
 };
@@ -213,12 +214,106 @@ describe('PaymentRequestConfirmationPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('すでにキャンセルされていれば実行させない', async () => {
-    renderPage({ status: 'rejected' });
+  // endedByMeが欠けたときだけ、行為者を示さない言い方へ落とす。
+  it('誰が終わらせたか不明なら行為者を示さない言い方にする', async () => {
+    renderPage({ status: 'rejected', endedByMe: null });
 
     expect(
       await screen.findByText('この請求はキャンセルされました'),
     ).toBeInTheDocument();
+  });
+
+  // 「キャンセルされました」だけでは、相手が取り下げたのか自分が何かしたのか
+  // 分からない。拒否できるのは被請求者、取り下げられるのは請求者だけなので、
+  // directionとendedByMeの組み合わせで操作が一意に決まる。
+  it.each([
+    ['received', true, 'この請求を拒否しました'],
+    ['received', false, '相手が請求を取り下げました'],
+    ['sent', true, 'この請求は取り下げ済みです'],
+    ['sent', false, '相手が請求を拒否しました'],
+  ] as const)(
+    '%s で endedByMe=%s なら「%s」と伝える',
+    async (direction, endedByMe, message) => {
+      renderPage({ status: 'rejected', endedByMe }, direction);
+
+      expect(await screen.findByText(message)).toBeInTheDocument();
+    },
+  );
+
+  // 承認できるのは被請求者だけなので、endedByMeを見るまでもなく行為者は決まる。
+  // 出した請求側は、取り下げようとして相手の支払いに負けたときにここへ来る。
+  it('出した請求が支払われていれば相手が支払ったと伝える', async () => {
+    renderPage({ status: 'accepted', endedByMe: false }, 'sent');
+
+    expect(await screen.findByText('相手が支払いました')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: '請求を取り消す' }),
+    ).not.toBeInTheDocument();
+  });
+
+  // 取り下げと支払いが同時なら、後着はサーバーが409で弾く。
+  // 取り下げた側の画面は、残高が動いたことまで分かるようにする。
+  it('取り下げに失敗したら相手が支払ったことを伝える', async () => {
+    stubCurrentUser(120000);
+    mockedFetch
+      .mockResolvedValueOnce(request)
+      .mockResolvedValue({ ...request, status: 'accepted', endedByMe: false });
+    mockedRespond.mockRejectedValue(
+      new Error('この請求はすでに処理されています'),
+    );
+
+    render(
+      <PaymentRequestConfirmationPage
+        direction="sent"
+        id={request.id}
+        onBack={onBack}
+        onDone={onDone}
+      />,
+    );
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: '請求を取り消す' }),
+    );
+
+    expect(await screen.findByText('相手が支払いました')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: '請求を取り消す' }),
+    ).not.toBeInTheDocument();
+  });
+
+  // 実行が弾かれる原因の多くは、画面の情報が古いこと（相手が先に終わらせた等）。
+  // 古いまま残すと決着済みの請求に実行ボタンが出たままになり、押しても同じ失敗を
+  // 繰り返す。実データでも、取り消しと承認が同時なら後着はサーバーが409で弾く。
+  it('実行に失敗したら取り直して決着済みの画面にする', async () => {
+    stubCurrentUser(120000);
+    mockedFetch
+      .mockResolvedValueOnce(request)
+      .mockResolvedValue({ ...request, status: 'rejected', endedByMe: false });
+    mockedRespond.mockRejectedValue(
+      new Error('この請求はすでに処理されています'),
+    );
+
+    render(
+      <PaymentRequestConfirmationPage
+        direction="received"
+        id={request.id}
+        onBack={onBack}
+        onDone={onDone}
+      />,
+    );
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: '承認して送金する' }),
+    );
+
+    // 何が起きたのかを、行為者まで含めて伝える。
+    expect(
+      await screen.findByText('相手が請求を取り下げました'),
+    ).toBeInTheDocument();
+    // 押しても同じ失敗を繰り返すだけのボタンは残さない。
+    expect(
+      screen.queryByRole('button', { name: '承認して送金する' }),
+    ).not.toBeInTheDocument();
   });
 
   it('請求が見つからなければ実行させない', async () => {
@@ -227,6 +322,37 @@ describe('PaymentRequestConfirmationPage', () => {
     expect(
       await screen.findByText('この請求は見つかりませんでした'),
     ).toBeInTheDocument();
+  });
+
+  // ボタンだけ無効化しても、矢印が生きていれば送金の最中に画面を離れられる。
+  // 処理はサーバー側で完了するため、利用者は結果を見ないまま去ることになる。
+  it('実行中は戻る矢印を出さない', async () => {
+    stubCurrentUser(120000);
+    mockedFetch.mockResolvedValue(request);
+    // 送信中の状態で止めて観察する。
+    mockedRespond.mockReturnValue(new Promise(() => {}));
+
+    render(
+      <PaymentRequestConfirmationPage
+        direction="received"
+        id={request.id}
+        onBack={onBack}
+        onDone={onDone}
+      />,
+    );
+    expect(
+      await screen.findByRole('button', { name: '戻る' }),
+    ).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: '承認して送金する' }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('button', { name: '戻る' }),
+      ).not.toBeInTheDocument();
+    });
   });
 
   // お金が動く操作なので、連打しても1度しか実行されないようにする。

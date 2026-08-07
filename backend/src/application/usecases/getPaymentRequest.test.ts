@@ -54,6 +54,7 @@ describe('GetPaymentRequest', () => {
     const record = createPaymentRequestRecord(1, {
       amount: 3000,
       status: 'accepted',
+      endedByMe: null,
       createdAt: '2026-08-03 01:00:00.000000',
       respondedAt: '2026-08-04 02:30:00.500000',
     });
@@ -71,6 +72,7 @@ describe('GetPaymentRequest', () => {
       },
       amount: 3000,
       status: 'accepted',
+      endedByMe: null,
       createdAt: '2026-08-03T01:00:00.000Z',
       respondedAt: '2026-08-04T02:30:00.500Z',
     });

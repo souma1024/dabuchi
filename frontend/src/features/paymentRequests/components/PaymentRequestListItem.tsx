@@ -49,6 +49,7 @@ export function PaymentRequestListItem({
             <PaymentRequestStatusBadge
               direction={direction}
               status={request.status}
+              endedByMe={request.endedByMe}
             />
           )}
           <span className="min-w-0 truncate text-[15px] font-semibold text-slate-800">
