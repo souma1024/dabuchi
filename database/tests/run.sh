@@ -405,7 +405,7 @@ for responded_status in accepted rejected; do
   fi
 done
 
-# 決着済みには responded_by が必須。V7で NULL を許す枝を落としている。
+# 決着済みには responded_by が必須。V8で NULL を許す枝を落としている。
 for responded_status in accepted rejected; do
   if query "
     INSERT INTO payment_requests (
@@ -814,62 +814,6 @@ if query "
   exit 1
 fi
 
-# --- V6・V8 のupgrade path ----------------------------------------------------
-# ここまでのテストは適用済みのschemaに対して行うため、migration内のUPDATE文が
-# 壊れても素通りしてしまう。V8・V6を順に戻し、responded_byが無い状態で請求を
-# 作ってから適用し直すことで、両方のバックフィルそのものを検証する。
-#
-# V8 → V6 の順で戻す。V6のrollbackはV8が張り替えたCHECKごと列を落とすため、
-# 先にV8を戻しておかないと制約の状態が実際のmigration順と食い違う。
-query "$(cat "${repository_root}/database/rollback/V8__allow_null_responded_by_for_responded_payment_requests.sql")"
-query "$(cat "${repository_root}/database/rollback/V6__drop_responded_by_from_payment_requests.sql")"
-
-query "
-  DELETE FROM payment_requests;
-
-  INSERT INTO payment_requests (
-    requester_id, recipient_id, amount, status, created_at, responded_at
-  )
-  SELECT requester.id, recipient.id, 100, 'pending', '2026-08-05 12:00:00.000000', NULL
-  FROM users AS requester
-  CROSS JOIN users AS recipient
-  WHERE requester.user_id = 'auto-id-test'
-    AND recipient.user_id = 'recipient-test';
-
-  INSERT INTO payment_requests (
-    requester_id, recipient_id, amount, status, created_at, responded_at
-  )
-  SELECT requester.id, recipient.id, 200, 'accepted', '2026-08-05 12:00:00.000000', '2026-08-05 12:30:00.000000'
-  FROM users AS requester
-  CROSS JOIN users AS recipient
-  WHERE requester.user_id = 'auto-id-test'
-    AND recipient.user_id = 'recipient-test';
-
-  INSERT INTO payment_requests (
-    requester_id, recipient_id, amount, status, created_at, responded_at
-  )
-  SELECT requester.id, recipient.id, 300, 'rejected', '2026-08-05 12:00:00.000000', '2026-08-05 12:30:00.000000'
-  FROM users AS requester
-  CROSS JOIN users AS recipient
-  WHERE requester.user_id = 'auto-id-test'
-    AND recipient.user_id = 'recipient-test';
-"
-
-query "$(cat "${repository_root}/database/migrations/V6__add_responded_by_to_payment_requests.sql")"
-
-backfilled_responded_by="$(query "
-  SELECT CONCAT(
-    SUM(status = 'pending' AND responded_by IS NULL), ':',
-    SUM(status <> 'pending' AND responded_by = recipient_id), ':',
-    SUM(status <> 'pending' AND responded_by IS NULL)
-  )
-  FROM payment_requests;
-")"
-assert_equals \
-  "1:2:0" \
-  "${backfilled_responded_by}" \
-  "V6 must backfill responded_by with the recipient for responded requests only"
-
 sessions_columns="$(query "
   SELECT GROUP_CONCAT(
     CONCAT(column_name, ':', column_type, ':', is_nullable)
@@ -936,6 +880,62 @@ assert_equals \
   "0" \
   "${remaining_sessions}" \
   "sessions must be removed with their user"
+
+# --- V6・V8 のupgrade path ----------------------------------------------------
+# ここまでのテストは適用済みのschemaに対して行うため、migration内のUPDATE文が
+# 壊れても素通りしてしまう。V8・V6を順に戻し、responded_byが無い状態で請求を
+# 作ってから適用し直すことで、両方のバックフィルそのものを検証する。
+#
+# V8 → V6 の順で戻す。V6のrollbackはV8が張り替えたCHECKごと列を落とすため、
+# 先にV8を戻しておかないと制約の状態が実際のmigration順と食い違う。
+query "$(cat "${repository_root}/database/rollback/V8__allow_null_responded_by_for_responded_payment_requests.sql")"
+query "$(cat "${repository_root}/database/rollback/V6__drop_responded_by_from_payment_requests.sql")"
+
+query "
+  DELETE FROM payment_requests;
+
+  INSERT INTO payment_requests (
+    requester_id, recipient_id, amount, status, created_at, responded_at
+  )
+  SELECT requester.id, recipient.id, 100, 'pending', '2026-08-05 12:00:00.000000', NULL
+  FROM users AS requester
+  CROSS JOIN users AS recipient
+  WHERE requester.user_id = 'auto-id-test'
+    AND recipient.user_id = 'recipient-test';
+
+  INSERT INTO payment_requests (
+    requester_id, recipient_id, amount, status, created_at, responded_at
+  )
+  SELECT requester.id, recipient.id, 200, 'accepted', '2026-08-05 12:00:00.000000', '2026-08-05 12:30:00.000000'
+  FROM users AS requester
+  CROSS JOIN users AS recipient
+  WHERE requester.user_id = 'auto-id-test'
+    AND recipient.user_id = 'recipient-test';
+
+  INSERT INTO payment_requests (
+    requester_id, recipient_id, amount, status, created_at, responded_at
+  )
+  SELECT requester.id, recipient.id, 300, 'rejected', '2026-08-05 12:00:00.000000', '2026-08-05 12:30:00.000000'
+  FROM users AS requester
+  CROSS JOIN users AS recipient
+  WHERE requester.user_id = 'auto-id-test'
+    AND recipient.user_id = 'recipient-test';
+"
+
+query "$(cat "${repository_root}/database/migrations/V6__add_responded_by_to_payment_requests.sql")"
+
+backfilled_responded_by="$(query "
+  SELECT CONCAT(
+    SUM(status = 'pending' AND responded_by IS NULL), ':',
+    SUM(status <> 'pending' AND responded_by = recipient_id), ':',
+    SUM(status <> 'pending' AND responded_by IS NULL)
+  )
+  FROM payment_requests;
+")"
+assert_equals \
+  "1:2:0" \
+  "${backfilled_responded_by}" \
+  "V6 must backfill responded_by with the recipient for responded requests only"
 
 # 互換期間（V6適用から取り消しAPI投入まで）に、responded_byを書かないアプリケーションが
 # 確定させた行を再現する。V6のCHECKはこれを許すため、V8が埋め直す必要がある。
