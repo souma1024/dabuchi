@@ -27,7 +27,7 @@ interface PaymentRequestRow extends RowDataPacket {
   status: string;
   /** pendingのあいだはnull。 */
   respondedAt: string | null;
-  /** 請求を終わらせた人の内部UUID。列の追加前に確定した行ではnull。 */
+  /** 請求を終わらせた人の内部UUID。pendingのあいだはnull。 */
   respondedBy: string | null;
 }
 
@@ -122,9 +122,17 @@ export class MysqlPaymentRequestCommandRepository implements PaymentRequestComma
       // 遷移先が一致するだけでは足りない。rejectedは拒否と取り消しの両方を表すため、
       // 請求者が取り消した請求へ被請求者がrejectすると、statusだけ見ると一致してしまう。
       // 「拒否しました」と誤って表示させないよう、終わらせた本人かどうかまで確認する。
+      // CHECK制約 chk_payment_requests_responded_by により、pending以外は
+      // responded_by が必ず入っている。取れないならDBの不変条件が壊れている。
+      if (paymentRequest.respondedBy === null) {
+        throw new Error(
+          `Payment request ${paymentRequest.id} is ${paymentRequest.status} but has no responded_by.`,
+        );
+      }
+
       if (
         paymentRequest.status !== nextStatus ||
-        !isSameUser(resolvedBy(paymentRequest), input.currentUserInternalId)
+        !isSameUser(paymentRequest.respondedBy, input.currentUserInternalId)
       ) {
         throw new PaymentRequestAlreadyRespondedError();
       }
@@ -228,17 +236,6 @@ export class MysqlPaymentRequestCommandRepository implements PaymentRequestComma
 /** 内部UUIDは大小の表記ゆれがありうるため、比較時に揃える。 */
 function isSameUser(left: string, right: string): boolean {
   return left.toLowerCase() === right.toLowerCase();
-}
-
-/**
- * 請求を終わらせた人。
- *
- * responded_by が NULL なのは、列を追加してから取り消しAPIが入るまでの間に
- * 確定した行だけ。その期間に請求を終わらせられたのは被請求者だけなので、
- * 被請求者とみなす（V6のバックフィルと同じ推論）。
- */
-function resolvedBy(paymentRequest: PaymentRequestRow): string {
-  return paymentRequest.respondedBy ?? paymentRequest.recipientId;
 }
 
 async function readBalance(
