@@ -30,6 +30,7 @@ describe('MysqlFriendQueryRepository friend list', () => {
         currentUserId: CURRENT_USER_ID,
         cursor: null,
         limit: 21,
+        sort: 'created-asc',
       }),
     ).resolves.toEqual([
       {
@@ -63,17 +64,52 @@ describe('MysqlFriendQueryRepository friend list', () => {
   it('次ページでは友達追加日時とfriendship UUIDをカーソル条件にする', async () => {
     const { pool, execute } = createMysqlPool([[]]);
     const repository = new MysqlFriendQueryRepository(pool);
-    const cursor = { createdAt: ROW.addedAt, id: FRIENDSHIP_ID };
+    const cursor = {
+      sort: 'created-asc' as const,
+      value: { createdAt: ROW.addedAt, id: FRIENDSHIP_ID },
+    };
 
     await repository.findFriends({
       currentUserId: CURRENT_USER_ID,
       cursor,
       limit: 21,
+      sort: 'created-asc',
     });
 
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('f.created_at > ?'),
-      [CURRENT_USER_ID, cursor.createdAt, cursor.createdAt, cursor.id, '21'],
+      [
+        CURRENT_USER_ID,
+        cursor.value.createdAt,
+        cursor.value.createdAt,
+        cursor.value.id,
+        '21',
+      ],
+    );
+  });
+
+  it('created-descでは新しい順と逆向きカーソル条件を使う', async () => {
+    const { pool, execute } = createMysqlPool([[]]);
+    const repository = new MysqlFriendQueryRepository(pool);
+    const cursor = {
+      sort: 'created-desc' as const,
+      value: { createdAt: ROW.addedAt, id: FRIENDSHIP_ID },
+    };
+
+    await repository.findFriends({
+      currentUserId: CURRENT_USER_ID,
+      cursor,
+      limit: 21,
+      sort: 'created-desc',
+    });
+
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining('f.created_at < ?'),
+      expect.any(Array),
+    );
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining('ORDER BY f.created_at DESC, f.id DESC'),
+      expect.any(Array),
     );
   });
 });

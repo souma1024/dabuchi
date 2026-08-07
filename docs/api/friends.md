@@ -25,12 +25,17 @@
 ## 友達一覧
 
 ```http
-GET /api/friends?cursor=<opaque cursor>
+GET /api/friends?sort=created-asc|created-desc&cursor=<opaque cursor>
 ```
 
 - 取得件数: 20件固定
-- 並び順: `friendships.created_at`、`friendships.id`の昇順
+- `sort`:
+  - `created-asc`: `friendships.created_at`、`friendships.id`の昇順
+  - `created-desc`: `friendships.created_at`、`friendships.id`の降順
+- `sort`省略時: `created-asc`
 - 除外条件: 自分がブロックした相手、自分をブロックした相手
+- 次ページ取得時も、`nextCursor`を受け取ったときの`sort`と同じ値を指定する
+- `cursor`内の`sort`とクエリの`sort`が不一致な場合は`400 INVALID_REQUEST`
 
 ### `200 OK`
 
@@ -62,7 +67,7 @@ GET /api/friends?cursor=<opaque cursor>
 }
 ```
 
-日時はISO 8601（UTC）。`cursor`は不透明な文字列で、`hasNextPage`が`true`のときだけ次回リクエストへそのまま渡す。
+日時はISO 8601（UTC）。`cursor`は`sort`を含む不透明な文字列で、`hasNextPage`が`true`のときだけ次回リクエストへそのまま渡す。
 
 `friend.id`は送金・請求の相手指定に使う内部UUID、`friend.userId`は友達追加に使う公開IDで、表示にも使える。`note`は現在ユーザーが書いた自分用メモで、未設定なら`null`。
 
