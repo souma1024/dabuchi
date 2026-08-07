@@ -147,7 +147,7 @@ export function PaymentRequestConfirmationPage({
           {request.amount.toLocaleString()}円
         </p>
         <p className="m-0 text-xs text-slate-500">
-          請求日 {formatJstDateTime(request.createdAt)}
+          請求日時 {formatJstDateTime(request.createdAt)}
         </p>
       </div>
 

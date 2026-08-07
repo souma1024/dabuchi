@@ -8,7 +8,7 @@ const formatter = new Intl.DateTimeFormat('ja-JP', {
 });
 
 /** JSTへ変換した日時の各成分。解釈できない値ならnull。 */
-export interface JstDateParts {
+interface JstDateParts {
   month: string;
   day: string;
   hour: string;
@@ -17,9 +17,9 @@ export interface JstDateParts {
 
 /**
  * ISO 8601の日時をJSTの成分へ分解する。
- * 何をどう並べるかは呼び出し側が決める。
+ * 並べ方が増えたときに備えて分けてあるが、今は下の1通りだけなので公開しない。
  */
-export function toJstDateParts(isoDateTime: string): JstDateParts | null {
+function toJstDateParts(isoDateTime: string): JstDateParts | null {
   const date = new Date(isoDateTime);
 
   if (Number.isNaN(date.getTime())) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatJstDateTime, toJstDateParts } from './formatJstDate';
+import { formatJstDateTime } from './formatJstDate';
 
 describe('formatJstDateTime', () => {
   it('JSTの日時を「M/D HH:MM」で表示する', () => {
@@ -17,24 +17,14 @@ describe('formatJstDateTime', () => {
     expect(formatJstDateTime('2026-08-04T20:00:00.000Z')).toBe('8/5 05:00');
   });
 
-  // 表示が「」になるだけで、画面が壊れないようにする。
+  // 実行環境のタイムゾーンに関わらずJSTで出す。日本国内向けのため。
+  it('日付が変わる境目もJSTで判定する', () => {
+    // 2026-08-02T15:00Z はちょうど JST の 8/3 00:00。
+    expect(formatJstDateTime('2026-08-02T15:00:00.000Z')).toBe('8/3 00:00');
+  });
+
+  // 表示が空になるだけで、画面が壊れないようにする。
   it('不正な日時は空文字を返す', () => {
     expect(formatJstDateTime('not-a-date')).toBe('');
-  });
-});
-
-describe('toJstDateParts', () => {
-  // 実行環境のタイムゾーンに関わらずJSTで分解する。日本国内向けのため。
-  it('JSTの成分へ分解する', () => {
-    expect(toJstDateParts('2026-08-02T15:00:00.000Z')).toEqual({
-      month: '8',
-      day: '3',
-      hour: '00',
-      minute: '00',
-    });
-  });
-
-  it('不正な日時はnullを返す', () => {
-    expect(toJstDateParts('not-a-date')).toBeNull();
   });
 });
