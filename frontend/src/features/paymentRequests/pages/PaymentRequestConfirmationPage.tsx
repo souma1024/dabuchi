@@ -180,7 +180,7 @@ export function PaymentRequestConfirmationPage({
             <button
               type="button"
               disabled={isShort || isSubmitting}
-              onClick={() => respond('accepted')}
+              onClick={() => respond('accept')}
               // お金が出ていく操作なので、送金ボタンと同じ赤にする。
               className={`${primaryStyle} ${
                 isShort || isSubmitting
@@ -194,7 +194,7 @@ export function PaymentRequestConfirmationPage({
             <button
               type="button"
               disabled={isSubmitting}
-              onClick={() => respond('rejected')}
+              onClick={() => respond('reject')}
               className={secondaryStyle}
             >
               拒否する
@@ -211,7 +211,7 @@ export function PaymentRequestConfirmationPage({
             <button
               type="button"
               disabled={isSubmitting}
-              onClick={() => respond('rejected')}
+              onClick={() => respond('cancel')}
               className={`${primaryStyle} ${
                 isSubmitting
                   ? 'cursor-not-allowed bg-slate-300 text-white'

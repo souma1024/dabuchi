@@ -1,6 +1,7 @@
 import type {
   Counterparty,
   PaymentRequest,
+  PaymentRequestAction,
   PaymentRequestDirection,
   PaymentRequestPage,
   PaymentRequestStatus,
@@ -255,18 +256,42 @@ export function fetchMockPaymentRequest(
   return Promise.resolve(source.find((request) => request.id === id) ?? null);
 }
 
+// 操作を実行できる向き。実APIはacceptとrejectを被請求者だけ、cancelを請求者だけに
+// 許し、違反すると403を返す（Issue #71）。モックでも同じ範囲に絞り、繋ぎ間違いが
+// 実APIに繋いだ後ではなくこの段階で分かるようにする。
+const actorDirections: Record<PaymentRequestAction, PaymentRequestDirection> = {
+  accept: 'received',
+  reject: 'received',
+  cancel: 'sent',
+};
+
+// 拒否と取り消しはどちらもrejectedになる。実APIはresponded_byで実行者を残して
+// 区別するが、モックは状態しか持たないため、ここでは同じ状態へ倒す。
+const resultStatuses: Record<
+  PaymentRequestAction,
+  Exclude<PaymentRequestStatus, 'pending'>
+> = {
+  accept: 'accepted',
+  reject: 'rejected',
+  cancel: 'rejected',
+};
+
 /**
- * モックの承認・拒否・取り消し。実APIは #71（未実装）。
+ * モックの承認・拒否・取り消し。実APIは #71（マージ済み、繋ぎ込みは未着手）。
  * 対象が pending でなければ失敗させ、画面側が「すでに処理済み」を扱えるようにする。
  */
 export function respondToMockPaymentRequest(
   direction: PaymentRequestDirection,
   id: string,
-  next: Exclude<PaymentRequestStatus, 'pending'>,
+  action: PaymentRequestAction,
 ): Promise<PaymentRequest> {
   return fetchMockPaymentRequest(direction, id).then((request) => {
     if (!request) {
       throw new Error('この請求は見つかりませんでした');
+    }
+
+    if (actorDirections[action] !== direction) {
+      throw new Error('この請求を操作する権限がありません');
     }
 
     if (request.status !== 'pending') {
@@ -275,7 +300,7 @@ export function respondToMockPaymentRequest(
 
     return {
       ...request,
-      status: next,
+      status: resultStatuses[action],
       respondedAt: new Date(Date.UTC(2026, 7, 6, 3, 0)).toISOString(),
     } satisfies PaymentRequest;
   });

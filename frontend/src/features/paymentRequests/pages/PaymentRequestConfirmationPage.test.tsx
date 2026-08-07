@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -44,12 +44,13 @@ function renderPage(
   // respondToMockPaymentRequestは内部でfetchMockPaymentRequestを呼ぶが、
   // 同一モジュール内の参照はspyを経由しないため、こちらも差し替える。
   vi.spyOn(mockModule, 'respondToMockPaymentRequest').mockImplementation(
-    (_direction, _id, next) =>
+    (_direction, _id, action) =>
       found === null
         ? Promise.reject(new Error('この請求は見つかりませんでした'))
         : Promise.resolve({
             ...found,
-            status: next,
+            // 拒否も取り消しもrejectedになる。実APIと同じ対応にする。
+            status: action === 'accept' ? 'accepted' : 'rejected',
             respondedAt: '2026-08-06T03:00:00.000Z',
           }),
   );
@@ -143,6 +144,29 @@ describe('PaymentRequestConfirmationPage', () => {
     await userEvent.click(screen.getByRole('button', { name: '一覧に戻る' }));
     expect(onBack).toHaveBeenCalledTimes(1);
     expect(onDone).not.toHaveBeenCalled();
+  });
+
+  // 拒否と取り消しはどちらもrejectedになるため、状態だけ見ていると同じに見える。
+  // 実APIは別エンドポイントで、押せる人も逆（rejectは被請求者、cancelは請求者）。
+  // 取り消しをrejectで送ると403になるため、送っている操作名まで固定する。
+  it('拒否と取り消しを別の操作として送る', async () => {
+    renderPage();
+    const respond = vi.spyOn(mockModule, 'respondToMockPaymentRequest');
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: '拒否する' }),
+    );
+    await screen.findByText('請求を拒否しました');
+    expect(respond).toHaveBeenLastCalledWith('received', request.id, 'reject');
+
+    cleanup();
+    renderPage({}, 'sent');
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: '請求を取り消す' }),
+    );
+    await screen.findByText('請求を取り消しました');
+    expect(respond).toHaveBeenLastCalledWith('sent', request.id, 'cancel');
   });
 
   // 取り消しはお金が動かないため、残高を出さず操作も1つだけにする。

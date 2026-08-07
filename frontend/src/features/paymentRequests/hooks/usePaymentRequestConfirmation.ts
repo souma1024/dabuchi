@@ -4,7 +4,11 @@ import {
   fetchMockPaymentRequest,
   respondToMockPaymentRequest,
 } from '../mockPaymentRequests';
-import type { PaymentRequest, PaymentRequestDirection } from '../types';
+import type {
+  PaymentRequest,
+  PaymentRequestAction,
+  PaymentRequestDirection,
+} from '../types';
 
 /** 確認画面が扱う結果と操作。 */
 export interface UsePaymentRequestConfirmationResult {
@@ -15,7 +19,7 @@ export interface UsePaymentRequestConfirmationResult {
   error: string | null;
   /** 実行が完了したら、確定後の請求。未実行ならnull。 */
   completed: PaymentRequest | null;
-  respond: (next: 'accepted' | 'rejected') => void;
+  respond: (action: PaymentRequestAction) => void;
 }
 
 function toErrorMessage(caught: unknown): string {
@@ -31,7 +35,10 @@ function toErrorMessage(caught: unknown): string {
  * 画面を開いた時点でもう一度取得する。すでに処理済みなら実行ボタンを出さない。
  *
  * 実行時にも状態を確認する。画面の情報がどれだけ新しくても、押した瞬間と
- * 処理される瞬間の間には時間差があるため。実APIでは409で弾く想定（Issue #71）。
+ * 処理される瞬間の間には時間差があるため。実APIは409で弾く（Issue #71）。
+ *
+ * respondは状態名ではなく操作名で受ける。拒否と取り消しはどちらもrejectedになり、
+ * 状態名では区別できないため（実APIは別エンドポイントで、押せる人も逆）。
  */
 export function usePaymentRequestConfirmation(
   direction: PaymentRequestDirection,
@@ -84,7 +91,7 @@ export function usePaymentRequestConfirmation(
   }, [direction, id]);
 
   const respond = useCallback(
-    (next: 'accepted' | 'rejected') => {
+    (action: PaymentRequestAction) => {
       if (submittingRef.current) {
         return;
       }
@@ -92,7 +99,7 @@ export function usePaymentRequestConfirmation(
       setIsSubmitting(true);
       setError(null);
 
-      void respondToMockPaymentRequest(direction, id, next)
+      void respondToMockPaymentRequest(direction, id, action)
         .then((updated) => {
           if (!mountedRef.current) {
             return;
