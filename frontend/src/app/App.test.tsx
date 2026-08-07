@@ -18,7 +18,7 @@ describe('App', () => {
 
     // ログイン確認を待ってから画面が出る。
     expect(
-      await screen.findByRole('heading', { level: 1, name: 'dabuchi' }),
+      await screen.findByRole('heading', { level: 1, name: 'DABUCHI' }),
     ).toBeInTheDocument();
   });
 
