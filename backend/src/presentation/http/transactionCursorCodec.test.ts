@@ -8,8 +8,11 @@ import {
 describe('transaction cursor codec', () => {
   it('カーソルをbase64urlへ変換して復元する', () => {
     const cursor = {
-      createdAt: '2026-08-04 12:00:20.000000',
-      id: '20',
+      sort: 'created-desc' as const,
+      value: {
+        createdAt: '2026-08-04 12:00:20.000000',
+        id: '20',
+      },
     };
 
     expect(decodeTransactionCursor(encodeTransactionCursor(cursor))).toEqual(
@@ -23,8 +26,11 @@ describe('transaction cursor codec', () => {
     // id が数値文字列でない(UUID)カーソルは拒否する
     Buffer.from(
       JSON.stringify({
-        createdAt: '2026-08-04 12:00:20.000000',
-        id: '00000000-0000-4000-8000-000000000020',
+        sort: 'created-desc',
+        value: {
+          createdAt: '2026-08-04 12:00:20.000000',
+          id: '00000000-0000-4000-8000-000000000020',
+        },
       }),
     ).toString('base64url'),
   ])('不正なカーソルを拒否する: %s', (cursor) => {
@@ -40,7 +46,10 @@ describe('transaction cursor codec', () => {
     '2026-08-05 00:00:60.000000', // 秒が不正
   ])('実在しない日時のカーソルを拒否する: %s', (createdAt) => {
     const encoded = Buffer.from(
-      JSON.stringify({ createdAt, id: '20' }),
+      JSON.stringify({
+        sort: 'created-desc',
+        value: { createdAt, id: '20' },
+      }),
     ).toString('base64url');
 
     expect(decodeTransactionCursor(encoded)).toBeNull();
