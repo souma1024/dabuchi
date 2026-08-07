@@ -1,6 +1,7 @@
 import type {
   Counterparty,
   PaymentRequest,
+  PaymentRequestAction,
   PaymentRequestDirection,
   PaymentRequestPage,
   PaymentRequestStatus,
@@ -236,4 +237,71 @@ export function fetchMockPaymentRequestHistoryPage(
   cursor: string | null = null,
 ): Promise<PaymentRequestPage> {
   return Promise.resolve(slicePage(mockHistories[direction], cursor));
+}
+
+/**
+ * モックの請求を1件返す。承認画面が開いた時点で最新を取り直す用途（Issue #61）。
+ * 実APIは GET /api/payment-requests/:id 相当（未設計）。
+ * 一覧から渡された情報をそのまま信じず、開いた時点の状態を確認するために使う。
+ */
+export function fetchMockPaymentRequest(
+  direction: PaymentRequestDirection,
+  id: string,
+): Promise<PaymentRequest | null> {
+  const source =
+    direction === 'received'
+      ? [...mockReceivedPaymentRequests, ...mockHistories.received]
+      : mockHistories.sent;
+
+  return Promise.resolve(source.find((request) => request.id === id) ?? null);
+}
+
+// 操作を実行できる向き。実APIはacceptとrejectを被請求者だけ、cancelを請求者だけに
+// 許し、違反すると403を返す（Issue #71）。モックでも同じ範囲に絞り、繋ぎ間違いが
+// 実APIに繋いだ後ではなくこの段階で分かるようにする。
+const actorDirections: Record<PaymentRequestAction, PaymentRequestDirection> = {
+  accept: 'received',
+  reject: 'received',
+  cancel: 'sent',
+};
+
+// 拒否と取り消しはどちらもrejectedになる。実APIはresponded_byで実行者を残して
+// 区別するが、モックは状態しか持たないため、ここでは同じ状態へ倒す。
+const resultStatuses: Record<
+  PaymentRequestAction,
+  Exclude<PaymentRequestStatus, 'pending'>
+> = {
+  accept: 'accepted',
+  reject: 'rejected',
+  cancel: 'rejected',
+};
+
+/**
+ * モックの承認・拒否・取り消し。実APIは #71（マージ済み、繋ぎ込みは未着手）。
+ * 対象が pending でなければ失敗させ、画面側が「すでに処理済み」を扱えるようにする。
+ */
+export function respondToMockPaymentRequest(
+  direction: PaymentRequestDirection,
+  id: string,
+  action: PaymentRequestAction,
+): Promise<PaymentRequest> {
+  return fetchMockPaymentRequest(direction, id).then((request) => {
+    if (!request) {
+      throw new Error('この請求は見つかりませんでした');
+    }
+
+    if (actorDirections[action] !== direction) {
+      throw new Error('この請求を操作する権限がありません');
+    }
+
+    if (request.status !== 'pending') {
+      throw new Error('この請求はすでに処理されています');
+    }
+
+    return {
+      ...request,
+      status: resultStatuses[action],
+      respondedAt: new Date(Date.UTC(2026, 7, 6, 3, 0)).toISOString(),
+    } satisfies PaymentRequest;
+  });
 }

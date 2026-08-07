@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import * as mockModule from '../mockPaymentRequests';
+import type { PaymentRequest } from '../types';
 import { ReceivedPaymentRequestSection } from './ReceivedPaymentRequestSection';
 import { installManualIntersectionObserver } from '../../../test/intersectionObserver';
 
@@ -28,6 +29,33 @@ function renderSection() {
   );
 }
 
+// ページングの挙動は件数に依存しない。実データ（25件）をそのまま描画すると
+// 並列実行時に描画待ちが伸びてタイムアウトすることがあるため、少件数で確認する。
+function stubPages(pageSizes: readonly number[]) {
+  let index = 0;
+
+  return vi
+    .spyOn(mockModule, 'fetchMockReceivedPaymentRequestPage')
+    .mockImplementation(() => {
+      const size = pageSizes[index] ?? 0;
+      const isLast = index >= pageSizes.length - 1;
+      const [seed] = mockModule.mockReceivedPaymentRequests;
+      const requests: PaymentRequest[] =
+        seed === undefined
+          ? []
+          : Array.from({ length: size }, (_, i) => ({
+              ...seed,
+              id: `stub-${String(index)}-${String(i)}`,
+            }));
+      index += 1;
+
+      return Promise.resolve({
+        requests,
+        nextCursor: isLast ? null : String(index),
+      });
+    });
+}
+
 describe('ReceivedPaymentRequestSection', () => {
   // 実APIは20件固定で返す（Issue #70）。取得した分をそのまま並べる。
   it('初期表示は1ページ分の20件にする', async () => {
@@ -48,39 +76,42 @@ describe('ReceivedPaymentRequestSection', () => {
   });
 
   it('下端に達したら続きを読み込んで追記する', async () => {
+    stubPages([2, 1]);
     renderSection();
 
     await screen.findAllByRole('listitem');
     await intersection.trigger();
 
     await waitFor(() => {
-      expect(screen.getAllByRole('listitem')).toHaveLength(25);
+      expect(screen.getAllByRole('listitem')).toHaveLength(3);
     });
   });
 
   // 元のアンバー色のボタンを一覧に置き換えたぶん、件数で気づけるようにする（Issue #44）。
   it('続きがあるときは件数に+を付ける', async () => {
+    stubPages([2, 1]);
     renderSection();
 
     await screen.findAllByRole('listitem');
 
     expect(
       screen.getByRole('heading', { name: /請求されています/ }),
-    ).toHaveTextContent('20+');
+    ).toHaveTextContent('2+');
   });
 
   it('すべて読み込んだら実際の件数だけを出す', async () => {
+    stubPages([2, 1]);
     renderSection();
 
     await screen.findAllByRole('listitem');
     await intersection.trigger();
     await waitFor(() => {
-      expect(screen.getAllByRole('listitem')).toHaveLength(25);
+      expect(screen.getAllByRole('listitem')).toHaveLength(3);
     });
 
     const heading = screen.getByRole('heading', { name: /請求されています/ });
-    expect(heading).toHaveTextContent('25');
-    expect(heading).not.toHaveTextContent('25+');
+    expect(heading).toHaveTextContent('3');
+    expect(heading).not.toHaveTextContent('3+');
   });
 
   it('請求が0件なら件数を出さない', async () => {
@@ -126,17 +157,18 @@ describe('ReceivedPaymentRequestSection', () => {
   });
 
   it('最後まで読み込んだらそれ以上増えない', async () => {
+    stubPages([2, 1]);
     renderSection();
 
     await screen.findAllByRole('listitem');
     await intersection.trigger();
     await waitFor(() => {
-      expect(screen.getAllByRole('listitem')).toHaveLength(25);
+      expect(screen.getAllByRole('listitem')).toHaveLength(3);
     });
 
     await intersection.trigger();
     await waitFor(() => {
-      expect(screen.getAllByRole('listitem')).toHaveLength(25);
+      expect(screen.getAllByRole('listitem')).toHaveLength(3);
     });
   });
 

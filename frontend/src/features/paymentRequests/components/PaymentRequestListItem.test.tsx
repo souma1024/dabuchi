@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
 import type { PaymentRequest } from '../types';
@@ -19,9 +20,11 @@ const baseRequest: PaymentRequest = {
 
 function renderItem(request: PaymentRequest = baseRequest) {
   return render(
-    <ul>
-      <PaymentRequestListItem request={request} direction="received" />
-    </ul>,
+    <MemoryRouter>
+      <ul>
+        <PaymentRequestListItem request={request} direction="received" />
+      </ul>
+    </MemoryRouter>,
   );
 }
 
@@ -51,11 +54,19 @@ describe('PaymentRequestListItem', () => {
     expect(screen.getByText('3,000円')).toHaveClass('text-red-700');
   });
 
-  // 承認画面（Issue #61）が未実装のため、現時点では行を押せない。
-  it('行にリンクやボタンを持たせない', () => {
+  // 決着していない請求だけ、確認画面へ進める（Issue #61）。
+  it('未払いなら確認画面へのリンクにする', () => {
     renderItem();
 
+    expect(screen.getByRole('link')).toHaveAttribute(
+      'href',
+      '/payment-requests/payment-request-1?direction=received',
+    );
+  });
+
+  it('決着済みならリンクにしない', () => {
+    renderItem({ ...baseRequest, status: 'accepted' });
+
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 });

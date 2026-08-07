@@ -8,6 +8,7 @@ import { RequireSession } from './RequireSession';
 import { SignUpRoute } from './SignUpRoute';
 import { FriendsRoute } from './FriendsRoute';
 import { HomePage } from './HomePage';
+import { PaymentRequestConfirmationRoute } from './PaymentRequestConfirmationRoute';
 import { PaymentRequestHistoryRoute } from './PaymentRequestHistoryRoute';
 import { RecipientSelectionRoute } from './RecipientSelectionRoute';
 import { TransactionsRoute } from './TransactionsRoute';
@@ -29,6 +30,11 @@ export function App() {
           <Route
             path="/payment-requests"
             element={<PaymentRequestHistoryRoute />}
+          />
+          {/* 請求の確認画面。お金が動くため、ログイン必須の内側に置く。 */}
+          <Route
+            path="/payment-requests/:id"
+            element={<PaymentRequestConfirmationRoute />}
           />
           <Route path="/friends" element={<FriendsRoute />} />
           <Route path="/friends/blocked" element={<BlockedFriendsRoute />} />

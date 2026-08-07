@@ -2,6 +2,7 @@ import { ScreenHeader } from '../../../components/ScreenHeader';
 import { TransactionListItem } from '../components/TransactionListItem';
 import { useTransactions } from '../hooks/useTransactions';
 import { useInfiniteScrollSentinel } from '../../../hooks/useInfiniteScrollSentinel';
+import { useScrollToTop } from '../../../hooks/useScrollToTop';
 
 interface TransactionsPageProps {
   /** 戻る操作。未指定なら戻るボタンは表示しない。 */
@@ -22,6 +23,8 @@ export function TransactionsPage({ onBack }: TransactionsPageProps) {
     loadMore,
   } = useTransactions();
   const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore);
+
+  useScrollToTop();
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white">
