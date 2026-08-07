@@ -3,6 +3,7 @@ import type {
   Transaction,
   TransactionDirection,
   TransactionPage,
+  TransactionSort,
 } from '../types';
 
 // 未設定なら同一オリジン（Vite dev serverの /api プロキシ経由）を使う。
@@ -78,9 +79,13 @@ function parseTransactionsResponse(data: unknown): TransactionPage {
   return { transactions, nextCursor };
 }
 
-function buildTransactionsUrl(cursor: string | null): URL {
+function buildTransactionsUrl(
+  cursor: string | null,
+  sort: TransactionSort,
+): URL {
   const base = API_BASE_URL || window.location.origin;
   const url = new URL('/api/transactions', base);
+  url.searchParams.set('sort', sort);
   if (cursor) {
     url.searchParams.set('cursor', cursor);
   }
@@ -96,9 +101,10 @@ function buildTransactionsUrl(cursor: string | null): URL {
  */
 export async function fetchTransactions(
   cursor: string | null = null,
+  sort: TransactionSort = 'created-desc',
   signal?: AbortSignal,
 ): Promise<TransactionPage> {
-  const response = await fetch(buildTransactionsUrl(cursor), {
+  const response = await fetch(buildTransactionsUrl(cursor, sort), {
     signal,
   });
   if (!response.ok) {

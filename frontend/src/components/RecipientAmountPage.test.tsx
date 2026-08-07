@@ -100,14 +100,76 @@ describe('RecipientAmountPage', () => {
     expect(screen.getByRole('button', { name: '請求' })).toBeEnabled();
   });
 
-  it('maxAmountが未指定の場合、上限額は表示されず高額でも送信できる', async () => {
+  it('secondaryMaxを超えるとそのメッセージを表示し、maxAmount内でも送信できない', async () => {
+    const user = userEvent.setup();
+    renderPage({
+      maxAmount: {
+        value: 80000,
+        label: '送金上限額',
+        exceededMessage: '送金上限額を超えています',
+      },
+      secondaryMax: { value: 1000, exceededMessage: '残高が不足しています' },
+    });
+
+    await user.type(screen.getByLabelText('請求金額'), '1001');
+
+    expect(screen.getByText('残高が不足しています')).toBeInTheDocument();
+    expect(
+      screen.queryByText('送金上限額を超えています'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '請求' })).toBeDisabled();
+  });
+
+  it('maxAmountを超える場合はsecondaryMaxより上限額メッセージを優先する', async () => {
+    const user = userEvent.setup();
+    renderPage({
+      maxAmount: {
+        value: 80000,
+        label: '送金上限額',
+        exceededMessage: '送金上限額を超えています',
+      },
+      secondaryMax: { value: 1000, exceededMessage: '残高が不足しています' },
+    });
+
+    await user.type(screen.getByLabelText('請求金額'), '80001');
+
+    expect(screen.getByText('送金上限額を超えています')).toBeInTheDocument();
+    expect(screen.queryByText('残高が不足しています')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '請求' })).toBeDisabled();
+  });
+
+  it('maxAmountが未指定の場合、上限額ラベルは表示されず上限内なら送信できる', async () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.type(screen.getByLabelText('請求金額'), '999999999');
+    await user.type(screen.getByLabelText('請求金額'), '80000');
 
     expect(screen.queryByText(/上限額/)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '請求' })).toBeEnabled();
+  });
+
+  it('maxAmountが未指定でも1回の上限（80,000円）ちょうどは送信できる', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByLabelText('請求金額'), '80000');
+
+    expect(
+      screen.queryByText('80,000円を超える金額は指定できません'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '請求' })).toBeEnabled();
+  });
+
+  it('maxAmountが未指定でも1回の上限（80,000円）を超えるとエラー表示され送信できない', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.type(screen.getByLabelText('請求金額'), '80001');
+
+    expect(
+      screen.getByText('80,000円を超える金額は指定できません'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '請求' })).toBeDisabled();
   });
 
   it('安全な整数の範囲を超える金額を入力するとエラー表示され送信ボタンが無効になる', async () => {

@@ -1,9 +1,14 @@
 import type {
   BlockedFriendCursor,
+  FriendSort,
   FriendshipCursor,
 } from '../../application/ports/friendQueryRepository.js';
 import { isRealMysqlDateTime } from '../../shared/mysqlDateTime.js';
 import { isUuid } from './recipientCursorCodec.js';
+
+export function isFriendSort(value: string): value is FriendSort {
+  return value === 'created-asc' || value === 'created-desc';
+}
 
 export function encodeFriendCursor(cursor: FriendshipCursor): string {
   return encodeCursor(cursor);
@@ -14,13 +19,24 @@ export function decodeFriendCursor(value: string): FriendshipCursor | null {
 
   if (
     !parsed ||
-    !isValidDateTime(parsed.createdAt) ||
-    !isUuidValue(parsed.id)
+    !('sort' in parsed) ||
+    !('value' in parsed) ||
+    typeof parsed.sort !== 'string' ||
+    !isFriendSort(parsed.sort) ||
+    typeof parsed.value !== 'object' ||
+    parsed.value === null ||
+    !('createdAt' in parsed.value) ||
+    !('id' in parsed.value) ||
+    !isValidDateTime(parsed.value.createdAt) ||
+    !isUuidValue(parsed.value.id)
   ) {
     return null;
   }
 
-  return { createdAt: parsed.createdAt, id: parsed.id };
+  return {
+    sort: parsed.sort,
+    value: { createdAt: parsed.value.createdAt, id: parsed.value.id },
+  };
 }
 
 export function encodeBlockedFriendCursor(cursor: BlockedFriendCursor): string {

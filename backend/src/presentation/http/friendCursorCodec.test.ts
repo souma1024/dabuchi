@@ -10,8 +10,11 @@ import {
 describe('friend cursor codec', () => {
   it('友達一覧カーソルをbase64urlへ変換して復元する', () => {
     const cursor = {
-      createdAt: '2026-08-06 12:00:20.000000',
-      id: '00000000-0000-4000-8000-000000000020',
+      sort: 'created-desc' as const,
+      value: {
+        createdAt: '2026-08-06 12:00:20.000000',
+        id: '00000000-0000-4000-8000-000000000020',
+      },
     };
 
     expect(decodeFriendCursor(encodeFriendCursor(cursor))).toEqual(cursor);
@@ -32,7 +35,10 @@ describe('friend cursor codec', () => {
     'not-json',
     Buffer.from('{}').toString('base64url'),
     Buffer.from(
-      JSON.stringify({ createdAt: 'invalid', id: 'invalid' }),
+      JSON.stringify({
+        sort: 'created-desc',
+        value: { createdAt: 'invalid', id: 'invalid' },
+      }),
     ).toString('base64url'),
   ])('不正な友達一覧カーソルを拒否する: %s', (cursor) => {
     expect(decodeFriendCursor(cursor)).toBeNull();
@@ -48,8 +54,11 @@ describe('friend cursor codec', () => {
     '2026-08-06 12:00:60',
   ])('実在しない日時の友達一覧カーソルを拒否する: %s', (createdAt) => {
     const cursor = encodeFriendCursor({
-      createdAt,
-      id: '00000000-0000-4000-8000-000000000020',
+      sort: 'created-desc',
+      value: {
+        createdAt,
+        id: '00000000-0000-4000-8000-000000000020',
+      },
     });
 
     expect(decodeFriendCursor(cursor)).toBeNull();
@@ -62,7 +71,13 @@ describe('friend cursor codec', () => {
   ])(
     '実在する境界の日時は友達一覧カーソルとして受け入れる: %s',
     (createdAt) => {
-      const cursor = { createdAt, id: '00000000-0000-4000-8000-000000000020' };
+      const cursor = {
+        sort: 'created-desc' as const,
+        value: {
+          createdAt,
+          id: '00000000-0000-4000-8000-000000000020',
+        },
+      };
 
       expect(decodeFriendCursor(encodeFriendCursor(cursor))).toEqual(cursor);
     },
