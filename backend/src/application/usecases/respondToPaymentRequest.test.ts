@@ -29,7 +29,7 @@ function createInput(overrides = {}) {
   return {
     currentUserId: CURRENT_USER_PUBLIC_ID,
     paymentRequestId: PAYMENT_REQUEST_ID,
-    response: 'accepted' as const,
+    action: 'accept' as const,
     ...overrides,
   };
 }
@@ -43,7 +43,7 @@ describe('RespondToPaymentRequest', () => {
     expect(repository.respond).toHaveBeenCalledWith({
       paymentRequestId: PAYMENT_REQUEST_ID,
       currentUserInternalId: CURRENT_USER_INTERNAL_ID,
-      response: 'accepted',
+      action: 'accept',
     });
   });
 
@@ -80,7 +80,7 @@ describe('RespondToPaymentRequest', () => {
     });
 
     const result = await createUsecase(repository).execute(
-      createInput({ response: 'rejected' }),
+      createInput({ action: 'reject' }),
     );
 
     expect(result.request.status).toBe('rejected');

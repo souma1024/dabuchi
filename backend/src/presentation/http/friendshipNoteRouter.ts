@@ -8,10 +8,10 @@ import {
   type FriendshipNote,
 } from '../../domain/friendshipNote.js';
 import { mysqlDateTimeToIso } from '../../shared/mysqlDateTime.js';
+import { requireCurrentUser } from './authentication.js';
 
 export interface FriendshipNoteRouterDependencies {
   createFriendshipNote: CreateFriendshipNote;
-  currentUserPublicId: string;
   deleteFriendshipNote: DeleteFriendshipNote;
   updateFriendshipNote: UpdateFriendshipNote;
 }
@@ -23,8 +23,10 @@ export function createFriendshipNoteRouter(
 
   router.post('/:friendshipId/note', (request, response, next) => {
     void (async () => {
+      // 認証を先に確かめる。未ログインの相手へ入力仕様を返さない。
+      const { userId } = requireCurrentUser(response);
       const note = await dependencies.createFriendshipNote.execute({
-        currentUserPublicId: dependencies.currentUserPublicId,
+        currentUserPublicId: userId,
         friendshipId: request.params.friendshipId ?? '',
         message: readMessage(request.body),
       });
@@ -35,8 +37,9 @@ export function createFriendshipNoteRouter(
 
   router.put('/:friendshipId/note', (request, response, next) => {
     void (async () => {
+      const { userId } = requireCurrentUser(response);
       const note = await dependencies.updateFriendshipNote.execute({
-        currentUserPublicId: dependencies.currentUserPublicId,
+        currentUserPublicId: userId,
         friendshipId: request.params.friendshipId ?? '',
         message: readMessage(request.body),
       });
@@ -48,7 +51,7 @@ export function createFriendshipNoteRouter(
   router.delete('/:friendshipId/note', (request, response, next) => {
     void dependencies.deleteFriendshipNote
       .execute({
-        currentUserPublicId: dependencies.currentUserPublicId,
+        currentUserPublicId: requireCurrentUser(response).userId,
         friendshipId: request.params.friendshipId ?? '',
       })
       .then(() => response.status(204).end())

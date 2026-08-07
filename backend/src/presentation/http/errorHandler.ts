@@ -10,6 +10,12 @@ import {
   InvalidTransferError,
   TransferParticipantNotFoundError,
 } from '../../application/createTransfer.js';
+import {
+  InvalidCredentialsError,
+  InvalidSignUpError,
+  NotAuthenticatedError,
+  UserIdAlreadyTakenError,
+} from '../../application/errors/authErrors.js';
 import { CurrentUserNotFoundError } from '../../application/errors/currentUserNotFoundError.js';
 import {
   FriendUserNotFoundError,
@@ -27,6 +33,7 @@ import {
   PaymentRequestNotFoundError,
 } from '../../application/errors/paymentRequestCommandErrors.js';
 import { InvalidFriendshipError } from '../../domain/friendship.js';
+import { InvalidPasswordError } from '../../domain/password.js';
 import { InvalidFriendshipNoteError } from '../../domain/friendshipNote.js';
 import { InvalidUserBlockError } from '../../domain/userBlock.js';
 import { InvalidFriendRequestError } from './friendQueryRouter.js';
@@ -120,6 +127,38 @@ export const errorHandler: ErrorRequestHandler = (
   ) {
     response.status(400).json({
       error: { code: 'INVALID_REQUEST', message: error.message },
+    });
+    return;
+  }
+
+  if (
+    error instanceof InvalidSignUpError ||
+    error instanceof InvalidPasswordError
+  ) {
+    response.status(400).json({
+      error: { code: 'INVALID_REQUEST', message: error.message },
+    });
+    return;
+  }
+
+  // 認証の失敗はどちらが違うかを伝えない。存在するuser_idを探らせないため。
+  if (error instanceof InvalidCredentialsError) {
+    response.status(401).json({
+      error: { code: 'INVALID_CREDENTIALS', message: error.message },
+    });
+    return;
+  }
+
+  if (error instanceof NotAuthenticatedError) {
+    response.status(401).json({
+      error: { code: 'NOT_AUTHENTICATED', message: error.message },
+    });
+    return;
+  }
+
+  if (error instanceof UserIdAlreadyTakenError) {
+    response.status(409).json({
+      error: { code: 'USER_ID_ALREADY_TAKEN', message: error.message },
     });
     return;
   }

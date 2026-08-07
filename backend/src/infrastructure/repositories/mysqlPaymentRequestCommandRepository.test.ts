@@ -23,13 +23,21 @@ function pendingRow(overrides = {}) {
     amount: 3000,
     status: 'pending',
     respondedAt: null,
+    respondedBy: null,
     ...overrides,
   };
 }
 
-/** 既に応答が確定している行。冪等リプレイの検証に使う。 */
-function respondedRow(status: 'accepted' | 'rejected') {
-  return pendingRow({ status, respondedAt: RESPONDED_AT });
+/**
+ * 既に応答が確定している行。冪等リプレイの検証に使う。
+ * 既定は被請求者が終わらせた行。null を明示すると、列の追加から
+ * 取り消しAPI導入までの間に確定した行（responded_by が NULL）を表す。
+ */
+function respondedRow(
+  status: 'accepted' | 'rejected',
+  respondedBy: string | null = RECIPIENT_ID,
+) {
+  return pendingRow({ status, respondedAt: RESPONDED_AT, respondedBy });
 }
 
 function mysqlError(code: string) {
@@ -79,7 +87,7 @@ describe('MysqlPaymentRequestCommandRepository', () => {
       {
         paymentRequestId: PAYMENT_REQUEST_ID,
         currentUserInternalId: RECIPIENT_ID,
-        response: 'accepted',
+        action: 'accept',
       },
     );
 
@@ -100,7 +108,7 @@ describe('MysqlPaymentRequestCommandRepository', () => {
     await new MysqlPaymentRequestCommandRepository(pool).respond({
       paymentRequestId: PAYMENT_REQUEST_ID,
       currentUserInternalId: RECIPIENT_ID,
-      response: 'accepted',
+      action: 'accept',
     });
 
     // 3件目が減算、4件目が加算。被請求者から請求者への向き。
@@ -116,7 +124,7 @@ describe('MysqlPaymentRequestCommandRepository', () => {
     await new MysqlPaymentRequestCommandRepository(pool).respond({
       paymentRequestId: PAYMENT_REQUEST_ID,
       currentUserInternalId: RECIPIENT_ID,
-      response: 'accepted',
+      action: 'accept',
     });
 
     expect(connection.beginTransaction).toHaveBeenCalledOnce();
@@ -131,7 +139,7 @@ describe('MysqlPaymentRequestCommandRepository', () => {
       {
         paymentRequestId: PAYMENT_REQUEST_ID,
         currentUserInternalId: RECIPIENT_ID,
-        response: 'rejected',
+        action: 'reject',
       },
     );
 
@@ -148,7 +156,7 @@ describe('MysqlPaymentRequestCommandRepository', () => {
     await new MysqlPaymentRequestCommandRepository(pool).respond({
       paymentRequestId: PAYMENT_REQUEST_ID,
       currentUserInternalId: RECIPIENT_ID,
-      response: 'rejected',
+      action: 'reject',
     });
 
     expect(sqlAt(execute, 1)).toContain("status = 'pending'");
@@ -162,7 +170,7 @@ describe('MysqlPaymentRequestCommandRepository', () => {
       new MysqlPaymentRequestCommandRepository(pool).respond({
         paymentRequestId: PAYMENT_REQUEST_ID,
         currentUserInternalId: RECIPIENT_ID,
-        response: 'accepted',
+        action: 'accept',
       }),
     ).rejects.toBeInstanceOf(PaymentRequestNotFoundError);
     expect(connection.rollback).toHaveBeenCalled();
@@ -177,25 +185,44 @@ describe('MysqlPaymentRequestCommandRepository', () => {
         paymentRequestId: PAYMENT_REQUEST_ID,
         // 請求者自身が承認しようとした場合。
         currentUserInternalId: REQUESTER_ID,
-        response: 'accepted',
+        action: 'accept',
       }),
     ).rejects.toBeInstanceOf(PaymentRequestForbiddenError);
     expect(connection.commit).not.toHaveBeenCalled();
   });
 
+  // 認可を状態判定より先に行うことを固定する。順序が逆になると、当事者でない人が
+  // 403と409の違いから請求の状態を推測できてしまう。
+  it.each(['accepted', 'rejected'] as const)(
+    '既に%sでも、当事者でなければ状態を明かさず403用errorにする',
+    async (status) => {
+      const { pool, connection } = createMysqlPool([[respondedRow(status)]]);
+
+      await expect(
+        new MysqlPaymentRequestCommandRepository(pool).respond({
+          paymentRequestId: PAYMENT_REQUEST_ID,
+          // 請求者は承認できない。決着済みかどうかより先に弾く。
+          currentUserInternalId: REQUESTER_ID,
+          action: 'accept',
+        }),
+      ).rejects.toBeInstanceOf(PaymentRequestForbiddenError);
+      expect(connection.commit).not.toHaveBeenCalled();
+    },
+  );
+
   it.each([
-    ['accepted', 'rejected'],
-    ['rejected', 'accepted'],
+    ['accepted', 'reject'],
+    ['rejected', 'accept'],
   ] as const)(
     '既に%sなら逆向きの%sは409用errorにする',
-    async (status, response) => {
+    async (status, action) => {
       const { pool, connection } = createMysqlPool([[respondedRow(status)]]);
 
       await expect(
         new MysqlPaymentRequestCommandRepository(pool).respond({
           paymentRequestId: PAYMENT_REQUEST_ID,
           currentUserInternalId: RECIPIENT_ID,
-          response,
+          action,
         }),
       ).rejects.toBeInstanceOf(PaymentRequestAlreadyRespondedError);
       expect(connection.commit).not.toHaveBeenCalled();
@@ -213,7 +240,7 @@ describe('MysqlPaymentRequestCommandRepository', () => {
       {
         paymentRequestId: PAYMENT_REQUEST_ID,
         currentUserInternalId: RECIPIENT_ID,
-        response: 'accepted',
+        action: 'accept',
       },
     );
 
@@ -241,7 +268,7 @@ describe('MysqlPaymentRequestCommandRepository', () => {
       {
         paymentRequestId: PAYMENT_REQUEST_ID,
         currentUserInternalId: RECIPIENT_ID,
-        response: 'rejected',
+        action: 'reject',
       },
     );
 
@@ -260,7 +287,7 @@ describe('MysqlPaymentRequestCommandRepository', () => {
       new MysqlPaymentRequestCommandRepository(pool).respond({
         paymentRequestId: PAYMENT_REQUEST_ID,
         currentUserInternalId: RECIPIENT_ID,
-        response: 'accepted',
+        action: 'accept',
       }),
     ).rejects.toThrow(/no responded_at/);
     expect(connection.commit).not.toHaveBeenCalled();
@@ -276,7 +303,7 @@ describe('MysqlPaymentRequestCommandRepository', () => {
       new MysqlPaymentRequestCommandRepository(pool).respond({
         paymentRequestId: PAYMENT_REQUEST_ID,
         currentUserInternalId: RECIPIENT_ID,
-        response: 'rejected',
+        action: 'reject',
       }),
     ).rejects.toBeInstanceOf(PaymentRequestAlreadyRespondedError);
     expect(connection.commit).not.toHaveBeenCalled();
@@ -295,7 +322,7 @@ describe('MysqlPaymentRequestCommandRepository', () => {
       new MysqlPaymentRequestCommandRepository(pool).respond({
         paymentRequestId: PAYMENT_REQUEST_ID,
         currentUserInternalId: RECIPIENT_ID,
-        response: 'accepted',
+        action: 'accept',
       }),
     ).rejects.toBeInstanceOf(InsufficientBalanceError);
     expect(connection.rollback).toHaveBeenCalled();
@@ -319,7 +346,7 @@ describe('MysqlPaymentRequestCommandRepository', () => {
       new MysqlPaymentRequestCommandRepository(pool).respond({
         paymentRequestId: PAYMENT_REQUEST_ID,
         currentUserInternalId: RECIPIENT_ID,
-        response: 'accepted',
+        action: 'accept',
       }),
     ).rejects.toBeInstanceOf(PaymentRequestAlreadyRespondedError);
 
@@ -345,7 +372,7 @@ describe('MysqlPaymentRequestCommandRepository', () => {
       ).respond({
         paymentRequestId: PAYMENT_REQUEST_ID,
         currentUserInternalId: RECIPIENT_ID,
-        response: 'rejected',
+        action: 'reject',
       });
 
       expect(result.status).toBe('rejected');
@@ -370,7 +397,7 @@ describe('MysqlPaymentRequestCommandRepository', () => {
       new MysqlPaymentRequestCommandRepository(pool).respond({
         paymentRequestId: PAYMENT_REQUEST_ID,
         currentUserInternalId: RECIPIENT_ID,
-        response: 'rejected',
+        action: 'reject',
       }),
     ).rejects.toBe(deadlock);
     expect(getConnection).toHaveBeenCalledTimes(3);
@@ -388,7 +415,7 @@ describe('MysqlPaymentRequestCommandRepository', () => {
       new MysqlPaymentRequestCommandRepository(pool).respond({
         paymentRequestId: PAYMENT_REQUEST_ID,
         currentUserInternalId: RECIPIENT_ID,
-        response: 'rejected',
+        action: 'reject',
       }),
     ).rejects.toBe(connectionLost);
     expect(getConnection).toHaveBeenCalledOnce();
@@ -415,11 +442,169 @@ describe('MysqlPaymentRequestCommandRepository', () => {
       new MysqlPaymentRequestCommandRepository(pool).respond({
         paymentRequestId: PAYMENT_REQUEST_ID,
         currentUserInternalId: RECIPIENT_ID,
-        response: 'accepted',
+        action: 'accept',
       }),
     ).rejects.toThrow(/disappeared during the response/);
     expect(connection.rollback).toHaveBeenCalled();
     expect(connection.commit).not.toHaveBeenCalled();
+  });
+
+  it('承認では被請求者をresponded_byとして記録する', async () => {
+    const { pool, execute } = createMysqlPool(acceptResults());
+
+    await new MysqlPaymentRequestCommandRepository(pool).respond({
+      paymentRequestId: PAYMENT_REQUEST_ID,
+      currentUserInternalId: RECIPIENT_ID,
+      action: 'accept',
+    });
+
+    expect(sqlAt(execute, 5)).toContain('responded_by = UUID_TO_BIN(?)');
+    expect(execute.mock.calls[5]?.[1]).toEqual([
+      'accepted',
+      RECIPIENT_ID,
+      PAYMENT_REQUEST_ID,
+    ]);
+  });
+
+  describe('取り消し', () => {
+    it('請求者が取り消すとrejectedになり、responded_byは請求者になる', async () => {
+      const { pool, execute } = createMysqlPool(rejectResults());
+
+      const result = await new MysqlPaymentRequestCommandRepository(
+        pool,
+      ).respond({
+        paymentRequestId: PAYMENT_REQUEST_ID,
+        currentUserInternalId: REQUESTER_ID,
+        action: 'cancel',
+      });
+
+      expect(result.status).toBe('rejected');
+      expect(result.recipientBalance).toBeNull();
+      // 拒否と同じrejectedだが、responded_byが請求者である点だけが違う。
+      expect(execute.mock.calls[1]?.[1]).toEqual([
+        'rejected',
+        REQUESTER_ID,
+        PAYMENT_REQUEST_ID,
+      ]);
+    });
+
+    it('取り消しでは残高を動かさない', async () => {
+      const { pool, execute } = createMysqlPool(rejectResults());
+
+      await new MysqlPaymentRequestCommandRepository(pool).respond({
+        paymentRequestId: PAYMENT_REQUEST_ID,
+        currentUserInternalId: REQUESTER_ID,
+        action: 'cancel',
+      });
+
+      expect(
+        execute.mock.calls.some((call) => sqlAt2(call).includes('balance')),
+      ).toBe(false);
+    });
+
+    it('被請求者による取り消しは403用errorにする', async () => {
+      const { pool, connection } = createMysqlPool([[pendingRow()]]);
+
+      await expect(
+        new MysqlPaymentRequestCommandRepository(pool).respond({
+          paymentRequestId: PAYMENT_REQUEST_ID,
+          currentUserInternalId: RECIPIENT_ID,
+          action: 'cancel',
+        }),
+      ).rejects.toBeInstanceOf(PaymentRequestForbiddenError);
+      expect(connection.commit).not.toHaveBeenCalled();
+    });
+
+    it('請求者による承認は403用errorにする', async () => {
+      const { pool, connection } = createMysqlPool([[pendingRow()]]);
+
+      await expect(
+        new MysqlPaymentRequestCommandRepository(pool).respond({
+          paymentRequestId: PAYMENT_REQUEST_ID,
+          currentUserInternalId: REQUESTER_ID,
+          action: 'accept',
+        }),
+      ).rejects.toBeInstanceOf(PaymentRequestForbiddenError);
+      expect(connection.commit).not.toHaveBeenCalled();
+    });
+
+    it('取り消し済みへ再度cancelすると冪等リプレイになる', async () => {
+      const { pool, execute } = createMysqlPool([
+        [respondedRow('rejected', REQUESTER_ID)],
+      ]);
+
+      const result = await new MysqlPaymentRequestCommandRepository(
+        pool,
+      ).respond({
+        paymentRequestId: PAYMENT_REQUEST_ID,
+        currentUserInternalId: REQUESTER_ID,
+        action: 'cancel',
+      });
+
+      expect(result.status).toBe('rejected');
+      expect(result.respondedAt).toBe(RESPONDED_AT);
+      expect(execute).toHaveBeenCalledOnce();
+    });
+
+    // 遷移先がrejectedで一致しても、終わらせたのは請求者なので被請求者の再送ではない。
+    // 200を返すと「拒否しました」と誤って表示される。
+    it('請求者が取り消した請求への拒否は409用errorにする', async () => {
+      const { pool, connection } = createMysqlPool([
+        [respondedRow('rejected', REQUESTER_ID)],
+      ]);
+
+      await expect(
+        new MysqlPaymentRequestCommandRepository(pool).respond({
+          paymentRequestId: PAYMENT_REQUEST_ID,
+          currentUserInternalId: RECIPIENT_ID,
+          action: 'reject',
+        }),
+      ).rejects.toBeInstanceOf(PaymentRequestAlreadyRespondedError);
+      expect(connection.commit).not.toHaveBeenCalled();
+    });
+
+    it('被請求者が拒否した請求への取り消しは409用errorにする', async () => {
+      const { pool, connection } = createMysqlPool([
+        [respondedRow('rejected', RECIPIENT_ID)],
+      ]);
+
+      await expect(
+        new MysqlPaymentRequestCommandRepository(pool).respond({
+          paymentRequestId: PAYMENT_REQUEST_ID,
+          currentUserInternalId: REQUESTER_ID,
+          action: 'cancel',
+        }),
+      ).rejects.toBeInstanceOf(PaymentRequestAlreadyRespondedError);
+      expect(connection.commit).not.toHaveBeenCalled();
+    });
+
+    // 列の追加から取り消しAPI導入までの間に確定した行。その期間に請求を
+    // 終わらせられたのは被請求者だけなので、被請求者の再送として扱う。
+    it('responded_byがNULLなら被請求者の再送として冪等リプレイになる', async () => {
+      const { pool } = createMysqlPool([[respondedRow('rejected', null)]]);
+
+      const result = await new MysqlPaymentRequestCommandRepository(
+        pool,
+      ).respond({
+        paymentRequestId: PAYMENT_REQUEST_ID,
+        currentUserInternalId: RECIPIENT_ID,
+        action: 'reject',
+      });
+
+      expect(result.status).toBe('rejected');
+    });
+
+    it('responded_byがNULLの請求への取り消しは409用errorにする', async () => {
+      const { pool } = createMysqlPool([[respondedRow('rejected', null)]]);
+
+      await expect(
+        new MysqlPaymentRequestCommandRepository(pool).respond({
+          paymentRequestId: PAYMENT_REQUEST_ID,
+          currentUserInternalId: REQUESTER_ID,
+          action: 'cancel',
+        }),
+      ).rejects.toBeInstanceOf(PaymentRequestAlreadyRespondedError);
+    });
   });
 
   it('大文字小文字が違う内部UUIDでも被請求者として扱う', async () => {
@@ -429,7 +614,7 @@ describe('MysqlPaymentRequestCommandRepository', () => {
       {
         paymentRequestId: PAYMENT_REQUEST_ID,
         currentUserInternalId: RECIPIENT_ID.toUpperCase(),
-        response: 'rejected',
+        action: 'reject',
       },
     );
 

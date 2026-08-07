@@ -1,6 +1,7 @@
 import type { Pool, RowDataPacket } from 'mysql2/promise';
 
 import type {
+  FindPaymentRequestByIdInput,
   FindPaymentRequestsInput,
   PaymentRequestListRepository,
 } from '../../application/ports/paymentRequestListRepository.js';
@@ -66,15 +67,59 @@ export class MysqlPaymentRequestListRepository implements PaymentRequestListRepo
       values,
     );
 
-    return rows.map((row) => ({
-      id: row.id,
-      counterpartyId: row.counterpartyId,
-      counterpartyName: row.counterpartyName,
-      counterpartyProfileUrl: row.counterpartyProfileUrl,
-      amount: Number(row.amount),
-      status: row.status,
-      createdAt: row.createdAt,
-      respondedAt: row.respondedAt,
-    }));
+    return rows.map(toRecord);
   }
+
+  async findPaymentRequestById(
+    input: FindPaymentRequestByIdInput,
+  ): Promise<PaymentRequestRecord | null> {
+    // 相手は「現在ユーザーでない側」。一覧と違いdirectionを受け取らないため、
+    // 請求者か被請求者かを行ごとに判定して結合する。
+    // 当事者でなければWHEREで弾き、存在の有無を呼び出し側へ漏らさない。
+    const [rows] = await this.pool.execute<PaymentRequestRow[]>(
+      `SELECT
+         BIN_TO_UUID(pr.id) AS id,
+         BIN_TO_UUID(counterparty.id) AS counterpartyId,
+         counterparty.user_name AS counterpartyName,
+         counterparty.profile_url AS counterpartyProfileUrl,
+         pr.amount AS amount,
+         pr.status AS status,
+         DATE_FORMAT(pr.created_at, '%Y-%m-%d %H:%i:%s.%f') AS createdAt,
+         DATE_FORMAT(pr.responded_at, '%Y-%m-%d %H:%i:%s.%f') AS respondedAt
+       FROM payment_requests pr
+       JOIN users counterparty
+         ON counterparty.id = CASE
+           WHEN pr.requester_id = UUID_TO_BIN(?) THEN pr.recipient_id
+           ELSE pr.requester_id
+         END
+       WHERE pr.id = UUID_TO_BIN(?)
+         AND (
+           pr.requester_id = UUID_TO_BIN(?)
+           OR pr.recipient_id = UUID_TO_BIN(?)
+         )`,
+      [
+        input.currentUserInternalId,
+        input.paymentRequestId,
+        input.currentUserInternalId,
+        input.currentUserInternalId,
+      ],
+    );
+
+    const row = rows[0];
+
+    return row ? toRecord(row) : null;
+  }
+}
+
+function toRecord(row: PaymentRequestRow): PaymentRequestRecord {
+  return {
+    id: row.id,
+    counterpartyId: row.counterpartyId,
+    counterpartyName: row.counterpartyName,
+    counterpartyProfileUrl: row.counterpartyProfileUrl,
+    amount: Number(row.amount),
+    status: row.status,
+    createdAt: row.createdAt,
+    respondedAt: row.respondedAt,
+  };
 }

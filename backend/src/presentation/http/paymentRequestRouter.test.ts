@@ -3,6 +3,7 @@ import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 
 import { CreatePaymentRequests } from '../../application/createPaymentRequests.js';
+import { GetPaymentRequest } from '../../application/usecases/getPaymentRequest.js';
 import { ListPaymentRequests } from '../../application/usecases/listPaymentRequests.js';
 import { RespondToPaymentRequest } from '../../application/usecases/respondToPaymentRequest.js';
 import {
@@ -14,6 +15,7 @@ import { createCurrentUser } from '../../test/factories/currentUserFactory.js';
 import { createCurrentUserRepository } from '../../test/factories/currentUserRepositoryFactory.js';
 import { createPaymentRequestRepository } from '../../test/factories/paymentRequestRepositoryFactory.js';
 import { createPaymentRequestRouter } from './paymentRequestRouter.js';
+import { withCurrentUser } from '../../test/withCurrentUser.js';
 
 const CURRENT_USER_PUBLIC_ID = 'friend-001';
 const CURRENT_USER_INTERNAL_ID = '11111111-1111-4111-8111-111111111111';
@@ -32,17 +34,27 @@ function createRouterTestApp(
     paymentRequestRepository,
     () => PAYMENT_REQUEST_ID,
   );
+  const paymentRequestListRepository = createPaymentRequestListRepository();
   const app = express();
 
   app.use(express.json());
   app.use(
+    withCurrentUser({
+      id: CURRENT_USER_INTERNAL_ID,
+      userId: CURRENT_USER_PUBLIC_ID,
+    }),
+  );
+  app.use(
     '/api/payment-requests',
     createPaymentRequestRouter({
       createPaymentRequests,
-      currentUserPublicId: CURRENT_USER_PUBLIC_ID,
+      getPaymentRequest: new GetPaymentRequest(
+        currentUserRepository,
+        paymentRequestListRepository,
+      ),
       listPaymentRequests: new ListPaymentRequests(
         currentUserRepository,
-        createPaymentRequestListRepository(),
+        paymentRequestListRepository,
       ),
       respondToPaymentRequest: new RespondToPaymentRequest(
         currentUserRepository,
@@ -127,7 +139,7 @@ describe('paymentRequestRouter', () => {
     expect(commandRepository.respond).toHaveBeenCalledWith({
       paymentRequestId: PAYMENT_REQUEST_ID,
       currentUserInternalId: CURRENT_USER_INTERNAL_ID,
-      response: 'accepted',
+      action: 'accept',
     });
   });
 
@@ -154,7 +166,34 @@ describe('paymentRequestRouter', () => {
       },
     });
     expect(commandRepository.respond).toHaveBeenCalledWith(
-      expect.objectContaining({ response: 'rejected' }),
+      expect.objectContaining({ action: 'reject' }),
+    );
+  });
+
+  it('取り消しはcancelとしてusecaseへ渡し、残高を返さない', async () => {
+    const commandRepository = createPaymentRequestCommandRepository({
+      responded: createRespondedPaymentRequest({
+        status: 'rejected',
+        recipientBalance: null,
+      }),
+    });
+    const { app } = createRouterTestApp(commandRepository);
+
+    const response = await request(app).post(
+      `/api/payment-requests/${PAYMENT_REQUEST_ID}/cancel`,
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      request: {
+        id: '00000000-0000-4000-8000-000000000001',
+        amount: 3000,
+        status: 'rejected',
+        respondedAt: '2026-08-06T02:00:00.000Z',
+      },
+    });
+    expect(commandRepository.respond).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'cancel' }),
     );
   });
 

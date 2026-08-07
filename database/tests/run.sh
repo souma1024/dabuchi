@@ -9,6 +9,9 @@ export MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-test-only-root-password}"
 export MYSQL_PORT="${MYSQL_PORT:-0}"
 export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-dabuchi-db-test-$$}"
 
+# migration / rollback のSQLを直接流し込むテストがあるため、呼び出し位置に依存しないパスを持つ。
+repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
 cleanup() {
   docker compose down --volumes --remove-orphans >/dev/null 2>&1 || true
 }
@@ -52,7 +55,7 @@ columns="$(query "
 ")"
 
 assert_equals \
-  "id:binary(16):NO,user_id:varchar(64):NO,balance:bigint unsigned:NO,user_name:varchar(100):NO,profile_url:varchar(255):NO,created_at:datetime(6):NO" \
+  "id:binary(16):NO,user_id:varchar(64):NO,password_hash:varchar(255):YES,balance:bigint unsigned:NO,user_name:varchar(100):NO,profile_url:varchar(255):NO,created_at:datetime(6):NO" \
   "${columns}" \
   "users table columns must match the migration"
 
@@ -238,7 +241,7 @@ payment_request_columns="$(query "
   WHERE table_schema = DATABASE() AND table_name = 'payment_requests';
 ")"
 assert_equals \
-  "id:binary(16):NO,requester_id:binary(16):NO,recipient_id:binary(16):NO,amount:bigint unsigned:NO,status:varchar(16):NO,created_at:datetime(6):NO,responded_at:datetime(6):YES" \
+  "id:binary(16):NO,requester_id:binary(16):NO,recipient_id:binary(16):NO,amount:bigint unsigned:NO,status:varchar(16):NO,created_at:datetime(6):NO,responded_at:datetime(6):YES,responded_by:binary(16):YES" \
   "${payment_request_columns}" \
   "payment_requests columns must match the migration"
 
@@ -253,7 +256,7 @@ payment_request_foreign_keys="$(query "
     AND referenced_table_name IS NOT NULL;
 ")"
 assert_equals \
-  "recipient_id->users.id,requester_id->users.id" \
+  "recipient_id->users.id,requester_id->users.id,responded_by->users.id" \
   "${payment_request_foreign_keys}" \
   "payment request participants must reference users(id)"
 
@@ -392,6 +395,124 @@ for responded_status in accepted rejected; do
     exit 1
   fi
 done
+
+# responded_by は請求の当事者だけを指せる。第三者を入れられると
+# 「誰が終わらせたか」が信用できなくなる。
+query "
+  INSERT INTO users (user_id, user_name, profile_url)
+  VALUES ('outsider-test', '第三者テスト', '/assets/profiles/human3.png');
+"
+
+if query "
+  INSERT INTO payment_requests (
+    requester_id,
+    recipient_id,
+    amount,
+    status,
+    created_at,
+    responded_at,
+    responded_by
+  )
+  SELECT
+    requester.id,
+    recipient.id,
+    100,
+    'rejected',
+    '2026-08-05 12:00:00.000000',
+    '2026-08-05 12:30:00.000000',
+    outsider.id
+  FROM users AS requester
+  CROSS JOIN users AS recipient
+  CROSS JOIN users AS outsider
+  WHERE requester.user_id = 'auto-id-test'
+    AND recipient.user_id = 'recipient-test'
+    AND outsider.user_id = 'outsider-test';
+" >/dev/null 2>&1; then
+  echo "FAIL: responded_by must reference the requester or the recipient" >&2
+  exit 1
+fi
+
+# 承認できるのは被請求者だけ。請求者が自分の請求を承認した履歴は作れてはならない。
+if query "
+  INSERT INTO payment_requests (
+    requester_id,
+    recipient_id,
+    amount,
+    status,
+    created_at,
+    responded_at,
+    responded_by
+  )
+  SELECT
+    requester.id,
+    recipient.id,
+    100,
+    'accepted',
+    '2026-08-05 12:00:00.000000',
+    '2026-08-05 12:30:00.000000',
+    requester.id
+  FROM users AS requester
+  CROSS JOIN users AS recipient
+  WHERE requester.user_id = 'auto-id-test'
+    AND recipient.user_id = 'recipient-test';
+" >/dev/null 2>&1; then
+  echo "FAIL: a requester must not be recorded as the approver" >&2
+  exit 1
+fi
+
+# pending のあいだは誰も応答していないため、responded_by は必ず NULL。
+if query "
+  INSERT INTO payment_requests (
+    requester_id,
+    recipient_id,
+    amount,
+    responded_by
+  )
+  SELECT requester.id, recipient.id, 100, recipient.id
+  FROM users AS requester
+  CROSS JOIN users AS recipient
+  WHERE requester.user_id = 'auto-id-test'
+    AND recipient.user_id = 'recipient-test';
+" >/dev/null 2>&1; then
+  echo "FAIL: pending payment request must not record responded_by" >&2
+  exit 1
+fi
+
+# 請求者が取り消した場合。rejected のまま responded_by で拒否と区別する。
+query "
+  INSERT INTO payment_requests (
+    requester_id,
+    recipient_id,
+    amount,
+    status,
+    created_at,
+    responded_at,
+    responded_by
+  )
+  SELECT
+    requester.id,
+    recipient.id,
+    100,
+    'rejected',
+    '2026-08-05 12:00:00.000000',
+    '2026-08-05 12:30:00.000000',
+    requester.id
+  FROM users AS requester
+  CROSS JOIN users AS recipient
+  WHERE requester.user_id = 'auto-id-test'
+    AND recipient.user_id = 'recipient-test';
+"
+
+canceled_by_requester_count="$(query "
+  SELECT COUNT(*)
+  FROM payment_requests
+  WHERE status = 'rejected'
+    AND responded_by = requester_id;
+")"
+assert_equals \
+  "1" \
+  "${canceled_by_requester_count}" \
+  "a requester must be able to end their own payment request"
 
 if query "
   INSERT INTO payment_requests (requester_id, recipient_id, amount)
@@ -656,6 +777,125 @@ if query "
   exit 1
 fi
 
+# --- V6 のupgrade path -------------------------------------------------------
+# ここまでのテストはV6適用済みのschemaに対して行うため、migration内のUPDATE文が
+# 壊れても素通りしてしまう。V6を一度戻し、responded_byが無い状態で請求を作ってから
+# 適用し直すことで、バックフィルそのものを検証する。
+query "$(cat "${repository_root}/database/rollback/V6__drop_responded_by_from_payment_requests.sql")"
+
+query "
+  DELETE FROM payment_requests;
+
+  INSERT INTO payment_requests (
+    requester_id, recipient_id, amount, status, created_at, responded_at
+  )
+  SELECT requester.id, recipient.id, 100, 'pending', '2026-08-05 12:00:00.000000', NULL
+  FROM users AS requester
+  CROSS JOIN users AS recipient
+  WHERE requester.user_id = 'auto-id-test'
+    AND recipient.user_id = 'recipient-test';
+
+  INSERT INTO payment_requests (
+    requester_id, recipient_id, amount, status, created_at, responded_at
+  )
+  SELECT requester.id, recipient.id, 200, 'accepted', '2026-08-05 12:00:00.000000', '2026-08-05 12:30:00.000000'
+  FROM users AS requester
+  CROSS JOIN users AS recipient
+  WHERE requester.user_id = 'auto-id-test'
+    AND recipient.user_id = 'recipient-test';
+
+  INSERT INTO payment_requests (
+    requester_id, recipient_id, amount, status, created_at, responded_at
+  )
+  SELECT requester.id, recipient.id, 300, 'rejected', '2026-08-05 12:00:00.000000', '2026-08-05 12:30:00.000000'
+  FROM users AS requester
+  CROSS JOIN users AS recipient
+  WHERE requester.user_id = 'auto-id-test'
+    AND recipient.user_id = 'recipient-test';
+"
+
+query "$(cat "${repository_root}/database/migrations/V6__add_responded_by_to_payment_requests.sql")"
+
+backfilled_responded_by="$(query "
+  SELECT CONCAT(
+    SUM(status = 'pending' AND responded_by IS NULL), ':',
+    SUM(status <> 'pending' AND responded_by = recipient_id), ':',
+    SUM(status <> 'pending' AND responded_by IS NULL)
+  )
+  FROM payment_requests;
+")"
+assert_equals \
+  "1:2:0" \
+  "${backfilled_responded_by}" \
+  "V6 must backfill responded_by with the recipient for responded requests only"
+
+sessions_columns="$(query "
+  SELECT GROUP_CONCAT(
+    CONCAT(column_name, ':', column_type, ':', is_nullable)
+    ORDER BY ordinal_position SEPARATOR ','
+  )
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'sessions';
+")"
+
+assert_equals \
+  "token_hash:binary(32):NO,user_id:binary(16):NO,created_at:datetime(6):NO,expires_at:datetime(6):NO" \
+  "${sessions_columns}" \
+  "sessions columns must match the migration"
+
+# 同じtokenで2件持てると、片方を消してももう片方が生き残る。
+if query "
+  INSERT INTO users (user_id, user_name, profile_url)
+  VALUES ('session-test', 'セッション 検証', '/assets/profiles/human1.png');
+
+  INSERT INTO sessions (token_hash, user_id, expires_at)
+  VALUES (
+    UNHEX(REPEAT('ab', 32)),
+    (SELECT id FROM users WHERE user_id = 'session-test'),
+    CURRENT_TIMESTAMP(6) + INTERVAL 7 DAY
+  );
+
+  INSERT INTO sessions (token_hash, user_id, expires_at)
+  VALUES (
+    UNHEX(REPEAT('ab', 32)),
+    (SELECT id FROM users WHERE user_id = 'session-test'),
+    CURRENT_TIMESTAMP(6) + INTERVAL 7 DAY
+  );
+" >/dev/null 2>&1; then
+  echo "FAIL: session tokens must be unique" >&2
+  exit 1
+fi
+
+# 期限が作成時刻より前のセッションは、作った時点で切れていることになる。
+if query "
+  INSERT INTO sessions (token_hash, user_id, created_at, expires_at)
+  VALUES (
+    UNHEX(REPEAT('cd', 32)),
+    (SELECT id FROM users WHERE user_id = 'session-test'),
+    '2026-08-06 00:00:00.000000',
+    '2026-08-05 00:00:00.000000'
+  );
+" >/dev/null 2>&1; then
+  echo "FAIL: sessions must expire after they are created" >&2
+  exit 1
+fi
+
+# ユーザーを消したらセッションも残さない。
+query "
+  DELETE FROM users WHERE user_id = 'session-test';
+" >/dev/null
+
+remaining_sessions="$(query "
+  SELECT COUNT(*)
+  FROM sessions
+  WHERE token_hash = UNHEX(REPEAT('ab', 32));
+")"
+
+assert_equals \
+  "0" \
+  "${remaining_sessions}" \
+  "sessions must be removed with their user"
+
 echo "Database migration tests passed."
 bash database/scripts/seed.sh
 
@@ -668,5 +908,16 @@ assert_equals \
   "山田 太郎" \
   "${seeded_user_name}" \
   "development seed must preserve utf8mb4 user names"
+
+seeded_users_without_password="$(query "
+  SELECT COUNT(*)
+  FROM users
+  WHERE user_id LIKE 'friend-%' AND password_hash IS NULL;
+")"
+
+assert_equals \
+  "0" \
+  "${seeded_users_without_password}" \
+  "development seed must set a password for every seeded user"
 
 echo "Database migration and seed tests passed."

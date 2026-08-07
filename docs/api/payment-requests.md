@@ -36,7 +36,7 @@ Content-Type: application/json
 
 候補表示には既存の`GET /api/users/:currentUserId/recipients`を利用します。frontendのオートフィルは入力補助であり、backendへは最終的な個別金額を送ります。
 
-`requesterId`をrequest bodyへ含めても請求者の決定には使用しません。ログイン実装までは、開発環境の`MOCK_USER_ID`から解決したcurrent userが請求者です。
+`requesterId`をrequest bodyへ含めても請求者の決定には使用しません。請求者はセッションから解決したcurrent userです。
 
 ## Response
 
@@ -164,7 +164,7 @@ GET /api/payment-requests?direction=received&status=pending&cursor=<opaque curso
 | `accepted` | 被請求者が承認し、送金された |
 | `rejected` | 成立しなかった               |
 
-`rejected` は「被請求者が拒否した」と「請求者が取り消した」の**両方**を表します。`payment_requests.status` のCHECK制約を変えずに取り消しを扱うためで、DBは誰が終わらせたかを持ちません（Issue #61）。画面のラベルも行為者を示さない「キャンセル」とします。
+`rejected` は「被請求者が拒否した」と「請求者が取り消した」の**両方**を表します。`payment_requests.status` のCHECK制約を変えずに取り消しを扱うためです。どちらの操作だったかは `payment_requests.responded_by` に記録されますが、**一覧のレスポンスには含めていません。** 画面のラベルも行為者を示さない「キャンセル」とします。
 
 ### `400 Bad Request`
 
@@ -192,23 +192,86 @@ GET /api/payment-requests?direction=received&status=pending&cursor=<opaque curso
 }
 ```
 
-# 請求の承認・拒否
+# 請求1件の取得
 
-`pending` の請求に対して、被請求者が承認または拒否します。承認すると残高が動き、取引履歴にも記録されます。
+請求を1件だけ返します。一覧の要素とまったく同じ形です。
+
+## Endpoint
+
+```http
+GET /api/payment-requests/:id
+```
+
+- `:id` は `payment_requests.id` の内部UUID
+- 取得できるのは**当事者（請求者または被請求者）だけ**です
+- `counterparty` は現在ユーザーでない側です。`direction` は受け取りません
+
+確認画面を開いた時点の状態を取り直す用途です（Issue #61）。一覧を読み込んだ時刻と行をタップする時刻の間に状態が変わりうるため、古い情報のまま承認ボタンを出さないようにします。
+
+一覧APIで代用しない理由は、20件ずつのページングでは古い請求へ到達できないためです。
+
+## Response
+
+### `200 OK`
+
+```json
+{
+  "request": {
+    "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "counterparty": {
+      "id": "5e5a4a1e-3b42-4f47-8b1f-b77ef98bf002",
+      "name": "佐藤 花子",
+      "profileUrl": "/assets/profiles/human2.png"
+    },
+    "amount": 3000,
+    "status": "pending",
+    "createdAt": "2026-08-03T01:00:00.000Z",
+    "respondedAt": null
+  }
+}
+```
+
+### エラー
+
+| status | code                        | 条件                                                   |
+| ------ | --------------------------- | ------------------------------------------------------ |
+| `400`  | `INVALID_REQUEST`           | `:id` がUUIDでない                                     |
+| `404`  | `PAYMENT_REQUEST_NOT_FOUND` | 請求が存在しない、**または現在ユーザーが当事者でない** |
+| `404`  | `CURRENT_USER_NOT_FOUND`    | 現在ユーザーが `users` に存在しない                    |
+
+**当事者でない場合も `404` です。** 承認・拒否が `403` を返すのと異なります。読み取りでは「存在するが読めない」と「存在しない」を区別せず、他人の請求IDを当てられても存在を確認できないようにしています。当事者かどうかの判定はSQLの検索条件に含めており、アプリケーション側で弾いているのではありません。
+
+# 請求の承認・拒否・取り消し
+
+`pending` の請求を終わらせます。承認すると残高が動き、取引履歴にも記録されます。
 
 ## Endpoint
 
 ```http
 POST /api/payment-requests/:id/accept
 POST /api/payment-requests/:id/reject
+POST /api/payment-requests/:id/cancel
 ```
 
 - `:id` は `payment_requests.id` の内部UUID
 - request body はありません
 - 現在ユーザーは request から受け取らず、backendのcurrent userから決定します
-- **応答できるのは被請求者だけです。** 請求者や第三者は `403` になります
 
-承認と拒否で経路を分けているのは、URLに動詞を出して意図を明示するためです。
+3つは同じ手続きで、**実行できる当事者・遷移先・残高が動くかだけ**が違います。
+
+| 操作     | 実行できる人 | 結果の `status` | `responded_by` | 残高     |
+| -------- | ------------ | --------------- | -------------- | -------- |
+| `accept` | 被請求者     | `accepted`      | 被請求者       | 動く     |
+| `reject` | 被請求者     | `rejected`      | 被請求者       | 動かない |
+| `cancel` | **請求者**   | `rejected`      | **請求者**     | 動かない |
+
+実行できる当事者でない場合は `403` です。経路を分けているのは、URLに動詞を出して意図を明示するためです。
+
+### 取り消しと拒否はDB上どちらも `rejected` です
+
+`payment_requests.status` のCHECK制約を変えずに取り消しを扱うため、`rejected` が「被請求者の拒否」と「請求者の取り消し」の両方を表します。**どちらの操作だったかは `payment_requests.responded_by` で区別します。**
+
+`status` に `canceled` を足す案より影響が小さく、後から区別できなくなる事態も避けられます。画面のラベルは行為者を示さない「キャンセル」で統一します。
 
 ## 承認 `POST /:id/accept`
 
@@ -240,12 +303,12 @@ POST /api/payment-requests/:id/reject
 
 `balance` は送金後の被請求者の残高です。画面側が `GET /api/me` を取り直さずに完了表示を出せます。
 
-## 拒否 `POST /:id/reject`
+## 拒否 `POST /:id/reject` ・ 取り消し `POST /:id/cancel`
 
-1. 対象が `pending` か、現在ユーザーが被請求者かを確認する
-2. `status='rejected'`、`responded_at=CURRENT_TIMESTAMP(6)` に更新する
+1. 対象が `pending` か、実行できる当事者本人かを確認する
+2. `status='rejected'`、`responded_at=CURRENT_TIMESTAMP(6)`、`responded_by=操作者` に更新する
 
-残高は動きません。そのため `balance` は返しません。
+**残高は動きません。そのため `balance` は返しません。** 拒否は被請求者、取り消しは請求者が実行します。レスポンスの形は同一で、`status` はどちらも `rejected` です。
 
 ### `200 OK`
 
@@ -265,30 +328,43 @@ POST /api/payment-requests/:id/reject
 | status | code                                | 条件                                     |
 | ------ | ----------------------------------- | ---------------------------------------- |
 | `400`  | `INVALID_REQUEST`                   | `:id` がUUIDでない                       |
-| `403`  | `PAYMENT_REQUEST_FORBIDDEN`         | 現在ユーザーが被請求者でない             |
+| `403`  | `PAYMENT_REQUEST_FORBIDDEN`         | その操作を実行できる当事者でない         |
 | `404`  | `PAYMENT_REQUEST_NOT_FOUND`         | 対象の請求が存在しない                   |
 | `404`  | `CURRENT_USER_NOT_FOUND`            | 現在ユーザーが `users` に存在しない      |
-| `409`  | `PAYMENT_REQUEST_ALREADY_RESPONDED` | 確定済みの状態と今回の応答が逆向き       |
+| `409`  | `PAYMENT_REQUEST_ALREADY_RESPONDED` | 決着済みで、今回の操作を再送とみなせない |
 | `422`  | `INSUFFICIENT_BALANCE`              | 被請求者の残高が不足している（承認のみ） |
-
-`409` になるのは `accepted` の請求へ `reject`、`rejected` の請求へ `accept` した場合です。**同じ向きの再送（`accepted` へ `accept`）は `409` ではなく `200` になります**（後述）。
 
 **`409` は画面側の制御だけでは防げません。** 一覧を読み込んだ後に別端末で処理される、といったことが起こりえます。二重送金を防ぐのはserver側の責務です。
 
-### 同じ向きの再送は冪等です
+### 自分が同じ操作で終わらせた請求への再送は冪等です
 
-**すでに `accepted` の請求へ再度 `accept` すると、`409` ではなく `200` を返します。** 残高は動かさず、確定済みの結果をそのまま返します。`rejected` への `reject` も同じです。
+**すでに自分が `accept` した請求へ再度 `accept` すると、`409` ではなく `200` を返します。** 残高は動かさず、確定済みの結果をそのまま返します。`reject` と `cancel` も同じです。
 
-DBのCOMMITは完了したのに応答がclientへ届かない、ということが起こりえます。このとき `409` を返すと、「失敗表示なのにお金は動いている」状態から抜け出せません。同じ向きの再送を冪等にすることで、再送すれば必ず正しい結果へ収束します。
+DBのCOMMITは完了したのに応答がclientへ届かない、ということが起こりえます。このとき `409` を返すと、「失敗表示なのにお金は動いている」状態から抜け出せません。再送を冪等にすることで、再送すれば必ず正しい結果へ収束します。
 
-`accepted` の請求へ `reject` するような**逆向きの操作は `409`** です。これは再送ではなく取り消しにあたるためです。
+**判定には `responded_by` を使い、遷移先が一致するだけでは冪等とみなしません。** 拒否も取り消しも `rejected` になるため、状態だけを見ると区別できないからです。
+
+| 確定済みの状態           | 今回の操作          | 結果                  |
+| ------------------------ | ------------------- | --------------------- |
+| 自分が `accept` した     | `accept`            | `200`（冪等リプレイ） |
+| 自分が `reject` した     | `reject`            | `200`（冪等リプレイ） |
+| 自分が `cancel` した     | `cancel`            | `200`（冪等リプレイ） |
+| 請求者が `cancel` した   | 被請求者の `reject` | **`409`**             |
+| 被請求者が `reject` した | 請求者の `cancel`   | **`409`**             |
+| `accept` 済み            | `reject` / `cancel` | `409`                 |
+
+請求者が取り消した請求へ被請求者が `reject` して `200` が返ると、画面に「請求を拒否しました」と誤って表示されます。**終わらせた本人かどうかまで確認**しているのはこのためです。
+
+`responded_by` が `NULL` の行（列の追加から取り消しAPI導入までの間に確定した行）は、**被請求者が終わらせたものとして扱います。** その期間に請求を終わらせられたのは被請求者だけだからです。
 
 冪等リプレイで返す `balance` は**現時点の残高**で、承認した瞬間の残高とは限りません。その後に別の送金があれば変わります。画面が必要とするのは最新の残高なので、これで問題ありません。
 
-存在しない請求（`404`）と被請求者でない請求（`403`）を区別しています。請求IDは一覧APIで被請求者へ渡しており、当てずっぽうで到達できるものではないためです。
+存在しない請求（`404`）と当事者でない請求（`403`）を区別しています。請求IDは当事者へAPIで渡しており、当てずっぽうで到達できるものではないためです。
 
 **残高不足は `422` です。** Issue #71 の記載は `400` ですが、送金API（`POST /api/transfers`）が同じ条件で `422 INSUFFICIENT_BALANCE` を返しており、同一のエラー型を再利用しています。形式は正しいが状態のせいで処理できない、という意味でも `422` が適切です。
 
-## 未対応
+## 補足
 
-**請求の取り消し（請求者自身によるキャンセル）は含みません。** `payment_requests.status` のCHECK制約が `('pending', 'accepted', 'rejected')` のため、`canceled` を足すには migration が必要です。また `responded_at` は「被請求者が応答した日時」の意味なので、請求者の操作で使うかは別途判断が必要です（Issue #61）。
+`responded_at` は列名のうえでは「被請求者が応答した日時」ですが、取り消しでは請求者の操作時刻が入ります。`responded_by` と合わせて「誰がいつ請求を終わらせたか」として読んでください。
+
+一覧（`GET /api/payment-requests`）と1件取得（`GET /api/payment-requests/:id`）のレスポンスには `responded_by` を含めていません。画面のラベルを行為者で出し分ける必要が出た段階で追加を検討します。
