@@ -40,7 +40,11 @@ describe('useRecipients', () => {
     ]);
     expect(result.current.hasMore).toBe(true);
     // clientはユーザーを指定しない（server側のログイン中ユーザーで決まる）。
-    expect(mockedFetchFriends).toHaveBeenCalledWith(null, undefined);
+    expect(mockedFetchFriends).toHaveBeenCalledWith(
+      null,
+      'created-asc',
+      undefined,
+    );
   });
 
   it('loadMoreで次ページを追記し、最終ページでhasMoreがfalseになる', async () => {
@@ -67,6 +71,7 @@ describe('useRecipients', () => {
     expect(result.current.hasMore).toBe(false);
     expect(mockedFetchFriends).toHaveBeenLastCalledWith(
       'C1',
+      'created-asc',
       expect.any(AbortSignal),
     );
   });
@@ -103,7 +108,11 @@ describe('useRecipients', () => {
       ]);
     });
     // 追加済みのカーソルを引きずらず、1ページ目から取り直す。
-    expect(mockedFetchFriends).toHaveBeenLastCalledWith(null, undefined);
+    expect(mockedFetchFriends).toHaveBeenLastCalledWith(
+      null,
+      'created-asc',
+      undefined,
+    );
   });
 
   it('取得に失敗したらerrorを設定する', async () => {
