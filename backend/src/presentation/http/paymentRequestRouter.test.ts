@@ -10,7 +10,7 @@ import {
   createPaymentRequestCommandRepository,
   createRespondedPaymentRequest,
 } from '../../test/factories/paymentRequestCommandFactory.js';
-import { createPaymentRequestListRepository } from '../../test/factories/paymentRequestListFactory.js';
+import { createPaymentRequestQueryRepository } from '../../test/factories/paymentRequestQueryFactory.js';
 import { createCurrentUser } from '../../test/factories/currentUserFactory.js';
 import { createCurrentUserRepository } from '../../test/factories/currentUserRepositoryFactory.js';
 import { createPaymentRequestRepository } from '../../test/factories/paymentRequestRepositoryFactory.js';
@@ -34,7 +34,7 @@ function createRouterTestApp(
     paymentRequestRepository,
     () => PAYMENT_REQUEST_ID,
   );
-  const paymentRequestListRepository = createPaymentRequestListRepository();
+  const paymentRequestQueryRepository = createPaymentRequestQueryRepository();
   const app = express();
 
   app.use(express.json());
@@ -50,11 +50,11 @@ function createRouterTestApp(
       createPaymentRequests,
       getPaymentRequest: new GetPaymentRequest(
         currentUserRepository,
-        paymentRequestListRepository,
+        paymentRequestQueryRepository,
       ),
       listPaymentRequests: new ListPaymentRequests(
         currentUserRepository,
-        paymentRequestListRepository,
+        paymentRequestQueryRepository,
       ),
       respondToPaymentRequest: new RespondToPaymentRequest(
         currentUserRepository,

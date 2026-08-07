@@ -2,8 +2,8 @@ import type { Pool } from 'mysql2/promise';
 import { describe, expect, it } from 'vitest';
 
 import { createMysqlPool } from '../../test/factories/mysqlPoolFactory.js';
-import { createPaymentRequestRecord } from '../../test/factories/paymentRequestListFactory.js';
-import { MysqlPaymentRequestListRepository } from './mysqlPaymentRequestListRepository.js';
+import { createPaymentRequestRecord } from '../../test/factories/paymentRequestQueryFactory.js';
+import { MysqlPaymentRequestQueryRepository } from './mysqlPaymentRequestQueryRepository.js';
 
 const CURRENT_USER_INTERNAL_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -29,10 +29,10 @@ function createBaseInput(overrides = {}) {
   };
 }
 
-describe('MysqlPaymentRequestListRepository', () => {
+describe('MysqlPaymentRequestQueryRepository', () => {
   it('receivedでは被請求者で絞り、請求者を相手として結合する', async () => {
     const { pool, execute } = createMysqlPool([[]]);
-    const repository = new MysqlPaymentRequestListRepository(pool);
+    const repository = new MysqlPaymentRequestQueryRepository(pool);
 
     await repository.findPaymentRequests(createBaseInput());
 
@@ -50,7 +50,7 @@ describe('MysqlPaymentRequestListRepository', () => {
 
   it('sentでは請求者で絞り、被請求者を相手として結合する', async () => {
     const { pool, execute } = createMysqlPool([[]]);
-    const repository = new MysqlPaymentRequestListRepository(pool);
+    const repository = new MysqlPaymentRequestQueryRepository(pool);
 
     await repository.findPaymentRequests(
       createBaseInput({ direction: 'sent' }),
@@ -81,7 +81,7 @@ describe('MysqlPaymentRequestListRepository', () => {
     'AS respondedAt',
   ])('SELECT句に %s を含む', async (alias) => {
     const { pool, execute } = createMysqlPool([[]]);
-    const repository = new MysqlPaymentRequestListRepository(pool);
+    const repository = new MysqlPaymentRequestQueryRepository(pool);
 
     await repository.findPaymentRequests(createBaseInput());
 
@@ -93,7 +93,7 @@ describe('MysqlPaymentRequestListRepository', () => {
 
   it('新しい順に並べる', async () => {
     const { pool, execute } = createMysqlPool([[]]);
-    const repository = new MysqlPaymentRequestListRepository(pool);
+    const repository = new MysqlPaymentRequestQueryRepository(pool);
 
     await repository.findPaymentRequests(createBaseInput());
 
@@ -105,7 +105,7 @@ describe('MysqlPaymentRequestListRepository', () => {
 
   it('statusを指定すると絞り込み条件と値を追加する', async () => {
     const { pool, execute } = createMysqlPool([[]]);
-    const repository = new MysqlPaymentRequestListRepository(pool);
+    const repository = new MysqlPaymentRequestQueryRepository(pool);
 
     await repository.findPaymentRequests(
       createBaseInput({ status: 'pending' }),
@@ -119,7 +119,7 @@ describe('MysqlPaymentRequestListRepository', () => {
 
   it('カーソルは降順の比較条件になる', async () => {
     const { pool, execute } = createMysqlPool([[]]);
-    const repository = new MysqlPaymentRequestListRepository(pool);
+    const repository = new MysqlPaymentRequestQueryRepository(pool);
     const cursor = {
       createdAt: '2026-08-04 12:00:20.000000',
       id: '00000000-0000-4000-8000-000000000020',
@@ -152,7 +152,7 @@ describe('MysqlPaymentRequestListRepository', () => {
   // mysql2はJavaScriptのnumberをDOUBLEとして送るため、MySQLがLIMITで拒否する。
   it('LIMITは文字列で渡す', async () => {
     const { pool, execute } = createMysqlPool([[]]);
-    const repository = new MysqlPaymentRequestListRepository(pool);
+    const repository = new MysqlPaymentRequestQueryRepository(pool);
 
     await repository.findPaymentRequests(createBaseInput({ limit: 5 }));
 
@@ -165,7 +165,7 @@ describe('MysqlPaymentRequestListRepository', () => {
   it('取得した行をrecordへ写す', async () => {
     const record = createPaymentRequestRecord(1);
     const { pool } = createMysqlPool([[record]]);
-    const repository = new MysqlPaymentRequestListRepository(pool);
+    const repository = new MysqlPaymentRequestQueryRepository(pool);
 
     await expect(
       repository.findPaymentRequests(createBaseInput()),
@@ -176,12 +176,12 @@ describe('MysqlPaymentRequestListRepository', () => {
     const PAYMENT_REQUEST_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
     function findById(pool: Pool) {
-      return new MysqlPaymentRequestListRepository(pool).findPaymentRequestById(
-        {
-          paymentRequestId: PAYMENT_REQUEST_ID,
-          currentUserInternalId: CURRENT_USER_INTERNAL_ID,
-        },
-      );
+      return new MysqlPaymentRequestQueryRepository(
+        pool,
+      ).findPaymentRequestById({
+        paymentRequestId: PAYMENT_REQUEST_ID,
+        currentUserInternalId: CURRENT_USER_INTERNAL_ID,
+      });
     }
 
     // 断片ごとの検証だとTHENとELSEの入れ替えを見逃し、相手が自分自身になる回帰を

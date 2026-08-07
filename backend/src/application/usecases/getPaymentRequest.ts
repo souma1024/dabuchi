@@ -4,9 +4,9 @@ import { CurrentUserNotFoundError } from '../errors/currentUserNotFoundError.js'
 import {
   InvalidPaymentRequestIdError,
   PaymentRequestNotFoundError,
-} from '../errors/paymentRequestCommandErrors.js';
+} from '../errors/paymentRequestErrors.js';
 import type { CurrentUserRepository } from '../ports/currentUserRepository.js';
-import type { PaymentRequestListRepository } from '../ports/paymentRequestListRepository.js';
+import type { PaymentRequestQueryRepository } from '../ports/paymentRequestQueryRepository.js';
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -20,7 +20,7 @@ export interface GetPaymentRequestInput {
 export class GetPaymentRequest {
   constructor(
     private readonly currentUserRepository: CurrentUserRepository,
-    private readonly repository: PaymentRequestListRepository,
+    private readonly repository: PaymentRequestQueryRepository,
   ) {}
 
   async execute(input: GetPaymentRequestInput): Promise<PaymentRequestSummary> {

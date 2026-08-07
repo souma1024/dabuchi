@@ -31,7 +31,7 @@ import {
   PaymentRequestAlreadyRespondedError,
   PaymentRequestForbiddenError,
   PaymentRequestNotFoundError,
-} from '../../application/errors/paymentRequestCommandErrors.js';
+} from '../../application/errors/paymentRequestErrors.js';
 import { InvalidFriendshipError } from '../../domain/friendship.js';
 import { InvalidPasswordError } from '../../domain/password.js';
 import { InvalidFriendshipNoteError } from '../../domain/friendshipNote.js';
