@@ -1,4 +1,7 @@
-import type { PaymentRequestResponse } from '../../domain/paymentRequest.js';
+import type {
+  PaymentRequestAction,
+  PaymentRequestResponse,
+} from '../../domain/paymentRequest.js';
 import { mysqlDateTimeToIso } from '../../shared/mysqlDateTime.js';
 import { CurrentUserNotFoundError } from '../errors/currentUserNotFoundError.js';
 import { InvalidPaymentRequestIdError } from '../errors/paymentRequestCommandErrors.js';
@@ -12,7 +15,7 @@ export interface RespondToPaymentRequestInput {
   /** 公開user_id。内部UUIDではない。 */
   currentUserId: string;
   paymentRequestId: string;
-  response: PaymentRequestResponse;
+  action: PaymentRequestAction;
 }
 
 export interface RespondToPaymentRequestResult {
@@ -22,7 +25,7 @@ export interface RespondToPaymentRequestResult {
     status: PaymentRequestResponse;
     respondedAt: string;
   };
-  /** 承認後の残高。拒否では残高が動かないためnull。 */
+  /** 承認後の残高。拒否・取り消しでは残高が動かないためnull。 */
   balance: number | null;
 }
 
@@ -53,7 +56,7 @@ export class RespondToPaymentRequest {
     const responded = await this.repository.respond({
       paymentRequestId: input.paymentRequestId,
       currentUserInternalId: currentUser.id,
-      response: input.response,
+      action: input.action,
     });
 
     return {

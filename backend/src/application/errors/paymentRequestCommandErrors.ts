@@ -7,23 +7,25 @@ export class PaymentRequestNotFoundError extends Error {
 }
 
 /**
- * 現在ユーザーが被請求者でない。HTTPでは403。
+ * 現在ユーザーが、その操作をできる当事者でない。HTTPでは403。
  *
- * 請求者や第三者が承認・拒否しようとした場合。存在自体は隠さない。
- * 請求IDは被請求者へ一覧APIで渡しており、当てずっぽうで到達できるものではないため。
+ * 承認・拒否は被請求者だけ、取り消しは請求者だけができる。存在自体は隠さない。
+ * 請求IDは当事者へAPIで渡しており、当てずっぽうで到達できるものではないため。
  */
 export class PaymentRequestForbiddenError extends Error {
-  constructor() {
-    super('Only the recipient can respond to this payment request.');
+  constructor(actor: 'requester' | 'recipient') {
+    super(`Only the ${actor} can perform this action on the payment request.`);
     this.name = 'PaymentRequestForbiddenError';
   }
 }
 
 /**
- * 対象が既に承認・拒否済み。HTTPでは409。
+ * 対象が既に決着済みで、今回の操作を冪等な再送とみなせない。HTTPでは409。
  *
  * 画面側の制御だけでは防げない。一覧を読み込んだ後に別端末で処理されることが
  * あるため、二重実行を止めるのはserver側の責務。
+ *
+ * 自分が同じ操作で終わらせた請求への再送は、409ではなく冪等リプレイとして200になる。
  */
 export class PaymentRequestAlreadyRespondedError extends Error {
   constructor() {

@@ -6,8 +6,8 @@ import type { GetPaymentRequest } from '../../application/usecases/getPaymentReq
 import type { ListPaymentRequests } from '../../application/usecases/listPaymentRequests.js';
 import type { RespondToPaymentRequest } from '../../application/usecases/respondToPaymentRequest.js';
 import type {
+  PaymentRequestAction,
   PaymentRequestDirection,
-  PaymentRequestResponse,
   PaymentRequestState,
 } from '../../domain/paymentRequest.js';
 import {
@@ -90,19 +90,19 @@ export function createPaymentRequestRouter({
 }: PaymentRequestRouterDependencies) {
   const router = Router();
 
-  // 承認と拒否は同じ手続きで、残高が動くかどうかだけが違う。
+  // 承認・拒否・取り消しは同じ手続きで、実行できる当事者・遷移先・残高が動くかだけが違う。
   // 経路を分けるのは、URLに動詞を出して意図を明示するため。
   const respond =
-    (response: PaymentRequestResponse): RequestHandler =>
+    (action: PaymentRequestAction): RequestHandler =>
     async (request, httpResponse, next) => {
       try {
         const result = await respondToPaymentRequest.execute({
           currentUserId: currentUserPublicId,
           paymentRequestId: parsePathId(request.params.id),
-          response,
+          action,
         });
 
-        // 残高は承認時のみ返す。拒否では動かないため項目ごと省く。
+        // 残高は承認時のみ返す。拒否・取り消しでは動かないため項目ごと省く。
         httpResponse
           .status(200)
           .json(
@@ -115,8 +115,10 @@ export function createPaymentRequestRouter({
       }
     };
 
-  router.post('/:id/accept', respond('accepted'));
-  router.post('/:id/reject', respond('rejected'));
+  router.post('/:id/accept', respond('accept'));
+  router.post('/:id/reject', respond('reject'));
+  // 取り消しは請求者の操作。DB上はrejectedになり、responded_byで拒否と区別する。
+  router.post('/:id/cancel', respond('cancel'));
 
   // 確認画面を開いた時点の状態を取り直す用途（Issue #61）。
   // 一覧を読んでからタップするまでに状態が変わりうるため、古い情報のまま
