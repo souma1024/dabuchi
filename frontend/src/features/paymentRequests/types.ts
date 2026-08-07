@@ -36,6 +36,18 @@ export interface PaymentRequest {
   respondedAt: string | null;
 }
 
+/**
+ * 承認・拒否・取り消しの結果（Issue #71）。
+ * 相手と請求日は操作で変わらないため返らない。画面は元の請求へ重ねて使う。
+ */
+export type RespondedPaymentRequest = Pick<
+  PaymentRequest,
+  'id' | 'amount' | 'status'
+> & {
+  /** 操作した日時。決着しているので必ず入る。 */
+  respondedAt: string;
+};
+
 /** 請求一覧の1ページ分。 */
 export interface PaymentRequestPage {
   requests: PaymentRequest[];

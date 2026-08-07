@@ -36,7 +36,7 @@ export function PaymentRequestConfirmationPage({
   onDone,
 }: PaymentRequestConfirmationPageProps) {
   const { request, isLoading, isSubmitting, error, completed, respond } =
-    usePaymentRequestConfirmation(direction, id);
+    usePaymentRequestConfirmation(id);
   const { currentUser } = useCurrentUser();
 
   const isReceived = direction === 'received';

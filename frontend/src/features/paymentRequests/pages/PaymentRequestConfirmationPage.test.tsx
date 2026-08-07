@@ -3,9 +3,24 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import * as currentUserModule from '../../currentUser/api/fetchCurrentUser';
-import * as mockModule from '../mockPaymentRequests';
-import type { PaymentRequest, PaymentRequestDirection } from '../types';
+import {
+  fetchPaymentRequest,
+  respondToPaymentRequest,
+} from '../api/paymentRequestsClient';
+import type {
+  PaymentRequest,
+  PaymentRequestDirection,
+  RespondedPaymentRequest,
+} from '../types';
 import { PaymentRequestConfirmationPage } from './PaymentRequestConfirmationPage';
+
+vi.mock('../api/paymentRequestsClient', () => ({
+  fetchPaymentRequest: vi.fn(),
+  respondToPaymentRequest: vi.fn(),
+}));
+
+const mockedFetch = vi.mocked(fetchPaymentRequest);
+const mockedRespond = vi.mocked(respondToPaymentRequest);
 
 const request: PaymentRequest = {
   id: 'payment-request-1',
@@ -40,19 +55,18 @@ function renderPage(
 ) {
   stubCurrentUser(balance);
   const found = overrides === null ? null : { ...request, ...overrides };
-  vi.spyOn(mockModule, 'fetchMockPaymentRequest').mockResolvedValue(found);
-  // respondToMockPaymentRequestは内部でfetchMockPaymentRequestを呼ぶが、
-  // 同一モジュール内の参照はspyを経由しないため、こちらも差し替える。
-  vi.spyOn(mockModule, 'respondToMockPaymentRequest').mockImplementation(
-    (_direction, _id, action) =>
-      found === null
-        ? Promise.reject(new Error('この請求は見つかりませんでした'))
-        : Promise.resolve({
-            ...found,
-            // 拒否も取り消しもrejectedになる。実APIと同じ対応にする。
-            status: action === 'accept' ? 'accepted' : 'rejected',
-            respondedAt: '2026-08-06T03:00:00.000Z',
-          }),
+  mockedFetch.mockResolvedValue(found);
+  // 実APIは相手と請求日を返さない。画面は取得済みの請求へ重ねて表示する。
+  mockedRespond.mockImplementation((_id, action) =>
+    found === null
+      ? Promise.reject(new Error('この請求は見つかりませんでした'))
+      : Promise.resolve({
+          id: found.id,
+          amount: found.amount,
+          // 拒否も取り消しもrejectedになる。
+          status: action === 'accept' ? 'accepted' : 'rejected',
+          respondedAt: '2026-08-06T03:00:00.000Z',
+        }),
   );
 
   return render(
@@ -67,6 +81,8 @@ function renderPage(
 
 afterEach(() => {
   vi.restoreAllMocks();
+  mockedFetch.mockReset();
+  mockedRespond.mockReset();
   onBack.mockClear();
   onDone.mockClear();
 });
@@ -151,13 +167,13 @@ describe('PaymentRequestConfirmationPage', () => {
   // 取り消しをrejectで送ると403になるため、送っている操作名まで固定する。
   it('拒否と取り消しを別の操作として送る', async () => {
     renderPage();
-    const respond = vi.spyOn(mockModule, 'respondToMockPaymentRequest');
+    const respond = mockedRespond;
 
     await userEvent.click(
       await screen.findByRole('button', { name: '拒否する' }),
     );
     await screen.findByText('請求を拒否しました');
-    expect(respond).toHaveBeenLastCalledWith('received', request.id, 'reject');
+    expect(respond).toHaveBeenLastCalledWith(request.id, 'reject');
 
     cleanup();
     renderPage({}, 'sent');
@@ -166,7 +182,7 @@ describe('PaymentRequestConfirmationPage', () => {
       await screen.findByRole('button', { name: '請求を取り消す' }),
     );
     await screen.findByText('請求を取り消しました');
-    expect(respond).toHaveBeenLastCalledWith('sent', request.id, 'cancel');
+    expect(respond).toHaveBeenLastCalledWith(request.id, 'cancel');
   });
 
   // 取り消しはお金が動かないため、残高を出さず操作も1つだけにする。
@@ -216,7 +232,7 @@ describe('PaymentRequestConfirmationPage', () => {
   // お金が動く操作なので、連打しても1度しか実行されないようにする。
   it('連打しても1度しか実行しない', async () => {
     renderPage();
-    const spy = vi.spyOn(mockModule, 'respondToMockPaymentRequest');
+    const spy = mockedRespond;
     const button = await screen.findByRole('button', {
       name: '承認して送金する',
     });
@@ -231,7 +247,7 @@ describe('PaymentRequestConfirmationPage', () => {
   // 押した瞬間と処理される瞬間の間にも時間差があるため、実行時にも状態を見る。
   it('実行時に処理済みだったらエラーを伝える', async () => {
     renderPage();
-    vi.spyOn(mockModule, 'respondToMockPaymentRequest').mockRejectedValue(
+    mockedRespond.mockRejectedValue(
       new Error('この請求はすでに処理されています'),
     );
 
@@ -242,5 +258,111 @@ describe('PaymentRequestConfirmationPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'この請求はすでに処理されています',
     );
+  });
+
+  // 確認画面はidが変わっても再描画で済むため、フックの状態が持ち越される。
+  // 前の請求が残ると、新しい請求の取得中に古い金額のまま操作できてしまう。
+  it('idが変わったら前の請求を表示しない', async () => {
+    stubCurrentUser(120000);
+    const other: PaymentRequest = {
+      ...request,
+      id: 'payment-request-2',
+      amount: 8800,
+      counterparty: { ...request.counterparty, name: '鈴木 一郎' },
+    };
+    // 2件目の取得は保留し、切り替え直後の表示を観察する。
+    let resolveOther: (value: PaymentRequest) => void = () => {};
+    mockedFetch.mockResolvedValueOnce(request).mockReturnValueOnce(
+      new Promise<PaymentRequest>((resolve) => {
+        resolveOther = resolve;
+      }),
+    );
+
+    const { rerender } = render(
+      <PaymentRequestConfirmationPage
+        direction="received"
+        id={request.id}
+        onBack={onBack}
+        onDone={onDone}
+      />,
+    );
+    await screen.findByText('佐藤 花子 さん');
+
+    rerender(
+      <PaymentRequestConfirmationPage
+        direction="received"
+        id={other.id}
+        onBack={onBack}
+        onDone={onDone}
+      />,
+    );
+
+    // 取得が終わるまでは、前の相手も金額も出さない。
+    expect(screen.queryByText('佐藤 花子 さん')).not.toBeInTheDocument();
+    expect(screen.queryByText('3,000円')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: '承認して送金する' }),
+    ).not.toBeInTheDocument();
+
+    resolveOther(other);
+    expect(await screen.findByText('鈴木 一郎 さん')).toBeInTheDocument();
+  });
+
+  // 操作の結果は相手と請求日を返さないため、取得済みの請求へ重ねている。
+  // 送信中にidが変わると、前の請求の結果を新しい請求へ重ねてしまう。
+  it('送信中にidが変わったら前の請求の結果を混ぜない', async () => {
+    stubCurrentUser(120000);
+    const other: PaymentRequest = {
+      ...request,
+      id: 'payment-request-2',
+      amount: 8800,
+      counterparty: { ...request.counterparty, name: '鈴木 一郎' },
+    };
+    mockedFetch.mockImplementation((id) =>
+      Promise.resolve(id === request.id ? request : other),
+    );
+    // 1件目の操作は、切り替えた後に返す。
+    let resolveRespond: (value: RespondedPaymentRequest) => void = () => {};
+    mockedRespond.mockReturnValueOnce(
+      new Promise<RespondedPaymentRequest>((resolve) => {
+        resolveRespond = resolve;
+      }),
+    );
+
+    const { rerender } = render(
+      <PaymentRequestConfirmationPage
+        direction="received"
+        id={request.id}
+        onBack={onBack}
+        onDone={onDone}
+      />,
+    );
+    await userEvent.click(
+      await screen.findByRole('button', { name: '承認して送金する' }),
+    );
+
+    rerender(
+      <PaymentRequestConfirmationPage
+        direction="received"
+        id={other.id}
+        onBack={onBack}
+        onDone={onDone}
+      />,
+    );
+    await screen.findByText('鈴木 一郎 さん');
+
+    resolveRespond({
+      id: request.id,
+      amount: request.amount,
+      status: 'accepted',
+      respondedAt: '2026-08-06T03:00:00.000Z',
+    });
+
+    // 前の請求の結果で完了表示に切り替わらず、金額も混ざらない。
+    await waitFor(() => {
+      expect(screen.getByText('8,800円')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('送金しました')).not.toBeInTheDocument();
+    expect(screen.queryByText('3,000円')).not.toBeInTheDocument();
   });
 });
