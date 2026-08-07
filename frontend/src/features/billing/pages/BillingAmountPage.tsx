@@ -37,6 +37,8 @@ interface BillingAmountFormProps {
 }
 
 // 請求は自分の口座からお金が出ないため、送金画面のような残高による上限は設けない。
+// ただし金額そのものの上限（AMOUNT_LIMIT）は送金と揃えて課す。共通の金額バリデーション
+// （getAmountError / isSubmittableAmount）が担うため、この画面での追加処理は要らない。
 function BillingAmountForm({ recipients }: BillingAmountFormProps) {
   const navigate = useNavigate();
   const { amounts, isAutofillActive, setAmount } =
