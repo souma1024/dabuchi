@@ -124,6 +124,16 @@ describe('TransferAmountPage', () => {
     expect(await screen.findByText('テスト花子')).toBeInTheDocument();
   });
 
+  it('左上の戻るボタンで送金相手の選択画面へ戻る', async () => {
+    mockApi({});
+    const user = userEvent.setup();
+    renderPage(RECIPIENT);
+
+    await user.click(await screen.findByRole('button', { name: '戻る' }));
+
+    expect(screen.getByText('相手選択画面へ移動')).toBeInTheDocument();
+  });
+
   it('送金上限額は残高に関わらず常に80,000円と表示する', async () => {
     // 残高は50,000円だが、上限額の表示は80,000円で固定。
     mockApi({});

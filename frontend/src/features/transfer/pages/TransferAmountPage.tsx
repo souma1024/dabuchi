@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 
 import { RecipientAmountPage } from '../../../components/RecipientAmountPage';
 import { isRecipient } from '../../../hooks/useRecipientFromLocationState';
@@ -12,6 +12,10 @@ import { randomId } from '../../../lib/randomId';
 const containerStyle =
   'mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center bg-slate-50 px-5 py-8 text-center';
 
+/** 送金相手を選び直すための画面。相手選択画面はpurpose未指定なら送金フローとして動く。
+ *  戻るボタンの遷移先と、相手が渡されなかった場合の差し戻し先を兼ねる。 */
+const RECIPIENT_SELECTION_PATH = '/recipients';
+
 export function TransferAmountPage() {
   const location = useLocation();
   const stateRecipient = (location.state as { recipient?: unknown } | null)
@@ -20,7 +24,7 @@ export function TransferAmountPage() {
   // 相手が渡されていない（画面更新などで location.state が失われた）場合、モックへ
   // フォールバックしない。実残高を動かすため、意図しない相手への送金を防ぎ、相手選択へ戻す。
   if (!isRecipient(stateRecipient)) {
-    return <Navigate to="/recipients" replace />;
+    return <Navigate to={RECIPIENT_SELECTION_PATH} replace />;
   }
 
   return <TransferAmountForm recipient={stateRecipient} />;
@@ -34,8 +38,14 @@ interface LastAttempt {
 
 function TransferAmountForm({ recipient }: { recipient: Recipient }) {
   const { currentUser, isLoading, error } = useCurrentUser();
+  const navigate = useNavigate();
   // 直前の送金内容(相手・金額)と冪等キーを保持する。
   const lastAttemptRef = useRef<LastAttempt | null>(null);
+
+  // 戻るは送金相手の選択画面へ。金額入力の履歴を残さないようreplaceで置き換え、
+  // 相手選択→送金→戻るを繰り返しても履歴が積み上がらないようにする。
+  const handleBack = () =>
+    void navigate(RECIPIENT_SELECTION_PATH, { replace: true });
 
   if (isLoading) {
     return (
@@ -70,6 +80,7 @@ function TransferAmountForm({ recipient }: { recipient: Recipient }) {
   return (
     <RecipientAmountPage
       recipient={recipient}
+      onBack={handleBack}
       heading="送金先"
       amountLabel="送金金額"
       submitLabel="送金"
