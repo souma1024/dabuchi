@@ -11,8 +11,12 @@ interface RawConnection {
 }
 
 export function createDatabasePool(config: DatabaseConfig): Pool {
+  const { ssl, ...connection } = config;
   const pool = createPool({
-    ...config,
+    ...connection,
+    // TiDB Cloudなどは公的CAの証明書を使うため、追加の証明書は要らない。
+    // 検証は無効にしない（無効にすると経路上のなりすましを防げない）。
+    ...(ssl ? { ssl: { minVersion: 'TLSv1.2' as const } } : {}),
     connectionLimit: 5,
     dateStrings: true,
   });

@@ -1,0 +1,27 @@
+# Renderの設定。GitHubのdevブランチを繋いで使う。
+# 秘密情報（DBのパスワードなど）はここへ書かず、Renderの画面で設定する。
+services:
+  - type: web
+    name: dabuchi
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    branch: dev
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # TiDB CloudはTLS必須。無効にすると接続を拒否される。
+      - key: MYSQL_SSL
+        value: 'true'
+      # 以下はRenderの画面で設定する（sync: falseは値を持たせない指定）。
+      - key: MYSQL_HOST
+        sync: false
+      - key: MYSQL_PORT
+        sync: false
+      - key: MYSQL_DATABASE
+        sync: false
+      - key: MYSQL_USER
+        sync: false
+      - key: MYSQL_PASSWORD
+        sync: false

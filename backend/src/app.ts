@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+
 import express from 'express';
 
 import type { CreatePaymentRequests } from './application/createPaymentRequests.js';
@@ -116,6 +119,19 @@ export function createApp(dependencies: AppDependencies) {
       respondToPaymentRequest: dependencies.respondToPaymentRequest,
     }),
   );
+
+  // 本番はフロントを同じオリジンから配信する。別オリジンにするとCookieを
+  // SameSite=Noneへ緩めCORSも要るため、経路を分けない方が守りやすい。
+  const frontendDirectory = process.env.FRONTEND_DIST_PATH;
+
+  if (frontendDirectory !== undefined && existsSync(frontendDirectory)) {
+    app.use(express.static(frontendDirectory));
+
+    // SPAのルーティングはclient側にあるため、APIで拾えなかったGETはindex.htmlを返す。
+    app.get(/^\/(?!api\/|health).*/, (_request, response) => {
+      response.sendFile(path.join(frontendDirectory, 'index.html'));
+    });
+  }
 
   app.use((_request, response) => {
     response.status(404).json({ error: 'Not Found' });

@@ -27,6 +27,7 @@ const CONFIG: DatabaseConfig = {
   database: 'dabuchi',
   user: 'dabuchi_app',
   password: 'local-password',
+  ssl: false,
 };
 
 function getConnectionListener(): ConnectionListener {
@@ -48,8 +49,10 @@ describe('createDatabasePool', () => {
   it('接続オプションを渡し、新規コネクションのリスナーを登録する', () => {
     createDatabasePool(CONFIG);
 
+    // sslは接続オプションへそのまま渡さず、有効なときだけTLS設定へ変換する。
+    const { ssl: _ssl, ...connection } = CONFIG;
     expect(createPoolMock).toHaveBeenCalledWith({
-      ...CONFIG,
+      ...connection,
       connectionLimit: 5,
       dateStrings: true,
     });

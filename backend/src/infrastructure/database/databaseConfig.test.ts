@@ -16,7 +16,15 @@ describe('loadDatabaseConfig', () => {
       database: 'dabuchi',
       user: 'dabuchi_app',
       password: 'local-password',
+      ssl: false,
     });
+  });
+
+  // managed MySQL（TiDB Cloudなど）はTLS必須。既定は平文のcompose向けに合わせる。
+  it('MYSQL_SSLがtrueならTLSで接続する', () => {
+    expect(
+      loadDatabaseConfig({ ...validEnvironment, MYSQL_SSL: 'true' }).ssl,
+    ).toBe(true);
   });
 
   it('必須項目がなければ設定エラーにする', () => {

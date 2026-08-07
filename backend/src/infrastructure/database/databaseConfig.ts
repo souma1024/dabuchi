@@ -4,6 +4,8 @@ export interface DatabaseConfig {
   database: string;
   user: string;
   password: string;
+  /** TLSで接続するか。TiDB Cloudなど managed MySQL は必須。 */
+  ssl: boolean;
 }
 
 function requireEnvironmentValue(
@@ -35,5 +37,7 @@ export function loadDatabaseConfig(
     database: requireEnvironmentValue(environment, 'MYSQL_DATABASE'),
     user: requireEnvironmentValue(environment, 'MYSQL_USER'),
     password: requireEnvironmentValue(environment, 'MYSQL_PASSWORD'),
+    // composeのMySQLは平文で繋ぐため既定はfalse。managed MySQLでのみ有効にする。
+    ssl: environment.MYSQL_SSL === 'true',
   };
 }
