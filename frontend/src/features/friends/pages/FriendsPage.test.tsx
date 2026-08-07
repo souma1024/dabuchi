@@ -1,4 +1,6 @@
+import type { ComponentProps } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { FriendPage } from '../api/friendsClient';
@@ -33,6 +35,14 @@ function page(friends: Friend[], nextCursor: string | null = null): FriendPage {
   return { friends, nextCursor };
 }
 
+function renderPage(props: ComponentProps<typeof FriendsPage> = {}) {
+  return render(
+    <MemoryRouter>
+      <FriendsPage {...props} />
+    </MemoryRouter>,
+  );
+}
+
 describe('FriendsPage', () => {
   beforeEach(() => {
     mockedFetchFriends.mockReset();
@@ -45,18 +55,23 @@ describe('FriendsPage', () => {
   it('友達を氏名とユーザーIDで一覧表示する', async () => {
     mockedFetchFriends.mockResolvedValue(page(createFriends(2)));
 
-    render(<FriendsPage />);
+    renderPage();
 
     expect(await screen.findByText('友達 1')).toBeInTheDocument();
     // 友達追加は公開user_idで行うため、一覧にもそれを出す。
     expect(screen.getByText('friend-001')).toBeInTheDocument();
     expect(screen.getByText('友達 2')).toBeInTheDocument();
+    expect(mockedFetchFriends).toHaveBeenCalledWith(
+      null,
+      'created-asc',
+      undefined,
+    );
   });
 
   it('友達がいない場合はメッセージを表示する', async () => {
     mockedFetchFriends.mockResolvedValue(page([]));
 
-    render(<FriendsPage />);
+    renderPage();
 
     expect(await screen.findByText('まだ友達がいません')).toBeInTheDocument();
   });
@@ -64,7 +79,7 @@ describe('FriendsPage', () => {
   it('読み込み中はローディングを表示する', () => {
     mockedFetchFriends.mockReturnValue(new Promise<FriendPage>(() => {}));
 
-    render(<FriendsPage />);
+    renderPage();
 
     expect(screen.getByText('読み込み中…')).toBeInTheDocument();
   });
@@ -72,7 +87,7 @@ describe('FriendsPage', () => {
   it('取得に失敗したらエラーを表示する', async () => {
     mockedFetchFriends.mockRejectedValue(new Error('友達の取得に失敗しました'));
 
-    render(<FriendsPage />);
+    renderPage();
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       '友達の取得に失敗しました',
@@ -86,7 +101,7 @@ describe('FriendsPage', () => {
       .mockResolvedValueOnce(page([...createFriends(1), added]));
     mockedAddFriend.mockResolvedValue(added);
 
-    render(<FriendsPage />);
+    renderPage();
     await screen.findByText('友達 1');
 
     fireEvent.change(screen.getByLabelText('ユーザーID'), {
@@ -102,7 +117,7 @@ describe('FriendsPage', () => {
     mockedFetchFriends.mockResolvedValue(page(createFriends(1)));
     const onBack = vi.fn();
 
-    render(<FriendsPage onBack={onBack} />);
+    renderPage({ onBack });
 
     fireEvent.click(await screen.findByRole('button', { name: '戻る' }));
 
@@ -113,7 +128,7 @@ describe('FriendsPage', () => {
     mockedFetchFriends.mockResolvedValue(page(createFriends(1)));
     const onOpenBlockedFriends = vi.fn();
 
-    render(<FriendsPage onOpenBlockedFriends={onOpenBlockedFriends} />);
+    renderPage({ onOpenBlockedFriends });
 
     fireEvent.click(
       await screen.findByRole('button', { name: 'ブロックリスト' }),
@@ -127,7 +142,7 @@ describe('FriendsPage', () => {
       .mockResolvedValueOnce(page(createFriends(20), 'next-cursor'))
       .mockResolvedValueOnce(page([createFriend(21)]));
 
-    render(<FriendsPage />);
+    renderPage();
     await screen.findByText('友達 1');
 
     await intersection.trigger();
@@ -137,7 +152,33 @@ describe('FriendsPage', () => {
     });
     expect(mockedFetchFriends).toHaveBeenLastCalledWith(
       'next-cursor',
+      'created-asc',
       expect.any(AbortSignal),
+    );
+  });
+
+  it('並び順を切り替えると先頭から取り直す', async () => {
+    mockedFetchFriends
+      .mockResolvedValueOnce(page(createFriends(2)))
+      .mockResolvedValueOnce(page([createFriend(10), createFriend(11)]));
+
+    renderPage();
+    expect(await screen.findByText('友達 1')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '新しい順' }));
+
+    expect(await screen.findByText('友達 10')).toBeInTheDocument();
+    expect(mockedFetchFriends).toHaveBeenNthCalledWith(
+      1,
+      null,
+      'created-asc',
+      undefined,
+    );
+    expect(mockedFetchFriends).toHaveBeenNthCalledWith(
+      2,
+      null,
+      'created-desc',
+      undefined,
     );
   });
 
@@ -146,7 +187,7 @@ describe('FriendsPage', () => {
     async function openDetail(friend: Friend) {
       mockedFetchFriends.mockResolvedValue(page([friend]));
 
-      render(<FriendsPage />);
+      renderPage();
 
       fireEvent.click(
         await screen.findByRole('button', {

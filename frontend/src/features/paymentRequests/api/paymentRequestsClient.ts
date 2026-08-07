@@ -50,6 +50,8 @@ function isPaymentRequest(value: unknown): value is PaymentRequest {
     Number.isSafeInteger(request.amount) &&
     request.amount > 0 &&
     statuses.some((status) => status === request.status) &&
+    // 決着済みなら誰が終わらせたかが必ず入る（V8で必須化）。pendingはnull。
+    (request.endedByMe === null || typeof request.endedByMe === 'boolean') &&
     // 文字列であっても日付として解釈できなければ、表示時に空欄になるため弾く。
     isIsoDateTime(request.createdAt) &&
     (request.respondedAt === null || isIsoDateTime(request.respondedAt))

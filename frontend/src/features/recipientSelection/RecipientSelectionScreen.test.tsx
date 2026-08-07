@@ -63,6 +63,11 @@ describe('RecipientSelectionScreen', () => {
     expect(
       screen.getByRole('button', { name: '佐藤 花子' }),
     ).toBeInTheDocument();
+    expect(mockedFetchFriends).toHaveBeenCalledWith(
+      null,
+      'created-asc',
+      undefined,
+    );
   });
 
   it('読み込み中はローディングを表示する', () => {
@@ -103,6 +108,46 @@ describe('RecipientSelectionScreen', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       '送金相手の取得に失敗しました',
+    );
+  });
+
+  it('並び順を切り替えると先頭から取り直す', async () => {
+    mockedFetchFriends
+      .mockResolvedValueOnce(page(sampleFriends))
+      .mockResolvedValueOnce(
+        page([
+          createFriend(10, {
+            friend: {
+              id: 'user-10',
+              userId: 'friend-010',
+              name: '友達 10',
+              profileUrl: '/assets/profiles/human4.png',
+            },
+          }),
+        ]),
+      );
+
+    render(<RecipientSelectionScreen onSelectRecipient={vi.fn()} />);
+    expect(
+      await screen.findByRole('button', { name: '山田 太郎' }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '新しい順' }));
+
+    expect(
+      await screen.findByRole('button', { name: '友達 10' }),
+    ).toBeInTheDocument();
+    expect(mockedFetchFriends).toHaveBeenNthCalledWith(
+      1,
+      null,
+      'created-asc',
+      undefined,
+    );
+    expect(mockedFetchFriends).toHaveBeenNthCalledWith(
+      2,
+      null,
+      'created-desc',
+      undefined,
     );
   });
 

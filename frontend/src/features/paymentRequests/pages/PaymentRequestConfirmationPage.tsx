@@ -3,7 +3,7 @@ import { UserAvatar } from '../../../components/UserAvatar';
 import { useCurrentUser } from '../../currentUser/hooks/useCurrentUser';
 import { formatJstDateTime } from '../../../lib/formatJstDate';
 import { usePaymentRequestConfirmation } from '../hooks/usePaymentRequestConfirmation';
-import type { PaymentRequestDirection } from '../types';
+import type { PaymentRequest, PaymentRequestDirection } from '../types';
 
 const noticeStyle = 'px-5 py-10 text-center text-sm text-slate-500';
 const primaryStyle =
@@ -18,6 +18,36 @@ interface PaymentRequestConfirmationPageProps {
   onBack?: () => void;
   /** 残高が変わったときの戻り先。ホームを想定。 */
   onDone?: () => void;
+}
+
+/**
+ * 決着済みの請求を開いたときの説明。
+ *
+ * 「キャンセルされました」だけでは、相手が取り下げたのか自分が何かしたのか
+ * 分からない。誰がどの操作で終わらせたかまで出して、次にどうすればよいかを示す。
+ *
+ * 拒否できるのは被請求者、取り下げられるのは請求者だけなので、endedByMeと
+ * directionの組み合わせで操作が一意に決まる。
+ */
+function settledMessage(request: PaymentRequest, isReceived: boolean): string {
+  if (request.status === 'accepted') {
+    return isReceived ? 'この請求は支払い済みです' : '相手が支払いました';
+  }
+
+  // endedByMeが欠けた場合だけ、行為者を示さない言い方へ落とす。
+  if (request.endedByMe === null) {
+    return 'この請求はキャンセルされました';
+  }
+
+  const endedByRecipient = isReceived ? request.endedByMe : !request.endedByMe;
+
+  if (endedByRecipient) {
+    return isReceived ? 'この請求を拒否しました' : '相手が請求を拒否しました';
+  }
+
+  return isReceived
+    ? '相手が請求を取り下げました'
+    : 'この請求は取り下げ済みです';
 }
 
 /**
@@ -97,13 +127,15 @@ export function PaymentRequestConfirmationPage({
     const goneMessage =
       request === null
         ? 'この請求は見つかりませんでした'
-        : request.status === 'accepted'
-          ? 'この請求は支払い済みです'
-          : 'この請求はキャンセルされました';
+        : settledMessage(request, isReceived);
 
     return (
       <main className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white">
         <ScreenHeader title={title} onBack={onBack} />
+        {/*
+          できることが「戻る」しかない画面なので、完了表示と同じく中央へ収める。
+          最下部へ置くと、実行した直後の完了表示との間で押す場所が飛ぶ。
+        */}
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
           {request !== null && (
             <UserAvatar
@@ -114,9 +146,12 @@ export function PaymentRequestConfirmationPage({
           <p role="alert" className="m-0 text-sm font-semibold text-slate-700">
             {goneMessage}
           </p>
-        </div>
-        <div className="p-5">
-          <button type="button" onClick={onBack} className={secondaryStyle}>
+          {/* 確認画面のボタンと同じ幅にする。中央寄せでも押しやすさを保つため。 */}
+          <button
+            type="button"
+            onClick={onBack}
+            className={`${secondaryStyle} mt-4`}
+          >
             一覧に戻る
           </button>
         </div>
@@ -129,7 +164,12 @@ export function PaymentRequestConfirmationPage({
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white">
-      <ScreenHeader title={title} onBack={onBack} />
+      {/*
+        実行中は戻る矢印を出さない。ボタンは無効化しているのに矢印だけ生きていると、
+        送金の最中に画面を離れられてしまう。処理はサーバー側で完了するが、
+        利用者は結果を見ないまま去ることになる。
+      */}
+      <ScreenHeader title={title} onBack={isSubmitting ? undefined : onBack} />
 
       <div className="flex flex-col items-center gap-1 px-5 pt-8 pb-6 text-center">
         <UserAvatar

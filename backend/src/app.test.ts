@@ -649,6 +649,10 @@ describe('backend application', () => {
     [{ recipientId: CURRENT_USER_ID, amount: 1500 }, 'different'],
     [{ recipientId, amount: 0 }, 'amount'],
     [{ recipientId, amount: 10.5 }, 'amount'],
+    // 上限（80,000円）を1円でも超える送金は受理しない。
+    [{ recipientId, amount: 80_001 }, 'amount'],
+    // 安全な整数でも上限を超えれば受理しない（桁数ではなく上限で弾く）。
+    [{ recipientId, amount: Number.MAX_SAFE_INTEGER }, 'amount'],
   ])('不正な入力に400を返す: %j', async (body, expectedError) => {
     const repository = new InMemoryTransferRepository();
     const response = await request(createTransferTestApp(repository))
@@ -664,6 +668,32 @@ describe('backend application', () => {
       },
     });
     expect(repository.transfers).toEqual([]);
+  });
+
+  // 上限直下（79,999円）と上限ちょうど（80,000円）はどちらも送金できる。
+  it.each([79_999, 80_000])('上限以下（%i円）は送金できる', async (amount) => {
+    const repository = new InMemoryTransferRepository();
+    const response = await request(createTransferTestApp(repository))
+      .post('/api/transfers')
+      .set('Cookie', TEST_SESSION_COOKIE)
+      .set('Idempotency-Key', `idem-key-${amount}`)
+      .send({ recipientId, amount });
+
+    expect(response.status).toBe(201);
+    expect(response.body).toEqual({
+      id: 1,
+      senderId: CURRENT_USER_ID,
+      recipientId,
+      amount,
+    });
+    expect(repository.transfers).toEqual([
+      {
+        senderId: CURRENT_USER_ID,
+        recipientId,
+        amount,
+        idempotencyKey: `idem-key-${amount}`,
+      },
+    ]);
   });
 
   it('存在しない送信者または受取人なら422を返す', async () => {
@@ -904,6 +934,7 @@ describe('backend application', () => {
     const record = createPaymentRequestRecord(1, {
       amount: 3000,
       status: 'accepted',
+      endedByMe: null,
       createdAt: '2026-08-03 01:00:00.000000',
       respondedAt: '2026-08-04 02:30:00.500000',
     });
@@ -928,6 +959,7 @@ describe('backend application', () => {
           },
           amount: 3000,
           status: 'accepted',
+          endedByMe: null,
           createdAt: '2026-08-03T01:00:00.000Z',
           respondedAt: '2026-08-04T02:30:00.500Z',
         },
@@ -1226,6 +1258,7 @@ describe('backend application', () => {
     const record = createPaymentRequestRecord(1, {
       amount: 3000,
       status: 'pending',
+      endedByMe: null,
       createdAt: '2026-08-03 01:00:00.000000',
       respondedAt: null,
     });
@@ -1252,6 +1285,7 @@ describe('backend application', () => {
         },
         amount: 3000,
         status: 'pending',
+        endedByMe: null,
         createdAt: '2026-08-03T01:00:00.000Z',
         respondedAt: null,
       },

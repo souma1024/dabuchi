@@ -17,6 +17,7 @@ export function createPaymentRequestRecord(
     counterpartyProfileUrl: `/assets/profiles/human${((sequence - 1) % 6) + 1}.png`,
     amount: sequence * 100,
     status: 'pending',
+    endedByMe: null,
     createdAt: `2026-08-04 12:00:${seconds}.000000`,
     respondedAt: null,
     ...overrides,

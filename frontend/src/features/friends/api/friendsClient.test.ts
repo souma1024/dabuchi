@@ -62,6 +62,7 @@ describe('fetchFriends', () => {
     const [url] = mockFetch.mock.calls[0] as [URL];
     expect(url.pathname).toBe('/api/friends');
     expect(url.searchParams.get('cursor')).toBeNull();
+    expect(url.searchParams.get('sort')).toBe('created-asc');
   });
 
   it('カーソルをクエリへ渡す', async () => {
@@ -71,6 +72,16 @@ describe('fetchFriends', () => {
 
     const [url] = mockFetch.mock.calls[0] as [URL];
     expect(url.searchParams.get('cursor')).toBe('CURSOR_1');
+    expect(url.searchParams.get('sort')).toBe('created-asc');
+  });
+
+  it('sortをクエリへ渡す', async () => {
+    const mockFetch = stubFetch({ ok: true, body: pageBody([]) });
+
+    await fetchFriends(null, 'created-desc');
+
+    const [url] = mockFetch.mock.calls[0] as [URL];
+    expect(url.searchParams.get('sort')).toBe('created-desc');
   });
 
   it('HTTPエラーはstatus付きで失敗させる', async () => {

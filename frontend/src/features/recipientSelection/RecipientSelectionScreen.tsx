@@ -2,11 +2,17 @@ import { useState } from 'react';
 
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { AddFriendForm } from '../friends/components/AddFriendForm';
+import type { FriendSort } from '../friends/types';
 import { RecipientListItem } from './components/RecipientListItem';
 import { useRecipients } from './hooks/useRecipients';
 import type { Recipient } from './types';
 import { useInfiniteScrollSentinel } from '../../hooks/useInfiniteScrollSentinel';
 import { useScrollToTop } from '../../hooks/useScrollToTop';
+
+const SORT_OPTIONS: readonly { value: FriendSort; label: string }[] = [
+  { value: 'created-asc', label: '古い順' },
+  { value: 'created-desc', label: '新しい順' },
+];
 
 interface RecipientSelectionScreenBaseProps {
   /** 戻る操作。未指定なら戻るボタンは表示しない。 */
@@ -46,6 +52,7 @@ export function RecipientSelectionScreen(props: RecipientSelectionScreenProps) {
     title = '送金相手を選ぶ',
     emptyMessage = '送金できる相手がいません。',
   } = props;
+  const [sort, setSort] = useState<FriendSort>('created-asc');
   const {
     recipients,
     isLoadingInitial,
@@ -54,10 +61,10 @@ export function RecipientSelectionScreen(props: RecipientSelectionScreenProps) {
     hasMore,
     loadMore,
     reload,
-  } = useRecipients();
+  } = useRecipients(sort);
   const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore);
 
-  useScrollToTop();
+  useScrollToTop([sort]);
   // 選択済みの相手そのものを持つ。追加読み込みで一覧が伸びても選択が消えない。
   const [selected, setSelected] = useState<Recipient[]>([]);
 
@@ -90,7 +97,35 @@ export function RecipientSelectionScreen(props: RecipientSelectionScreenProps) {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white">
-      <ScreenHeader title={title} onBack={onBack} />
+      <div className="sticky top-0 z-10 bg-white">
+        <ScreenHeader title={title} onBack={onBack} />
+
+        <div
+          aria-label="相手候補の並び順"
+          role="group"
+          className="flex gap-2 border-b border-slate-200 px-4 py-3"
+        >
+          {SORT_OPTIONS.map((option) => {
+            const isSelected = option.value === sort;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => setSort(option.value)}
+                className={`min-h-[40px] rounded-full px-4 text-sm font-semibold transition ${
+                  isSelected
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* 候補が0件でも詰まないよう、一覧の前に友達追加を置く。 */}
       <AddFriendForm onAdded={reload} />

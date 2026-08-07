@@ -14,7 +14,7 @@ Idempotency-Key: <クライアント生成の一意なキー>
 
 - `Idempotency-Key`（必須）: 送金1件ごとにクライアントが生成する一意な文字列（64文字以内）。ネットワーク再送・ダブルクリック・リトライでの二重送金を防ぐ。同一キーの再送は最初の1件だけを実行し、以降は同じ結果を返す。
 - `senderId` / `recipientId`: `users.id`をUUID文字列へ変換した内部UUID。
-- `amount`: 円単位の正の整数（安全な整数の範囲）。
+- `amount`: 円単位の正の整数（安全な整数の範囲）。1回の送金は80,000円まで。80,000円は受理し、80,001円以上は`400`。
 
 ```json
 {
@@ -43,7 +43,7 @@ Idempotency-Key: <クライアント生成の一意なキー>
 
 ### Error responses
 
-- `400 INVALID_REQUEST`: 入力不正、または`Idempotency-Key`ヘッダの欠落・空・64文字超
+- `400 INVALID_REQUEST`: 入力不正（`amount`が80,000円超を含む）、または`Idempotency-Key`ヘッダの欠落・空・64文字超
 - `409 IDEMPOTENCY_KEY_CONFLICT`: 同一`Idempotency-Key`が、`senderId`/`recipientId`/`amount`の異なる送金に再利用された
 - `422 TRANSFER_PARTICIPANT_NOT_FOUND`: 送金者または受取人が存在しない
 - `422 INSUFFICIENT_BALANCE`: 送金者の残高が不足している

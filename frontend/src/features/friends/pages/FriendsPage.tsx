@@ -1,12 +1,19 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { ScreenHeader } from '../../../components/ScreenHeader';
 import { useInfiniteScrollSentinel } from '../../../hooks/useInfiniteScrollSentinel';
+import { useScrollToTop } from '../../../hooks/useScrollToTop';
 import { AddFriendForm } from '../components/AddFriendForm';
 import { FriendCard } from '../components/FriendCard';
 import { FriendDetailFlyout } from '../components/FriendDetailFlyout';
 import { useFriends } from '../hooks/useFriends';
-import type { Friend } from '../types';
+import type { Friend, FriendSort } from '../types';
+
+const SORT_OPTIONS: readonly { value: FriendSort; label: string }[] = [
+  { value: 'created-asc', label: '古い順' },
+  { value: 'created-desc', label: '新しい順' },
+];
 
 interface FriendsPageProps {
   /** 戻る操作。未指定なら戻るボタンは表示しない。 */
@@ -26,6 +33,11 @@ export function FriendsPage({
   onBack,
   onOpenBlockedFriends,
 }: FriendsPageProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sort: FriendSort =
+    searchParams.get('sort') === 'created-desc'
+      ? 'created-desc'
+      : 'created-asc';
   const {
     friends,
     isLoadingInitial,
@@ -34,7 +46,7 @@ export function FriendsPage({
     hasMore,
     loadMore,
     reload,
-  } = useFriends();
+  } = useFriends(sort);
   const sentinelRef = useInfiniteScrollSentinel<HTMLLIElement>(loadMore);
   const [openedFriendshipId, setOpenedFriendshipId] = useState<string | null>(
     null,
@@ -54,9 +66,45 @@ export function FriendsPage({
     );
   };
 
+  useScrollToTop([sort]);
+
+  const selectSort = (nextSort: FriendSort) => {
+    setSearchParams(nextSort === 'created-desc' ? { sort: nextSort } : {}, {
+      replace: true,
+    });
+  };
+
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white">
-      <ScreenHeader title="友達管理" onBack={onBack} />
+      <div className="sticky top-0 z-10 bg-white">
+        <ScreenHeader title="友達管理" onBack={onBack} />
+
+        <div
+          aria-label="友達一覧の並び順"
+          role="group"
+          className="flex gap-2 border-b border-slate-200 px-4 py-3"
+        >
+          {SORT_OPTIONS.map((option) => {
+            const isSelected = option.value === sort;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => selectSort(option.value)}
+                className={`min-h-[40px] rounded-full px-4 text-sm font-semibold transition ${
+                  isSelected
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* 友達が0件でも詰まないよう、一覧の前に追加を置く。 */}
       <AddFriendForm onAdded={reload} />
