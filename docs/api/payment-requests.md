@@ -28,11 +28,11 @@ Content-Type: application/json
 }
 ```
 
-| フィールド               | 型     | 制約                                       |
-| ------------------------ | ------ | ------------------------------------------ |
-| `requests`               | array  | 1件以上50件以下                            |
-| `requests[].recipientId` | string | 内部UUID。配列内で重複不可                 |
-| `requests[].amount`      | number | 円単位の正の安全な整数。被請求者ごとに指定 |
+| フィールド               | 型     | 制約                                                                                     |
+| ------------------------ | ------ | ---------------------------------------------------------------------------------------- |
+| `requests`               | array  | 1件以上50件以下                                                                          |
+| `requests[].recipientId` | string | 内部UUID。配列内で重複不可                                                               |
+| `requests[].amount`      | number | 円単位の正の安全な整数。1件につき80,000円まで（80,001円以上は`400`）。被請求者ごとに指定 |
 
 候補表示には既存の`GET /api/users/:currentUserId/recipients`を利用します。frontendのオートフィルは入力補助であり、backendへは最終的な個別金額を送ります。
 
@@ -60,7 +60,7 @@ Content-Type: application/json
 
 ### `400 Bad Request`
 
-配列件数、UUID、金額、重複、自分自身への請求が不正な場合です。
+配列件数、UUID、金額（80,000円超を含む）、重複、自分自身への請求が不正な場合です。
 
 ```json
 {

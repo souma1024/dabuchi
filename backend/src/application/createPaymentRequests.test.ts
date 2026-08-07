@@ -95,6 +95,20 @@ describe('CreatePaymentRequests', () => {
     [{ requests: [{ recipientId: 'invalid', amount: 100 }] }, 'recipientId'],
     [{ requests: [{ recipientId: RECIPIENT_ONE_ID, amount: 0 }] }, 'amount'],
     [{ requests: [{ recipientId: RECIPIENT_ONE_ID, amount: 1.5 }] }, 'amount'],
+    // 上限（80,000円）を1円でも超える請求は受理しない。
+    [
+      { requests: [{ recipientId: RECIPIENT_ONE_ID, amount: 80_001 }] },
+      'amount',
+    ],
+    // 安全な整数でも上限を超えれば受理しない（桁数ではなく上限で弾く）。
+    [
+      {
+        requests: [
+          { recipientId: RECIPIENT_ONE_ID, amount: Number.MAX_SAFE_INTEGER },
+        ],
+      },
+      'amount',
+    ],
     [
       {
         requests: [
@@ -110,6 +124,75 @@ describe('CreatePaymentRequests', () => {
     await expect(
       useCase.execute(CURRENT_USER_PUBLIC_ID, input),
     ).rejects.toThrow(expectedMessage);
+    expect(paymentRequestRepository.saveAll).not.toHaveBeenCalled();
+  });
+
+  // 上限直下（79,999円）と上限ちょうど（80,000円）はどちらも請求できる。
+  it.each([79_999, 80_000])('上限以下（%i円）は請求できる', async (amount) => {
+    const { paymentRequestRepository, useCase } = createUseCase();
+
+    await expect(
+      useCase.execute(CURRENT_USER_PUBLIC_ID, {
+        requests: [{ recipientId: RECIPIENT_ONE_ID, amount }],
+      }),
+    ).resolves.toEqual([
+      {
+        id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        requesterId: CURRENT_USER_INTERNAL_ID,
+        recipientId: RECIPIENT_ONE_ID,
+        amount,
+        status: 'pending',
+      },
+    ]);
+    expect(paymentRequestRepository.saveAll).toHaveBeenCalledWith([
+      {
+        id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        requesterId: CURRENT_USER_INTERNAL_ID,
+        recipientId: RECIPIENT_ONE_ID,
+        amount,
+      },
+    ]);
+  });
+
+  it('複数件すべてが上限以下なら請求できる', async () => {
+    const { useCase } = createUseCase();
+
+    await expect(
+      useCase.execute(CURRENT_USER_PUBLIC_ID, {
+        requests: [
+          { recipientId: RECIPIENT_ONE_ID, amount: 79_999 },
+          { recipientId: RECIPIENT_TWO_ID, amount: 80_000 },
+        ],
+      }),
+    ).resolves.toEqual([
+      {
+        id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        requesterId: CURRENT_USER_INTERNAL_ID,
+        recipientId: RECIPIENT_ONE_ID,
+        amount: 79_999,
+        status: 'pending',
+      },
+      {
+        id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        requesterId: CURRENT_USER_INTERNAL_ID,
+        recipientId: RECIPIENT_TWO_ID,
+        amount: 80_000,
+        status: 'pending',
+      },
+    ]);
+  });
+
+  it('複数件のうち1件でも上限を超えると全体を拒否し、保存しない', async () => {
+    const { paymentRequestRepository, useCase } = createUseCase();
+
+    await expect(
+      useCase.execute(CURRENT_USER_PUBLIC_ID, {
+        requests: [
+          { recipientId: RECIPIENT_ONE_ID, amount: 80_000 },
+          { recipientId: RECIPIENT_TWO_ID, amount: 80_001 },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(InvalidPaymentRequestError);
     expect(paymentRequestRepository.saveAll).not.toHaveBeenCalled();
   });
 
