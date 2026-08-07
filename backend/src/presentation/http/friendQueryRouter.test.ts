@@ -14,7 +14,7 @@ import {
 } from '../../test/factories/friendQueryFactory.js';
 import { createFriendQueryRepository } from '../../test/factories/friendQueryRepositoryFactory.js';
 import { errorHandler } from './errorHandler.js';
-import { decodeFriendCursor } from './friendCursorCodec.js';
+import { decodeFriendCursor, encodeFriendCursor } from './friendCursorCodec.js';
 import { createFriendQueryRouter } from './friendQueryRouter.js';
 import { withCurrentUser } from '../../test/withCurrentUser.js';
 
@@ -45,8 +45,27 @@ describe('friend query router', () => {
     expect(body.friends).toHaveLength(20);
     expect(body.pageInfo.hasNextPage).toBe(true);
     expect(decodeFriendCursor(nextCursor)).toEqual({
-      createdAt: records[19]?.addedAt,
-      id: records[19]?.friendshipId,
+      sort: 'created-asc',
+      value: {
+        createdAt: records[19]?.addedAt,
+        id: records[19]?.friendshipId,
+      },
+    });
+  });
+
+  it('sort=created-descを一覧検索条件として使う', async () => {
+    const { app, friendQueryRepository } = createTestApp();
+
+    const response = await request(app)
+      .get('/api/friends')
+      .query({ sort: 'created-desc' });
+
+    expect(response.status).toBe(200);
+    expect(friendQueryRepository.findFriends).toHaveBeenCalledWith({
+      currentUserId: '11111111-1111-4111-8111-111111111111',
+      cursor: null,
+      limit: 21,
+      sort: 'created-desc',
     });
   });
 
@@ -97,6 +116,26 @@ describe('friend query router', () => {
       });
     },
   );
+
+  it('sortと一致しない友達一覧カーソルを400にする', async () => {
+    const { app } = createTestApp();
+    const cursor = encodeFriendCursor({
+      sort: 'created-desc',
+      value: {
+        createdAt: '2026-08-06 10:00:20.000000',
+        id: '10000000-0000-4000-8000-000000000020',
+      },
+    });
+
+    const response = await request(app)
+      .get('/api/friends')
+      .query({ sort: 'created-asc', cursor });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({
+      error: { code: 'INVALID_REQUEST', message: 'cursor is invalid.' },
+    });
+  });
 
   it('存在しない友達関係の詳細を404にする', async () => {
     const { app } = createTestApp({ detail: null });

@@ -39,13 +39,17 @@ describe('ListFriends', () => {
     });
     // カーソルはDBへ渡す値なのでMySQL DATETIME形式のまま。
     expect(result.nextCursor).toEqual({
-      createdAt: records[19]?.addedAt,
-      id: records[19]?.friendshipId,
+      sort: 'created-asc',
+      value: {
+        createdAt: records[19]?.addedAt,
+        id: records[19]?.friendshipId,
+      },
     });
     expect(friendQueryRepository.findFriends).toHaveBeenCalledWith({
       currentUserId: CURRENT_USER_INTERNAL_ID,
       cursor: null,
       limit: 21,
+      sort: 'created-asc',
     });
   });
 
@@ -73,19 +77,24 @@ describe('ListFriends', () => {
       friendQueryRepository,
     );
     const cursor = {
-      createdAt: '2026-08-06 10:00:20.000000',
-      id: '10000000-0000-4000-8000-000000000020',
+      sort: 'created-desc' as const,
+      value: {
+        createdAt: '2026-08-06 10:00:20.000000',
+        id: '10000000-0000-4000-8000-000000000020',
+      },
     };
 
     await useCase.execute({
       currentUserPublicId: CURRENT_USER_PUBLIC_ID,
       cursor,
+      sort: 'created-desc',
     });
 
     expect(friendQueryRepository.findFriends).toHaveBeenCalledWith({
       currentUserId: CURRENT_USER_INTERNAL_ID,
       cursor,
       limit: 21,
+      sort: 'created-desc',
     });
   });
 

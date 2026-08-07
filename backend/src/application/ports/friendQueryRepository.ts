@@ -1,8 +1,15 @@
 import type { FriendProfile } from '../../domain/friendship.js';
 
-export interface FriendshipCursor {
+export type FriendSort = 'created-asc' | 'created-desc';
+
+export interface FriendshipCreatedAtCursor {
   createdAt: string;
   id: string;
+}
+
+export interface FriendshipCursor {
+  sort: FriendSort;
+  value: FriendshipCreatedAtCursor;
 }
 
 export interface BlockedFriendCursor {
@@ -32,6 +39,7 @@ export interface FriendQueryRepository {
     currentUserId: string;
     cursor: FriendshipCursor | null;
     limit: number;
+    sort: FriendSort;
   }) => Promise<FriendQueryRecord[]>;
   findFriendshipDetail: (input: {
     currentUserId: string;
