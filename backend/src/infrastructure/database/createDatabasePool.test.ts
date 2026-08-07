@@ -21,6 +21,15 @@ vi.mock('mysql2/promise', () => ({
   createPool: createPoolMock,
 }));
 
+// sslを除いた接続オプション。createPoolへはこの形で渡る。
+const CONNECTION_OPTIONS = {
+  host: '127.0.0.1',
+  port: 3306,
+  database: 'dabuchi',
+  user: 'dabuchi_app',
+  password: 'local-password',
+};
+
 const CONFIG: DatabaseConfig = {
   host: '127.0.0.1',
   port: 3306,
@@ -50,9 +59,8 @@ describe('createDatabasePool', () => {
     createDatabasePool(CONFIG);
 
     // sslは接続オプションへそのまま渡さず、有効なときだけTLS設定へ変換する。
-    const { ssl: _ssl, ...connection } = CONFIG;
     expect(createPoolMock).toHaveBeenCalledWith({
-      ...connection,
+      ...CONNECTION_OPTIONS,
       connectionLimit: 5,
       dateStrings: true,
     });
