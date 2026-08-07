@@ -7,7 +7,11 @@ import {
   fetchPaymentRequest,
   respondToPaymentRequest,
 } from '../api/paymentRequestsClient';
-import type { PaymentRequest, PaymentRequestDirection } from '../types';
+import type {
+  PaymentRequest,
+  PaymentRequestDirection,
+  RespondedPaymentRequest,
+} from '../types';
 import { PaymentRequestConfirmationPage } from './PaymentRequestConfirmationPage';
 
 vi.mock('../api/paymentRequestsClient', () => ({
@@ -254,5 +258,111 @@ describe('PaymentRequestConfirmationPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'この請求はすでに処理されています',
     );
+  });
+
+  // 確認画面はidが変わっても再描画で済むため、フックの状態が持ち越される。
+  // 前の請求が残ると、新しい請求の取得中に古い金額のまま操作できてしまう。
+  it('idが変わったら前の請求を表示しない', async () => {
+    stubCurrentUser(120000);
+    const other: PaymentRequest = {
+      ...request,
+      id: 'payment-request-2',
+      amount: 8800,
+      counterparty: { ...request.counterparty, name: '鈴木 一郎' },
+    };
+    // 2件目の取得は保留し、切り替え直後の表示を観察する。
+    let resolveOther: (value: PaymentRequest) => void = () => {};
+    mockedFetch.mockResolvedValueOnce(request).mockReturnValueOnce(
+      new Promise<PaymentRequest>((resolve) => {
+        resolveOther = resolve;
+      }),
+    );
+
+    const { rerender } = render(
+      <PaymentRequestConfirmationPage
+        direction="received"
+        id={request.id}
+        onBack={onBack}
+        onDone={onDone}
+      />,
+    );
+    await screen.findByText('佐藤 花子 さん');
+
+    rerender(
+      <PaymentRequestConfirmationPage
+        direction="received"
+        id={other.id}
+        onBack={onBack}
+        onDone={onDone}
+      />,
+    );
+
+    // 取得が終わるまでは、前の相手も金額も出さない。
+    expect(screen.queryByText('佐藤 花子 さん')).not.toBeInTheDocument();
+    expect(screen.queryByText('3,000円')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: '承認して送金する' }),
+    ).not.toBeInTheDocument();
+
+    resolveOther(other);
+    expect(await screen.findByText('鈴木 一郎 さん')).toBeInTheDocument();
+  });
+
+  // 操作の結果は相手と請求日を返さないため、取得済みの請求へ重ねている。
+  // 送信中にidが変わると、前の請求の結果を新しい請求へ重ねてしまう。
+  it('送信中にidが変わったら前の請求の結果を混ぜない', async () => {
+    stubCurrentUser(120000);
+    const other: PaymentRequest = {
+      ...request,
+      id: 'payment-request-2',
+      amount: 8800,
+      counterparty: { ...request.counterparty, name: '鈴木 一郎' },
+    };
+    mockedFetch.mockImplementation((id) =>
+      Promise.resolve(id === request.id ? request : other),
+    );
+    // 1件目の操作は、切り替えた後に返す。
+    let resolveRespond: (value: RespondedPaymentRequest) => void = () => {};
+    mockedRespond.mockReturnValueOnce(
+      new Promise<RespondedPaymentRequest>((resolve) => {
+        resolveRespond = resolve;
+      }),
+    );
+
+    const { rerender } = render(
+      <PaymentRequestConfirmationPage
+        direction="received"
+        id={request.id}
+        onBack={onBack}
+        onDone={onDone}
+      />,
+    );
+    await userEvent.click(
+      await screen.findByRole('button', { name: '承認して送金する' }),
+    );
+
+    rerender(
+      <PaymentRequestConfirmationPage
+        direction="received"
+        id={other.id}
+        onBack={onBack}
+        onDone={onDone}
+      />,
+    );
+    await screen.findByText('鈴木 一郎 さん');
+
+    resolveRespond({
+      id: request.id,
+      amount: request.amount,
+      status: 'accepted',
+      respondedAt: '2026-08-06T03:00:00.000Z',
+    });
+
+    // 前の請求の結果で完了表示に切り替わらず、金額も混ざらない。
+    await waitFor(() => {
+      expect(screen.getByText('8,800円')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('送金しました')).not.toBeInTheDocument();
+    expect(screen.queryByText('3,000円')).not.toBeInTheDocument();
   });
 });
