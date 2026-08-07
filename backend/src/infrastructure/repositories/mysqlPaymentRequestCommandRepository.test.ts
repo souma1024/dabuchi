@@ -30,7 +30,8 @@ function pendingRow(overrides = {}) {
 
 /**
  * 既に応答が確定している行。冪等リプレイの検証に使う。
- * respondedBy を省くと、列の追加前に確定した行（NULL）を表す。
+ * 既定は被請求者が終わらせた行。null を明示すると、列の追加から
+ * 取り消しAPI導入までの間に確定した行（responded_by が NULL）を表す。
  */
 function respondedRow(
   status: 'accepted' | 'rejected',
@@ -189,6 +190,25 @@ describe('MysqlPaymentRequestCommandRepository', () => {
     ).rejects.toBeInstanceOf(PaymentRequestForbiddenError);
     expect(connection.commit).not.toHaveBeenCalled();
   });
+
+  // 認可を状態判定より先に行うことを固定する。順序が逆になると、当事者でない人が
+  // 403と409の違いから請求の状態を推測できてしまう。
+  it.each(['accepted', 'rejected'] as const)(
+    '既に%sでも、当事者でなければ状態を明かさず403用errorにする',
+    async (status) => {
+      const { pool, connection } = createMysqlPool([[respondedRow(status)]]);
+
+      await expect(
+        new MysqlPaymentRequestCommandRepository(pool).respond({
+          paymentRequestId: PAYMENT_REQUEST_ID,
+          // 請求者は承認できない。決着済みかどうかより先に弾く。
+          currentUserInternalId: REQUESTER_ID,
+          action: 'accept',
+        }),
+      ).rejects.toBeInstanceOf(PaymentRequestForbiddenError);
+      expect(connection.commit).not.toHaveBeenCalled();
+    },
+  );
 
   it.each([
     ['accepted', 'reject'],
