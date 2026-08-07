@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fetchTransactions } from '../api/transactionsClient';
@@ -37,7 +38,11 @@ beforeEach(() => {
 });
 
 function renderPage(onBack?: () => void) {
-  return render(<TransactionsPage onBack={onBack} />);
+  return render(
+    <MemoryRouter>
+      <TransactionsPage onBack={onBack} />
+    </MemoryRouter>,
+  );
 }
 
 describe('TransactionsPage', () => {
@@ -51,7 +56,28 @@ describe('TransactionsPage', () => {
 
     expect(await screen.findByText('相手1')).toBeInTheDocument();
     expect(screen.getAllByRole('listitem')).toHaveLength(3);
-    expect(mockedFetch).toHaveBeenCalledWith(null);
+    expect(mockedFetch).toHaveBeenCalledWith(null, 'created-desc');
+  });
+
+  it('並び順を切り替えると先頭から取り直す', async () => {
+    mockedFetch
+      .mockResolvedValueOnce({
+        transactions: makeTransactions(2),
+        nextCursor: null,
+      })
+      .mockResolvedValueOnce({
+        transactions: makeTransactions(2, 10),
+        nextCursor: null,
+      });
+
+    renderPage();
+    expect(await screen.findByText('相手1')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '古い順' }));
+
+    expect(await screen.findByText('相手11')).toBeInTheDocument();
+    expect(mockedFetch).toHaveBeenNthCalledWith(1, null, 'created-desc');
+    expect(mockedFetch).toHaveBeenNthCalledWith(2, null, 'created-asc');
   });
 
   it('取引が無いときは次の行動を示す空状態を表示する', async () => {
@@ -91,7 +117,7 @@ describe('TransactionsPage', () => {
     await waitFor(() => {
       expect(mockedFetch).toHaveBeenCalledTimes(2);
     });
-    expect(mockedFetch).toHaveBeenLastCalledWith('next-cursor');
+    expect(mockedFetch).toHaveBeenLastCalledWith('next-cursor', 'created-desc');
 
     await waitFor(() => {
       expect(screen.getAllByRole('listitem')).toHaveLength(32);
