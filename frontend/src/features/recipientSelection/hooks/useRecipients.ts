@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { useFriends } from '../../friends/hooks/useFriends';
-import type { Friend } from '../../friends/types';
+import { useCursorPagination } from '../../../hooks/useCursorPagination';
+import { fetchFriends } from '../../friends/api/friendsClient';
+import type { Friend, FriendSort } from '../../friends/types';
 import type { Recipient } from '../types';
 
 /** 送金・請求相手一覧の取得結果と操作。 */
@@ -25,8 +26,17 @@ function toRecipient({ friend }: Friend): Recipient {
  * 送金・請求の相手候補（＝友達）を取得するフック。
  * 取得とページングは友達一覧と同じものを使い、ここでは表示形への変換だけを担う。
  */
-export function useRecipients(): UseRecipientsResult {
-  const { friends, ...rest } = useFriends();
+export function useRecipients(
+  sort: FriendSort = 'created-asc',
+): UseRecipientsResult {
+  const fetchRecipientPage = useCallback(
+    async (cursor: string | null, signal?: AbortSignal) => {
+      const page = await fetchFriends(cursor, sort, signal);
+      return { items: page.friends, nextCursor: page.nextCursor };
+    },
+    [sort],
+  );
+  const { items: friends, ...rest } = useCursorPagination(fetchRecipientPage);
   const recipients = useMemo(() => friends.map(toRecipient), [friends]);
 
   return { recipients, ...rest };
