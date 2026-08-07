@@ -42,6 +42,38 @@ describe('RecipientAmountPage', () => {
     expect(screen.getByLabelText('請求金額')).toBeInTheDocument();
   });
 
+  it('onBackを渡すと左上の戻るボタンから通知する', async () => {
+    const user = userEvent.setup();
+    const onBack = vi.fn();
+    renderPage({ onBack });
+
+    await user.click(screen.getByRole('button', { name: '戻る' }));
+
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('onBackが未指定なら戻るボタンを表示しない', () => {
+    renderPage();
+
+    expect(
+      screen.queryByRole('button', { name: '戻る' }),
+    ).not.toBeInTheDocument();
+  });
+
+  // 送信済みの操作へ戻れると誤解させないため、完了画面では戻るボタンを出さない。
+  it('完了画面には戻るボタンを表示しない', async () => {
+    const user = userEvent.setup();
+    renderPage({ onBack: vi.fn() });
+
+    await user.type(screen.getByLabelText('請求金額'), '1000');
+    await user.click(screen.getByRole('button', { name: '請求' }));
+
+    await screen.findByText('請求が完了しました');
+    expect(
+      screen.queryByRole('button', { name: '戻る' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('金額が未入力の場合は送信ボタンが無効になる', () => {
     renderPage();
 
