@@ -1,5 +1,5 @@
 import { UserAvatar } from '../../../components/UserAvatar';
-import { formatTransactionDateTime } from '../formatTransactionDateTime';
+import { formatJstDateTime } from '../../../lib/formatJstDate';
 import type { Transaction, TransactionDirection } from '../types';
 
 // 送金は出ていく赤、受取は入ってくる緑。バッジの文字でも区別できるため色だけに依存しない。
@@ -48,7 +48,7 @@ export function TransactionListItem({ transaction }: TransactionListItemProps) {
           </span>
         </div>
         <div className="mt-0.5 text-xs text-slate-500">
-          {formatTransactionDateTime(createdAt)}
+          {formatJstDateTime(createdAt)}
         </div>
       </div>
       <span
