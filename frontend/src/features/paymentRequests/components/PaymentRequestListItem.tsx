@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 
 import { UserAvatar } from '../../../components/UserAvatar';
-import { formatPaymentRequestDate } from '../formatPaymentRequestDate';
+import { formatJstDateTime } from '../../../lib/formatJstDate';
 import type { PaymentRequest, PaymentRequestDirection } from '../types';
 import { PaymentRequestStatusBadge } from './PaymentRequestStatusBadge';
 
@@ -56,7 +56,7 @@ export function PaymentRequestListItem({
           </span>
         </div>
         <span className="mt-0.5 block text-xs text-slate-500">
-          {formatPaymentRequestDate(createdAt)}
+          {formatJstDateTime(createdAt)}
         </span>
       </div>
       <span

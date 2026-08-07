@@ -77,7 +77,7 @@ describe('PaymentRequestConfirmationPage', () => {
 
     expect(await screen.findByText('佐藤 花子 さん')).toBeInTheDocument();
     expect(screen.getByText('3,000円')).toBeInTheDocument();
-    expect(screen.getByText('請求日 8/3')).toBeInTheDocument();
+    expect(screen.getByText('請求日 8/3 10:00')).toBeInTheDocument();
   });
 
   it('受けた請求では承認と拒否を出す', async () => {

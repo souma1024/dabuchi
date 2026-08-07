@@ -1,7 +1,7 @@
 import { ScreenHeader } from '../../../components/ScreenHeader';
 import { UserAvatar } from '../../../components/UserAvatar';
 import { useCurrentUser } from '../../currentUser/hooks/useCurrentUser';
-import { formatPaymentRequestDate } from '../formatPaymentRequestDate';
+import { formatJstDateTime } from '../../../lib/formatJstDate';
 import { usePaymentRequestConfirmation } from '../hooks/usePaymentRequestConfirmation';
 import type { PaymentRequestDirection } from '../types';
 
@@ -147,7 +147,7 @@ export function PaymentRequestConfirmationPage({
           {request.amount.toLocaleString()}円
         </p>
         <p className="m-0 text-xs text-slate-500">
-          請求日 {formatPaymentRequestDate(request.createdAt)}
+          請求日 {formatJstDateTime(request.createdAt)}
         </p>
       </div>
 

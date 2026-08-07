@@ -17,7 +17,7 @@ export interface JstDateParts {
 
 /**
  * ISO 8601の日時をJSTの成分へ分解する。
- * 何をどう並べるかは呼び出し側が決める（取引履歴は時刻まで、請求は月日だけ）。
+ * 何をどう並べるかは呼び出し側が決める。
  */
 export function toJstDateParts(isoDateTime: string): JstDateParts | null {
   const date = new Date(isoDateTime);
@@ -37,4 +37,16 @@ export function toJstDateParts(isoDateTime: string): JstDateParts | null {
     hour: pick('hour'),
     minute: pick('minute'),
   };
+}
+
+/**
+ * ISO 8601の日時を「8/5 14:30」形式にする。解釈できない値なら空文字。
+ * 取引履歴と請求で同じ並びを使う。開催期間内に年をまたがないため年は表示しない。
+ */
+export function formatJstDateTime(isoDateTime: string): string {
+  const parts = toJstDateParts(isoDateTime);
+
+  return parts === null
+    ? ''
+    : `${parts.month}/${parts.day} ${parts.hour}:${parts.minute}`;
 }
