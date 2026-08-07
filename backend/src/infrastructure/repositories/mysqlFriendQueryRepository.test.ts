@@ -53,11 +53,11 @@ describe('MysqlFriendQueryRepository friend list', () => {
     ]);
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('AND NOT EXISTS'),
-      [CURRENT_USER_ID, '21'],
+      [CURRENT_USER_ID],
     );
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('ORDER BY f.created_at ASC, f.id ASC'),
-      [CURRENT_USER_ID, '21'],
+      [CURRENT_USER_ID],
     );
   });
 
@@ -83,7 +83,6 @@ describe('MysqlFriendQueryRepository friend list', () => {
         cursor.value.createdAt,
         cursor.value.createdAt,
         cursor.value.id,
-        '21',
       ],
     );
   });
@@ -186,7 +185,7 @@ describe('MysqlFriendQueryRepository blocked friend list', () => {
     ]);
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('WHERE ub.blocker_id = viewer.id'),
-      [CURRENT_USER_ID, '21'],
+      [CURRENT_USER_ID],
     );
   });
 
@@ -211,7 +210,6 @@ describe('MysqlFriendQueryRepository blocked friend list', () => {
         cursor.blockedAt,
         cursor.blockedAt,
         cursor.friendshipId,
-        '21',
       ],
     );
     expect(execute).toHaveBeenCalledWith(

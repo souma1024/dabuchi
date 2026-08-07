@@ -30,7 +30,6 @@ describe('MysqlTransactionRepository', () => {
         CURRENT_USER_ID,
         CURRENT_USER_ID,
         CURRENT_USER_ID,
-        '21',
       ],
     );
     expect(execute).toHaveBeenCalledWith(
@@ -68,7 +67,6 @@ describe('MysqlTransactionRepository', () => {
         cursor.value.createdAt,
         cursor.value.createdAt,
         cursor.value.id,
-        '21',
       ],
     );
   });

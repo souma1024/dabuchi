@@ -33,11 +33,11 @@ describe('MysqlUserRecipientRepository', () => {
     ).resolves.toEqual([record]);
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('WHERE id <> UUID_TO_BIN(?)'),
-      [CURRENT_USER_ID, '21'],
+      [CURRENT_USER_ID],
     );
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('ORDER BY created_at ASC, id ASC'),
-      [CURRENT_USER_ID, '21'],
+      [CURRENT_USER_ID],
     );
   });
 
@@ -66,7 +66,6 @@ describe('MysqlUserRecipientRepository', () => {
         cursor.value.createdAt,
         cursor.value.createdAt,
         cursor.value.id,
-        '21',
       ],
     );
   });
@@ -96,7 +95,6 @@ describe('MysqlUserRecipientRepository', () => {
         cursor.value.createdAt,
         cursor.value.createdAt,
         cursor.value.id,
-        '21',
       ],
     );
     expect(execute).toHaveBeenCalledWith(
@@ -106,7 +104,6 @@ describe('MysqlUserRecipientRepository', () => {
         cursor.value.createdAt,
         cursor.value.createdAt,
         cursor.value.id,
-        '21',
       ],
     );
   });
@@ -131,23 +128,11 @@ describe('MysqlUserRecipientRepository', () => {
 
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('ORDER BY user_name ASC, id ASC'),
-      [
-        CURRENT_USER_ID,
-        cursor.value.name,
-        cursor.value.name,
-        cursor.value.id,
-        '21',
-      ],
+      [CURRENT_USER_ID, cursor.value.name, cursor.value.name, cursor.value.id],
     );
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('user_name > ?'),
-      [
-        CURRENT_USER_ID,
-        cursor.value.name,
-        cursor.value.name,
-        cursor.value.id,
-        '21',
-      ],
+      [CURRENT_USER_ID, cursor.value.name, cursor.value.name, cursor.value.id],
     );
   });
 });

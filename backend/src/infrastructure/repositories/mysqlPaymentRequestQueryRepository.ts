@@ -6,6 +6,7 @@ import type {
   PaymentRequestQueryRepository,
 } from '../../application/ports/paymentRequestQueryRepository.js';
 import type { PaymentRequestRecord } from '../../domain/paymentRequest.js';
+import { limitClause } from '../database/limitClause.js';
 
 interface PaymentRequestRow extends RowDataPacket, PaymentRequestRecord {}
 
@@ -45,9 +46,6 @@ export class MysqlPaymentRequestQueryRepository implements PaymentRequestQueryRe
       );
     }
 
-    // mysql2 sends JavaScript numbers as DOUBLE values, which MySQL rejects for LIMIT.
-    values.push(String(input.limit));
-
     const [rows] = await this.pool.execute<PaymentRequestRow[]>(
       `SELECT
          BIN_TO_UUID(pr.id) AS id,
@@ -63,7 +61,7 @@ export class MysqlPaymentRequestQueryRepository implements PaymentRequestQueryRe
        WHERE pr.${columns.owner} = UUID_TO_BIN(?)
        ${conditions.join('\n       ')}
        ORDER BY pr.created_at DESC, pr.id DESC
-       LIMIT ?`,
+       ${limitClause(input.limit)}`,
       values,
     );
 

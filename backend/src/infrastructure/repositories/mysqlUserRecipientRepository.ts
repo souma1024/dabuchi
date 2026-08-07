@@ -6,6 +6,7 @@ import type {
   UserRecipientRepository,
 } from '../../application/ports/userRecipientRepository.js';
 import type { UserRecipientRecord } from '../../domain/userRecipient.js';
+import { limitClause } from '../database/limitClause.js';
 
 interface ExistsRow extends RowDataPacket {
   found: number;
@@ -44,9 +45,6 @@ export class MysqlUserRecipientRepository implements UserRecipientRepository {
     const values: string[] = [input.currentUserId];
     values.push(...cursorValues);
 
-    // mysql2 sends JavaScript numbers as DOUBLE values, which MySQL rejects for LIMIT.
-    values.push(String(input.limit));
-
     const orderByClause =
       input.sort === 'created-desc'
         ? 'created_at DESC, id DESC'
@@ -58,7 +56,7 @@ export class MysqlUserRecipientRepository implements UserRecipientRepository {
       `${BASE_RECIPIENT_QUERY}
        ${cursorClause}
        ORDER BY ${orderByClause}
-       LIMIT ?`,
+       ${limitClause(input.limit)}`,
       values,
     );
 

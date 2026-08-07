@@ -6,6 +6,7 @@ import type {
   TransactionRepository,
 } from '../../application/ports/transactionRepository.js';
 import type { TransactionRecord } from '../../domain/transaction.js';
+import { limitClause } from '../database/limitClause.js';
 
 interface TransactionRow extends RowDataPacket, TransactionRecord {}
 
@@ -56,8 +57,6 @@ export class MysqlTransactionRepository implements TransactionRepository {
     ];
     values.push(...cursorValues);
 
-    // mysql2 sends JavaScript numbers as DOUBLE values, which MySQL rejects for LIMIT.
-    values.push(String(input.limit));
     const orderByClause =
       input.sort === 'created-asc'
         ? 't.created_at ASC, t.id ASC'
@@ -67,7 +66,7 @@ export class MysqlTransactionRepository implements TransactionRepository {
       `${BASE_TRANSACTION_QUERY}
        ${cursorClause}
        ORDER BY ${orderByClause}
-       LIMIT ?`,
+       ${limitClause(input.limit)}`,
       values,
     );
 

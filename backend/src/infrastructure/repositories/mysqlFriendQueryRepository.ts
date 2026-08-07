@@ -10,6 +10,7 @@ import type {
   FriendshipCursor,
   FriendshipDetailQueryRecord,
 } from '../../application/ports/friendQueryRepository.js';
+import { limitClause } from '../database/limitClause.js';
 
 interface FriendQueryRow extends RowDataPacket {
   friendshipId: string;
@@ -49,8 +50,6 @@ export class MysqlFriendQueryRepository implements FriendQueryRepository {
     const values = [input.currentUserId];
     values.push(...cursorValues);
 
-    // mysql2 sends JavaScript numbers as DOUBLE values, which MySQL rejects for LIMIT.
-    values.push(String(input.limit));
     const orderByClause =
       input.sort === 'created-desc'
         ? 'f.created_at DESC, f.id DESC'
@@ -88,7 +87,7 @@ export class MysqlFriendQueryRepository implements FriendQueryRepository {
          )
        ${cursorClause}
        ORDER BY ${orderByClause}
-       LIMIT ?`,
+       ${limitClause(input.limit)}`,
       values,
     );
 
@@ -173,8 +172,6 @@ export class MysqlFriendQueryRepository implements FriendQueryRepository {
       );
     }
 
-    values.push(String(input.limit));
-
     const [rows] = await this.pool.execute<BlockedFriendQueryRow[]>(
       `SELECT
          BIN_TO_UUID(f.id) AS friendshipId,
@@ -202,7 +199,7 @@ export class MysqlFriendQueryRepository implements FriendQueryRepository {
        WHERE ub.blocker_id = viewer.id
        ${cursorClause}
        ORDER BY ub.created_at ASC, f.id ASC
-       LIMIT ?`,
+       ${limitClause(input.limit)}`,
       values,
     );
 

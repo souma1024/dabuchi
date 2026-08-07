@@ -40,11 +40,11 @@ describe('MysqlPaymentRequestQueryRepository', () => {
       expect.stringContaining(
         'JOIN users counterparty ON counterparty.id = pr.requester_id',
       ),
-      [CURRENT_USER_INTERNAL_ID, '21'],
+      [CURRENT_USER_INTERNAL_ID],
     );
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('WHERE pr.recipient_id = UUID_TO_BIN(?)'),
-      [CURRENT_USER_INTERNAL_ID, '21'],
+      [CURRENT_USER_INTERNAL_ID],
     );
   });
 
@@ -60,11 +60,11 @@ describe('MysqlPaymentRequestQueryRepository', () => {
       expect.stringContaining(
         'JOIN users counterparty ON counterparty.id = pr.recipient_id',
       ),
-      [CURRENT_USER_INTERNAL_ID, '21'],
+      [CURRENT_USER_INTERNAL_ID],
     );
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('WHERE pr.requester_id = UUID_TO_BIN(?)'),
-      [CURRENT_USER_INTERNAL_ID, '21'],
+      [CURRENT_USER_INTERNAL_ID],
     );
   });
 
@@ -87,7 +87,6 @@ describe('MysqlPaymentRequestQueryRepository', () => {
 
     expect(execute).toHaveBeenCalledWith(expect.stringContaining(alias), [
       CURRENT_USER_INTERNAL_ID,
-      '21',
     ]);
   });
 
@@ -99,7 +98,7 @@ describe('MysqlPaymentRequestQueryRepository', () => {
 
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('ORDER BY pr.created_at DESC, pr.id DESC'),
-      [CURRENT_USER_INTERNAL_ID, '21'],
+      [CURRENT_USER_INTERNAL_ID],
     );
   });
 
@@ -113,7 +112,7 @@ describe('MysqlPaymentRequestQueryRepository', () => {
 
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('AND pr.status = ?'),
-      [CURRENT_USER_INTERNAL_ID, 'pending', '21'],
+      [CURRENT_USER_INTERNAL_ID, 'pending'],
     );
   });
 
@@ -129,36 +128,23 @@ describe('MysqlPaymentRequestQueryRepository', () => {
 
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('pr.created_at < ?'),
-      [
-        CURRENT_USER_INTERNAL_ID,
-        cursor.createdAt,
-        cursor.createdAt,
-        cursor.id,
-        '21',
-      ],
+      [CURRENT_USER_INTERNAL_ID, cursor.createdAt, cursor.createdAt, cursor.id],
     );
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining('pr.id < UUID_TO_BIN(?)'),
-      [
-        CURRENT_USER_INTERNAL_ID,
-        cursor.createdAt,
-        cursor.createdAt,
-        cursor.id,
-        '21',
-      ],
+      [CURRENT_USER_INTERNAL_ID, cursor.createdAt, cursor.createdAt, cursor.id],
     );
   });
 
-  // mysql2はJavaScriptのnumberをDOUBLEとして送るため、MySQLがLIMITで拒否する。
-  it('LIMITは文字列で渡す', async () => {
+  // LIMITはプレースホルダで渡せない。数値はMySQLが、文字列はTiDBが拒否する。
+  it('LIMITはSQLへ直接埋め込む', async () => {
     const { pool, execute } = createMysqlPool([[]]);
     const repository = new MysqlPaymentRequestQueryRepository(pool);
 
     await repository.findPaymentRequests(createBaseInput({ limit: 5 }));
 
-    expect(execute).toHaveBeenCalledWith(expect.stringContaining('LIMIT ?'), [
+    expect(execute).toHaveBeenCalledWith(expect.stringContaining('LIMIT 5'), [
       CURRENT_USER_INTERNAL_ID,
-      '5',
     ]);
   });
 
