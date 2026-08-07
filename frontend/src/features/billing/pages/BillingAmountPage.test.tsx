@@ -206,14 +206,39 @@ describe('BillingAmountPage', () => {
       expect(screen.getByRole('button', { name: '請求' })).toBeDisabled();
     });
 
-    // 送金は残高（80,000円）で頭打ちになるが、請求はその制約を受けない。
-    it('送金の上限（残高80,000円）を超える金額でも請求できる', async () => {
+    it('1回の上限（80,000円）ちょうどは請求できる', async () => {
       const user = userEvent.setup();
       renderWithRecipients([jiro]);
 
-      await user.type(amountInput('佐藤次郎'), '999999');
+      await user.type(amountInput('佐藤次郎'), '80000');
 
+      expect(
+        screen.queryByText('80,000円を超える金額は指定できません'),
+      ).not.toBeInTheDocument();
       expect(screen.getByRole('button', { name: '請求' })).toBeEnabled();
+    });
+
+    it('1回の上限（80,000円）を超える金額はエラーを表示し請求できない', async () => {
+      const user = userEvent.setup();
+      renderWithRecipients([jiro]);
+
+      await user.type(amountInput('佐藤次郎'), '80001');
+
+      expect(
+        screen.getByText('80,000円を超える金額は指定できません'),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '請求' })).toBeDisabled();
+    });
+
+    it('複数人のうち1人でも上限を超えると全体を請求できない', async () => {
+      const user = userEvent.setup();
+      renderWithRecipients([jiro, saburo]);
+
+      await user.type(amountInput('佐藤次郎'), '1000');
+      await user.clear(amountInput('佐藤三郎'));
+      await user.type(amountInput('佐藤三郎'), '80001');
+
+      expect(screen.getByRole('button', { name: '請求' })).toBeDisabled();
     });
   });
 

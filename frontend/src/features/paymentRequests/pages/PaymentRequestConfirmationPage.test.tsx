@@ -88,12 +88,12 @@ afterEach(() => {
 });
 
 describe('PaymentRequestConfirmationPage', () => {
-  it('相手・金額・請求日を表示する', async () => {
+  it('相手・金額・請求日時を表示する', async () => {
     renderPage();
 
     expect(await screen.findByText('佐藤 花子 さん')).toBeInTheDocument();
     expect(screen.getByText('3,000円')).toBeInTheDocument();
-    expect(screen.getByText('請求日 8/3')).toBeInTheDocument();
+    expect(screen.getByText('請求日時 8/3 10:00')).toBeInTheDocument();
   });
 
   it('受けた請求では承認と拒否を出す', async () => {

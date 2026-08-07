@@ -124,32 +124,46 @@ describe('TransferAmountPage', () => {
     expect(await screen.findByText('テスト花子')).toBeInTheDocument();
   });
 
-  it('送金上限は実残高（/api/me）で判定する', async () => {
+  it('送金上限額は残高に関わらず常に80,000円と表示する', async () => {
+    // 残高は50,000円だが、上限額の表示は80,000円で固定。
     mockApi({});
-    const user = userEvent.setup();
     renderPage(RECIPIENT);
 
-    // 上限ラベルは実残高の 50,000円。
-    expect(await screen.findByText('50,000円')).toBeInTheDocument();
-
-    await user.type(screen.getByLabelText('送金金額'), '50001');
-    expect(screen.getByText('送金上限額を超えています')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '送金' })).toBeDisabled();
+    expect(await screen.findByText('80,000円')).toBeInTheDocument();
   });
 
-  it('残高ちょうど（50,000円）は送信でき、1円超えると無効になる', async () => {
+  it('残高ちょうどは送金でき、残高を超えると残高不足で無効になる', async () => {
+    // 残高50,000円。上限額(80,000円)以内でも残高を超えたら送れない。
     mockApi({});
     const user = userEvent.setup();
     renderPage(RECIPIENT);
 
     const input = await screen.findByLabelText('送金金額');
     await user.type(input, '50000');
+    expect(screen.queryByText('残高が不足しています')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '送金' })).toBeEnabled();
+
+    await user.clear(input);
+    await user.type(input, '50001');
+    expect(screen.getByText('残高が不足しています')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '送金' })).toBeDisabled();
+  });
+
+  it('残高が十分でも上限額（80,000円）ちょうどまでしか送金できない', async () => {
+    // 残高100,000円なら残高は足りるが、1回の上限80,000円で頭打ちになる。
+    mockApi({ me: () => meResponse({ ...CURRENT_USER, balance: 100000 }) });
+    const user = userEvent.setup();
+    renderPage(RECIPIENT);
+
+    const input = await screen.findByLabelText('送金金額');
+    await user.type(input, '80000');
     expect(
       screen.queryByText('送金上限額を超えています'),
     ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '送金' })).toBeEnabled();
 
-    await user.type(input, '1'); // 500001 になり上限超過
+    await user.clear(input);
+    await user.type(input, '80001');
     expect(screen.getByText('送金上限額を超えています')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '送金' })).toBeDisabled();
   });

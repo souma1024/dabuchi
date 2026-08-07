@@ -28,6 +28,12 @@ export interface RecipientAmountPageProps {
   completeNote?: string;
   onSubmit: (amount: number) => Promise<void>;
   maxAmount?: MaxAmountConfig;
+  /**
+   * ラベルには表示しない追加の上限。maxAmountの範囲内でも、これを超える金額は送信できない。
+   * 送金画面で「上限額（80,000円）は満たすが口座残高が足りない」ケースを、上限額とは別の
+   * メッセージ（残高不足）で示すために使う。
+   */
+  secondaryMax?: { value: number; exceededMessage: string };
 }
 
 // 送金画面・請求画面共通の「相手表示＋金額入力＋バリデーション＋送信＋完了表示」UI。
@@ -48,6 +54,7 @@ export function RecipientAmountPage({
   completeNote,
   onSubmit,
   maxAmount,
+  secondaryMax,
 }: RecipientAmountPageProps) {
   const navigate = useNavigate();
   const [amount, setAmount] = useState('');
@@ -58,14 +65,17 @@ export function RecipientAmountPage({
 
   const numericAmount = Number(amount);
   const amountError = getAmountError(amount);
+  // 表示する上限（maxAmount。送金なら80,000円）を超えたらそのメッセージを最優先で示す。
+  // 次に、ラベルには出さない追加の上限（secondaryMax。送金の残高ガード）。桁数・全体上限
+  // などの共通エラーはそれらの内側で扱う。
   const errorMessage =
-    amountError !== ''
-      ? amountError
-      : maxAmount !== undefined &&
+    maxAmount !== undefined && amount !== '' && numericAmount > maxAmount.value
+      ? maxAmount.exceededMessage
+      : secondaryMax !== undefined &&
           amount !== '' &&
-          numericAmount > maxAmount.value
-        ? maxAmount.exceededMessage
-        : '';
+          numericAmount > secondaryMax.value
+        ? secondaryMax.exceededMessage
+        : amountError;
   const canSubmit = isSubmittableAmount(amount) && errorMessage === '';
 
   const handleAmountChange = (event: React.ChangeEvent<HTMLInputElement>) => {

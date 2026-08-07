@@ -1,4 +1,5 @@
 import type {
+  FriendSort,
   FriendQueryRepository,
   FriendshipCursor,
 } from '../ports/friendQueryRepository.js';
@@ -7,10 +8,12 @@ import { resolveCurrentUser } from './resolveCurrentUser.js';
 import { toFriendResult, type FriendResult } from './friendQueryResult.js';
 
 const FRIEND_PAGE_SIZE = 20;
+const DEFAULT_FRIEND_SORT: FriendSort = 'created-asc';
 
 export interface ListFriendsInput {
   currentUserPublicId: string;
   cursor: FriendshipCursor | null;
+  sort?: FriendSort;
 }
 
 export interface ListFriendsResult {
@@ -25,6 +28,7 @@ export class ListFriends {
   ) {}
 
   async execute(input: ListFriendsInput): Promise<ListFriendsResult> {
+    const sort = input.sort ?? DEFAULT_FRIEND_SORT;
     const currentUser = await resolveCurrentUser(
       this.currentUserRepository,
       input.currentUserPublicId,
@@ -33,6 +37,7 @@ export class ListFriends {
       currentUserId: currentUser.id,
       cursor: input.cursor,
       limit: FRIEND_PAGE_SIZE + 1,
+      sort,
     });
     const hasNextPage = records.length > FRIEND_PAGE_SIZE;
     const visibleRecords = records.slice(0, FRIEND_PAGE_SIZE);
@@ -42,7 +47,13 @@ export class ListFriends {
       friends: visibleRecords.map(toFriendResult),
       nextCursor:
         hasNextPage && lastRecord
-          ? { createdAt: lastRecord.addedAt, id: lastRecord.friendshipId }
+          ? {
+              sort,
+              value: {
+                createdAt: lastRecord.addedAt,
+                id: lastRecord.friendshipId,
+              },
+            }
           : null,
     };
   }

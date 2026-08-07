@@ -4,6 +4,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { RecipientAmountPage } from '../../../components/RecipientAmountPage';
 import { isRecipient } from '../../../hooks/useRecipientFromLocationState';
 import type { Recipient } from '../../../types/user';
+import { AMOUNT_LIMIT } from '../../../lib/amount';
 import { useCurrentUser } from '../../currentUser/hooks/useCurrentUser';
 import { sendTransfer } from '../api/transferClient';
 import { randomId } from '../../../lib/randomId';
@@ -87,10 +88,15 @@ function TransferAmountForm({ recipient }: { recipient: Recipient }) {
         })
       }
       maxAmount={{
-        // 口座残高を超える送金はできない。
-        value: currentUser.balance,
+        // 送金上限額は常に80,000円と表示する。残高は別枠(secondaryMax)で判定する。
+        value: AMOUNT_LIMIT,
         label: '送金上限額',
         exceededMessage: '送金上限額を超えています',
+      }}
+      secondaryMax={{
+        // 上限額(80,000円)以内でも、口座残高を超える送金はできない。
+        value: currentUser.balance,
+        exceededMessage: '残高が不足しています',
       }}
     />
   );

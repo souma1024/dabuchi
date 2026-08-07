@@ -3,6 +3,14 @@
 
 export const AMOUNT_TOO_LARGE_MESSAGE = '入力できる金額の桁数を超えています';
 
+/**
+ * 1回の送金・請求で指定できる金額の上限（円）。この額ちょうどは許可し、超える額は不可。
+ * 送金・請求で共通の業務ルール。送金画面では実残高との小さい方が実際の上限になる。
+ */
+export const AMOUNT_LIMIT = 80000;
+
+export const AMOUNT_LIMIT_EXCEEDED_MESSAGE = `${AMOUNT_LIMIT.toLocaleString()}円を超える金額は指定できません`;
+
 /** 金額入力欄が受け付ける文字列か。空文字（未入力）と半角数字のみを許可する。 */
 export function isAmountInputValue(value: string): boolean {
   return value === '' || /^[0-9]+$/.test(value);
@@ -13,11 +21,23 @@ export function getAmountError(value: string): string {
   if (value === '') {
     return '';
   }
-  return Number.isSafeInteger(Number(value)) ? '' : AMOUNT_TOO_LARGE_MESSAGE;
+  const numeric = Number(value);
+  if (!Number.isSafeInteger(numeric)) {
+    return AMOUNT_TOO_LARGE_MESSAGE;
+  }
+  if (numeric > AMOUNT_LIMIT) {
+    return AMOUNT_LIMIT_EXCEEDED_MESSAGE;
+  }
+  return '';
 }
 
-/** 送信できる金額か。0円と未入力は送信できない。 */
+/** 送信できる金額か。0円・未入力・上限超過は送信できない。 */
 export function isSubmittableAmount(value: string): boolean {
   const numeric = Number(value);
-  return value !== '' && Number.isSafeInteger(numeric) && numeric > 0;
+  return (
+    value !== '' &&
+    Number.isSafeInteger(numeric) &&
+    numeric > 0 &&
+    numeric <= AMOUNT_LIMIT
+  );
 }
