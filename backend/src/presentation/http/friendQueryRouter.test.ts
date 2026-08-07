@@ -16,8 +16,10 @@ import { createFriendQueryRepository } from '../../test/factories/friendQueryRep
 import { errorHandler } from './errorHandler.js';
 import { decodeFriendCursor } from './friendCursorCodec.js';
 import { createFriendQueryRouter } from './friendQueryRouter.js';
+import { withCurrentUser } from '../../test/withCurrentUser.js';
 
 const CURRENT_USER_PUBLIC_ID = '001';
+const CURRENT_USER_INTERNAL_ID = '11111111-1111-4111-8111-111111111111';
 const FRIENDSHIP_ID = '10000000-0000-4000-8000-000000000001';
 
 describe('friend query router', () => {
@@ -154,11 +156,16 @@ function createTestApp(
   });
   const currentUserRepository = createCurrentUserRepository();
   const app = express();
+  app.use(
+    withCurrentUser({
+      id: CURRENT_USER_INTERNAL_ID,
+      userId: CURRENT_USER_PUBLIC_ID,
+    }),
+  );
 
   app.use(
     '/api/friends',
     createFriendQueryRouter({
-      currentUserPublicId: CURRENT_USER_PUBLIC_ID,
       listFriends: new ListFriends(
         currentUserRepository,
         friendQueryRepository,

@@ -55,7 +55,7 @@ columns="$(query "
 ")"
 
 assert_equals \
-  "id:binary(16):NO,user_id:varchar(64):NO,balance:bigint unsigned:NO,user_name:varchar(100):NO,profile_url:varchar(255):NO,created_at:datetime(6):NO" \
+  "id:binary(16):NO,user_id:varchar(64):NO,password_hash:varchar(255):YES,balance:bigint unsigned:NO,user_name:varchar(100):NO,profile_url:varchar(255):NO,created_at:datetime(6):NO" \
   "${columns}" \
   "users table columns must match the migration"
 
@@ -319,14 +319,17 @@ if query "
   exit 1
 fi
 
+# responded_by は満たしたうえで、responded_at だけを欠いた入力にする。
+# 省くと責務の違うCHECK（responded_by必須）で落ち、応答時刻の検証にならない。
 if query "
   INSERT INTO payment_requests (
     requester_id,
     recipient_id,
     amount,
-    status
+    status,
+    responded_by
   )
-  SELECT requester.id, recipient.id, 100, 'accepted'
+  SELECT requester.id, recipient.id, 100, 'accepted', recipient.id
   FROM users AS requester
   CROSS JOIN users AS recipient
   WHERE requester.user_id = 'auto-id-test'
@@ -811,14 +814,14 @@ if query "
   exit 1
 fi
 
-# --- V6・V7 のupgrade path ----------------------------------------------------
+# --- V6・V8 のupgrade path ----------------------------------------------------
 # ここまでのテストは適用済みのschemaに対して行うため、migration内のUPDATE文が
-# 壊れても素通りしてしまう。V7・V6を順に戻し、responded_byが無い状態で請求を
+# 壊れても素通りしてしまう。V8・V6を順に戻し、responded_byが無い状態で請求を
 # 作ってから適用し直すことで、両方のバックフィルそのものを検証する。
 #
-# V7 → V6 の順で戻す。V6のrollbackはV7が張り替えたCHECKごと列を落とすため、
-# 先にV7を戻しておかないと制約の状態が実際のmigration順と食い違う。
-query "$(cat "${repository_root}/database/rollback/V7__allow_null_responded_by_for_responded_payment_requests.sql")"
+# V8 → V6 の順で戻す。V6のrollbackはV8が張り替えたCHECKごと列を落とすため、
+# 先にV8を戻しておかないと制約の状態が実際のmigration順と食い違う。
+query "$(cat "${repository_root}/database/rollback/V8__allow_null_responded_by_for_responded_payment_requests.sql")"
 query "$(cat "${repository_root}/database/rollback/V6__drop_responded_by_from_payment_requests.sql")"
 
 query "
@@ -867,15 +870,83 @@ assert_equals \
   "${backfilled_responded_by}" \
   "V6 must backfill responded_by with the recipient for responded requests only"
 
+sessions_columns="$(query "
+  SELECT GROUP_CONCAT(
+    CONCAT(column_name, ':', column_type, ':', is_nullable)
+    ORDER BY ordinal_position SEPARATOR ','
+  )
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'sessions';
+")"
+
+assert_equals \
+  "token_hash:binary(32):NO,user_id:binary(16):NO,created_at:datetime(6):NO,expires_at:datetime(6):NO" \
+  "${sessions_columns}" \
+  "sessions columns must match the migration"
+
+# 同じtokenで2件持てると、片方を消してももう片方が生き残る。
+if query "
+  INSERT INTO users (user_id, user_name, profile_url)
+  VALUES ('session-test', 'セッション 検証', '/assets/profiles/human1.png');
+
+  INSERT INTO sessions (token_hash, user_id, expires_at)
+  VALUES (
+    UNHEX(REPEAT('ab', 32)),
+    (SELECT id FROM users WHERE user_id = 'session-test'),
+    CURRENT_TIMESTAMP(6) + INTERVAL 7 DAY
+  );
+
+  INSERT INTO sessions (token_hash, user_id, expires_at)
+  VALUES (
+    UNHEX(REPEAT('ab', 32)),
+    (SELECT id FROM users WHERE user_id = 'session-test'),
+    CURRENT_TIMESTAMP(6) + INTERVAL 7 DAY
+  );
+" >/dev/null 2>&1; then
+  echo "FAIL: session tokens must be unique" >&2
+  exit 1
+fi
+
+# 期限が作成時刻より前のセッションは、作った時点で切れていることになる。
+if query "
+  INSERT INTO sessions (token_hash, user_id, created_at, expires_at)
+  VALUES (
+    UNHEX(REPEAT('cd', 32)),
+    (SELECT id FROM users WHERE user_id = 'session-test'),
+    '2026-08-06 00:00:00.000000',
+    '2026-08-05 00:00:00.000000'
+  );
+" >/dev/null 2>&1; then
+  echo "FAIL: sessions must expire after they are created" >&2
+  exit 1
+fi
+
+# ユーザーを消したらセッションも残さない。
+query "
+  DELETE FROM users WHERE user_id = 'session-test';
+" >/dev/null
+
+remaining_sessions="$(query "
+  SELECT COUNT(*)
+  FROM sessions
+  WHERE token_hash = UNHEX(REPEAT('ab', 32));
+")"
+
+assert_equals \
+  "0" \
+  "${remaining_sessions}" \
+  "sessions must be removed with their user"
+
 # 互換期間（V6適用から取り消しAPI投入まで）に、responded_byを書かないアプリケーションが
-# 確定させた行を再現する。V6のCHECKはこれを許すため、V7が埋め直す必要がある。
+# 確定させた行を再現する。V6のCHECKはこれを許すため、V8が埋め直す必要がある。
+# accepted と rejected の両方を戻す。片方だけだと「rejectedしか埋めない」実装でも通ってしまう。
 query "
   UPDATE payment_requests
      SET responded_by = NULL
-   WHERE status = 'rejected';
+   WHERE status <> 'pending';
 "
 
-query "$(cat "${repository_root}/database/migrations/V7__require_responded_by_for_responded_payment_requests.sql")"
+query "$(cat "${repository_root}/database/migrations/V8__require_responded_by_for_responded_payment_requests.sql")"
 
 required_responded_by="$(query "
   SELECT CONCAT(
@@ -888,7 +959,7 @@ required_responded_by="$(query "
 assert_equals \
   "1:2:0" \
   "${required_responded_by}" \
-  "V7 must backfill the rows left NULL during the compatibility window"
+  "V8 must backfill every row left NULL during the compatibility window"
 
 # 締めたあとは、決着済みでresponded_byが無い行を作れない。
 if query "
@@ -896,7 +967,7 @@ if query "
      SET responded_by = NULL
    WHERE status = 'rejected';
 " >/dev/null 2>&1; then
-  echo "FAIL: V7 must reject a responded payment request without responded_by" >&2
+  echo "FAIL: V8 must reject a responded payment request without responded_by" >&2
   exit 1
 fi
 
@@ -909,7 +980,7 @@ pending_responded_by="$(query "
 assert_equals \
   "1" \
   "${pending_responded_by}" \
-  "V7 must keep responded_by nullable while the request is pending"
+  "V8 must keep responded_by nullable while the request is pending"
 
 echo "Database migration tests passed."
 bash database/scripts/seed.sh
@@ -923,5 +994,16 @@ assert_equals \
   "山田 太郎" \
   "${seeded_user_name}" \
   "development seed must preserve utf8mb4 user names"
+
+seeded_users_without_password="$(query "
+  SELECT COUNT(*)
+  FROM users
+  WHERE user_id LIKE 'friend-%' AND password_hash IS NULL;
+")"
+
+assert_equals \
+  "0" \
+  "${seeded_users_without_password}" \
+  "development seed must set a password for every seeded user"
 
 echo "Database migration and seed tests passed."

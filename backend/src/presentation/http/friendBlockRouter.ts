@@ -2,10 +2,10 @@ import { Router } from 'express';
 
 import type { BlockFriend } from '../../application/usecases/blockFriend.js';
 import type { UnblockFriend } from '../../application/usecases/unblockFriend.js';
+import { requireCurrentUser } from './authentication.js';
 
 export interface FriendBlockRouterDependencies {
   blockFriend: BlockFriend;
-  currentUserPublicId: string;
   unblockFriend: UnblockFriend;
 }
 
@@ -17,7 +17,7 @@ export function createFriendBlockRouter(
   router.post('/:friendshipId/block', (request, response, next) => {
     void (async () => {
       const result = await dependencies.blockFriend.execute({
-        currentUserPublicId: dependencies.currentUserPublicId,
+        currentUserPublicId: requireCurrentUser(response).userId,
         friendshipId: request.params.friendshipId ?? '',
       });
 
@@ -28,7 +28,7 @@ export function createFriendBlockRouter(
   router.delete('/:friendshipId/block', (request, response, next) => {
     void dependencies.unblockFriend
       .execute({
-        currentUserPublicId: dependencies.currentUserPublicId,
+        currentUserPublicId: requireCurrentUser(response).userId,
         friendshipId: request.params.friendshipId ?? '',
       })
       .then(() => response.status(204).end())

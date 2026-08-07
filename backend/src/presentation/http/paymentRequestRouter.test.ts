@@ -10,11 +10,12 @@ import {
   createPaymentRequestCommandRepository,
   createRespondedPaymentRequest,
 } from '../../test/factories/paymentRequestCommandFactory.js';
-import { createPaymentRequestListRepository } from '../../test/factories/paymentRequestListFactory.js';
+import { createPaymentRequestQueryRepository } from '../../test/factories/paymentRequestQueryFactory.js';
 import { createCurrentUser } from '../../test/factories/currentUserFactory.js';
 import { createCurrentUserRepository } from '../../test/factories/currentUserRepositoryFactory.js';
 import { createPaymentRequestRepository } from '../../test/factories/paymentRequestRepositoryFactory.js';
 import { createPaymentRequestRouter } from './paymentRequestRouter.js';
+import { withCurrentUser } from '../../test/withCurrentUser.js';
 
 const CURRENT_USER_PUBLIC_ID = 'friend-001';
 const CURRENT_USER_INTERNAL_ID = '11111111-1111-4111-8111-111111111111';
@@ -33,22 +34,27 @@ function createRouterTestApp(
     paymentRequestRepository,
     () => PAYMENT_REQUEST_ID,
   );
-  const paymentRequestListRepository = createPaymentRequestListRepository();
+  const paymentRequestQueryRepository = createPaymentRequestQueryRepository();
   const app = express();
 
   app.use(express.json());
   app.use(
+    withCurrentUser({
+      id: CURRENT_USER_INTERNAL_ID,
+      userId: CURRENT_USER_PUBLIC_ID,
+    }),
+  );
+  app.use(
     '/api/payment-requests',
     createPaymentRequestRouter({
       createPaymentRequests,
-      currentUserPublicId: CURRENT_USER_PUBLIC_ID,
       getPaymentRequest: new GetPaymentRequest(
         currentUserRepository,
-        paymentRequestListRepository,
+        paymentRequestQueryRepository,
       ),
       listPaymentRequests: new ListPaymentRequests(
         currentUserRepository,
-        paymentRequestListRepository,
+        paymentRequestQueryRepository,
       ),
       respondToPaymentRequest: new RespondToPaymentRequest(
         currentUserRepository,

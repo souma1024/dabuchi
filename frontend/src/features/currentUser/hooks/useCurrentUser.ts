@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 
-import { fetchCurrentUser } from '../api/fetchCurrentUser';
+import {
+  fetchCurrentUser,
+  NotAuthenticatedError,
+} from '../api/fetchCurrentUser';
 import type { CurrentUser } from '../types';
 
 /** 現在ユーザーの取得結果。 */
@@ -8,6 +11,8 @@ export interface UseCurrentUserResult {
   currentUser: CurrentUser | null;
   isLoading: boolean;
   error: string | null;
+  /** 未ログインだったか。取得前と取得失敗時はfalse。 */
+  isNotAuthenticated: boolean;
 }
 
 function toErrorMessage(caught: unknown): string {
@@ -21,6 +26,8 @@ export function useCurrentUser(): UseCurrentUserResult {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 未ログインは「エラー」ではなくログイン画面へ促す合図なので、分けて持つ。
+  const [isNotAuthenticated, setIsNotAuthenticated] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -34,9 +41,14 @@ export function useCurrentUser(): UseCurrentUserResult {
         setError(null);
       })
       .catch((caught: unknown) => {
-        if (active) {
-          setError(toErrorMessage(caught));
+        if (!active) {
+          return;
         }
+        if (caught instanceof NotAuthenticatedError) {
+          setIsNotAuthenticated(true);
+          return;
+        }
+        setError(toErrorMessage(caught));
       })
       .finally(() => {
         if (active) {
@@ -49,5 +61,5 @@ export function useCurrentUser(): UseCurrentUserResult {
     };
   }, []);
 
-  return { currentUser, isLoading, error };
+  return { currentUser, isLoading, error, isNotAuthenticated };
 }

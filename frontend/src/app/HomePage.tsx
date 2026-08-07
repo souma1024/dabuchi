@@ -1,4 +1,7 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+
+import { logOut } from '../features/auth/api/authClient';
 
 import { UserAvatar } from '../components/UserAvatar';
 import { useCurrentUser } from '../features/currentUser/hooks/useCurrentUser';
@@ -132,6 +135,50 @@ function BalanceSection() {
   );
 }
 
+/** ログアウトしてログイン画面へ戻る。失敗したら理由を出し、画面はそのまま。 */
+function LogOutButton() {
+  const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleClick = () => {
+    if (isSubmitting) {
+      return;
+    }
+    setIsSubmitting(true);
+    setError(null);
+
+    void logOut()
+      .then(() => navigate('/login', { replace: true }))
+      .catch((caught: unknown) => {
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : '不明なエラーが発生しました',
+        );
+        setIsSubmitting(false);
+      });
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={isSubmitting}
+        className="rounded-2xl border-none bg-transparent px-4 py-2 text-sm text-slate-500 disabled:cursor-not-allowed disabled:text-slate-300"
+      >
+        ログアウト
+      </button>
+      {error !== null && (
+        <p role="alert" className="m-0 text-center text-sm text-red-600">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function HomePage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[420px] flex-col bg-white">
@@ -153,6 +200,8 @@ export function HomePage() {
         {links.map((item) => (
           <MenuButton key={item.label} item={item} />
         ))}
+
+        <LogOutButton />
       </nav>
 
       <ReceivedPaymentRequestSection />

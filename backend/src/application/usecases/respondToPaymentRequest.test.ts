@@ -7,7 +7,7 @@ import {
   createRespondedPaymentRequest,
 } from '../../test/factories/paymentRequestCommandFactory.js';
 import { CurrentUserNotFoundError } from '../errors/currentUserNotFoundError.js';
-import { InvalidPaymentRequestIdError } from '../errors/paymentRequestCommandErrors.js';
+import { InvalidPaymentRequestIdError } from '../errors/paymentRequestErrors.js';
 import type { PaymentRequestCommandRepository } from '../ports/paymentRequestCommandRepository.js';
 import { RespondToPaymentRequest } from './respondToPaymentRequest.js';
 

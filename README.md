@@ -43,7 +43,9 @@ npm run dev:backend
 
 `npm run dev:backend`は、セットアップで作成したルートの`.env`を読み込みます。Composeでは同じ設定値をbackendコンテナへ環境変数として渡します。バックエンドのポートは`PORT`環境変数で変更できます。秘密情報をリポジトリやログへ含めないでください。
 
-ログイン機能を実装するまでは、`.env`の`MOCK_USER_ID`に設定した公開`user_id`を現在ユーザーとして扱います。mock認証は開発・テスト専用で、本番環境では起動を拒否します。
+ログインは`POST /api/auth/login`で行い、セッションはHttpOnly Cookieで保持します。詳細は[認証API](docs/api/auth.md)を参照してください。
+
+現在ユーザーはセッションから決まります。`/health`と`/api/auth/*`以外のAPIは、有効なセッションが無ければ`401`を返します。
 
 ## データベース
 
@@ -74,7 +76,7 @@ npm run db:down
 
 内部UUIDと公開用`user_id`は別の識別子です。APIでは内部UUIDを文字列へ変換して扱い、友達追加では一意な`user_id`を利用する想定です。
 
-開発用シードは30ユーザーです。`human1.png`〜`human6.png`を循環して参照します。シードは本番migrationへ含めず、`npm run db:seed`を明示的に実行した場合だけ投入されます。
+開発用シードは30ユーザーです。`human1.png`〜`human6.png`を循環して参照し、いずれも共通のパスワード`dabuchi-dev`でログインできます。シードは本番migrationへ含めず、`npm run db:seed`を明示的に実行した場合だけ投入されます。
 
 提供画像は再配布せず、各自のローカル環境で`frontend/public/assets/profiles/`へ配置してください。必要なファイル名と注意事項は[プロフィール画像の配置手順](frontend/public/assets/profiles/README.md)に記載しています。PNGファイルは`.gitignore`でGit管理から除外しています。
 
