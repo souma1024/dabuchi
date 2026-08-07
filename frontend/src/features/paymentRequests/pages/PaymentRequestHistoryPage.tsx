@@ -60,8 +60,9 @@ export function PaymentRequestHistoryPage({
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-md flex-col bg-white">
       {/*
-        スクロールしてもヘッダーとタブを残す。一覧を下まで追ったときに
-        どちらのタブを見ているのか分からなくなり、戻る操作も遠くなるため。
+        ヘッダー単体はScreenHeaderがstickyにするが、タブも一緒に残す必要がある。
+        別々にstickyにすると、タブを止める位置にヘッダーの高さを直書きすることになる。
+        まとめて包めば高さを知らずに済む。
       */}
       <div className="sticky top-0 z-10 bg-white">
         <ScreenHeader title="請求履歴" onBack={onBack} />

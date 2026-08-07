@@ -83,7 +83,7 @@ describe('ReceivedPaymentRequestSection', () => {
 
     expect(firstItem).toHaveTextContent('テストユーザー1');
     expect(firstItem).toHaveTextContent('3,000円');
-    expect(firstItem).toHaveTextContent('8/3');
+    expect(firstItem).toHaveTextContent('8/3 10:00');
   });
 
   it('下端に達したら続きを読み込んで追記する', async () => {

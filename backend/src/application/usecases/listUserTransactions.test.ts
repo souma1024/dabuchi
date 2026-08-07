@@ -42,14 +42,18 @@ describe('ListUserTransactions', () => {
       createdAt: '2026-08-04T12:00:01.000Z',
     });
     expect(result.nextCursor).toEqual({
-      createdAt: records[19]?.createdAt,
-      id: records[19]?.id,
+      sort: 'created-desc',
+      value: {
+        createdAt: records[19]?.createdAt,
+        id: records[19]?.id,
+      },
     });
     // client値ではなく、解決した内部UUIDで検索されること
     expect(transactionRepository.findTransactions).toHaveBeenCalledWith({
       currentUserId: CURRENT_USER_INTERNAL_ID,
       cursor: null,
       limit: 21,
+      sort: 'created-desc',
     });
   });
 
@@ -93,16 +97,20 @@ describe('ListUserTransactions', () => {
       transactionRepository,
     );
     const cursor = {
-      createdAt: '2026-08-04 12:00:20.000000',
-      id: '20',
+      sort: 'created-asc' as const,
+      value: {
+        createdAt: '2026-08-04 12:00:20.000000',
+        id: '20',
+      },
     };
 
-    await useCase.execute(CURRENT_USER_PUBLIC_ID, cursor);
+    await useCase.execute(CURRENT_USER_PUBLIC_ID, cursor, 'created-asc');
 
     expect(transactionRepository.findTransactions).toHaveBeenCalledWith({
       currentUserId: CURRENT_USER_INTERNAL_ID,
       cursor,
       limit: 21,
+      sort: 'created-asc',
     });
   });
 });

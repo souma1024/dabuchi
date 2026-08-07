@@ -41,10 +41,10 @@ describe('PaymentRequestListItem', () => {
     expect(screen.getByText('1,234,567円')).toBeInTheDocument();
   });
 
-  it('請求日をJSTの月日で表示する', () => {
+  it('請求日時をJSTで表示する', () => {
     renderItem();
 
-    expect(screen.getByText('8/3')).toBeInTheDocument();
+    expect(screen.getByText('8/3 10:00')).toBeInTheDocument();
   });
 
   // 自分が払う側なので、送金と同じ「出ていくお金」の色にする。
