@@ -78,36 +78,50 @@ export function usePaymentRequestConfirmation(
     setIsSubmitting(false);
   }
 
+  // 初回の取得と、実行に失敗したあとのやり直しで共有する。
+  // 取り直しでエラー文は消さない。なぜ実行できなかったのかを残したまま、
+  // 画面の状態だけを今のものへ合わせる。
+  const refresh = useCallback(
+    async (generation: number, clearError = false) => {
+      try {
+        const found = await fetchPaymentRequest(id);
+
+        if (generationRef.current !== generation) {
+          return;
+        }
+        requestRef.current = found;
+        setRequest(found);
+
+        if (found === null) {
+          setError('この請求は見つかりませんでした');
+        } else if (clearError) {
+          setError(null);
+        }
+      } catch (caught: unknown) {
+        if (generationRef.current === generation) {
+          setError(toErrorMessage(caught));
+        }
+      }
+    },
+    [id],
+  );
+
   useEffect(() => {
     const generation = generationRef.current;
     requestRef.current = null;
     // 進行中の送信結果は世代で捨てるため、新しい請求の操作は待たせない。
     submittingRef.current = false;
 
-    void fetchPaymentRequest(id)
-      .then((found) => {
-        if (generationRef.current !== generation) {
-          return;
-        }
-        requestRef.current = found;
-        setRequest(found);
-        setError(found === null ? 'この請求は見つかりませんでした' : null);
-      })
-      .catch((caught: unknown) => {
-        if (generationRef.current === generation) {
-          setError(toErrorMessage(caught));
-        }
-      })
-      .finally(() => {
-        if (generationRef.current === generation) {
-          setIsLoading(false);
-        }
-      });
+    void refresh(generation, true).finally(() => {
+      if (generationRef.current === generation) {
+        setIsLoading(false);
+      }
+    });
 
     return () => {
       generationRef.current += 1;
     };
-  }, [id]);
+  }, [id, refresh]);
 
   const respond = useCallback(
     (action: PaymentRequestAction) => {
@@ -140,10 +154,18 @@ export function usePaymentRequestConfirmation(
           setRequest(updated);
           setCompleted(updated);
         })
-        .catch((caught: unknown) => {
-          if (generationRef.current === generation) {
-            setError(toErrorMessage(caught));
+        .catch(async (caught: unknown) => {
+          if (generationRef.current !== generation) {
+            return;
           }
+          setError(toErrorMessage(caught));
+          // 失敗の多くは画面の情報が古いことが原因（相手が先に終わらせた等）。
+          // 古いまま残すと決着済みの請求に実行ボタンが出たままになり、押しても
+          // 同じ失敗を繰り返す。取り直して今の状態に合った画面へ切り替える。
+          //
+          // awaitして送信中のままにする。取り直しが終わるまでボタンを押せると、
+          // 古い画面のまま同じ失敗をもう一度起こせてしまう。
+          await refresh(generation);
         })
         .finally(() => {
           if (generationRef.current === generation) {
@@ -152,7 +174,7 @@ export function usePaymentRequestConfirmation(
           }
         });
     },
-    [id],
+    [id, refresh],
   );
 
   return { request, isLoading, isSubmitting, error, completed, respond };
