@@ -33,6 +33,7 @@ export function createFriendQueryRouter(
 
   router.get('/', (request, response, next) => {
     void (async () => {
+      const currentUser = requireCurrentUser(response);
       const sortValue = request.query.sort;
       if (sortValue !== undefined && typeof sortValue !== 'string') {
         throw new InvalidFriendRequestError('sort must be a string.');
@@ -49,7 +50,7 @@ export function createFriendQueryRouter(
         throw new InvalidFriendRequestError('cursor is invalid.');
       }
       const result = await dependencies.listFriends.execute({
-        currentUserPublicId: requireCurrentUser(response).userId,
+        currentUserPublicId: currentUser.userId,
         cursor,
         sort,
       });

@@ -469,6 +469,7 @@ describe('backend application', () => {
 
     const response = await request(app)
       .get('/api/friends')
+      .set('Cookie', TEST_SESSION_COOKIE)
       .query({ sort: 'unknown' });
 
     expect(response.status).toBe(400);
@@ -476,6 +477,22 @@ describe('backend application', () => {
       error: {
         code: 'INVALID_REQUEST',
         message: 'sort must be one of created-asc or created-desc.',
+      },
+    });
+  });
+
+  it('未認証なら不正なsort付きの友達一覧でも401にする', async () => {
+    const { app } = createTestApp();
+
+    const response = await request(app)
+      .get('/api/friends')
+      .query({ sort: 'unknown' });
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({
+      error: {
+        code: 'NOT_AUTHENTICATED',
+        message: 'Authentication is required.',
       },
     });
   });
