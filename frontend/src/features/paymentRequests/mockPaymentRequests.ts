@@ -3,9 +3,11 @@ import type {
   PaymentRequest,
   PaymentRequestAction,
   PaymentRequestDirection,
-  PaymentRequestPage,
   PaymentRequestStatus,
 } from './types';
+
+// 確認画面だけがまだモックを使う。一覧2画面は実APIへ繋いだため、
+// ページングを模していた関数はここから消している（Issue #70）。
 
 // 添字アクセスがundefinedにならないよう、先頭要素の存在を型で保証する。
 type NonEmpty<T> = readonly [T, ...T[]];
@@ -201,47 +203,9 @@ const mockHistories: Record<PaymentRequestDirection, PaymentRequest[]> = {
   ]),
 };
 
-// 実APIは20件固定で返す（Issue #70）。取得と表示の単位を分けず、そのまま並べる。
-const PAGE_SIZE = 20;
-
-function slicePage(
-  source: PaymentRequest[],
-  cursor: string | null,
-): PaymentRequestPage {
-  const start = cursor === null ? 0 : Number(cursor);
-  const end = start + PAGE_SIZE;
-
-  return {
-    requests: source.slice(start, end),
-    nextCursor: end < source.length ? String(end) : null,
-  };
-}
-
-/**
- * モックの受けた請求（未払い）を1ページ分返す。ホーム画面用。
- * 実APIは GET /api/payment-requests?direction=received&status=pending（Issue #70）。
- * カーソルは次ページ先頭のindexを文字列にしただけの簡易版。
- */
-export function fetchMockReceivedPaymentRequestPage(
-  cursor: string | null = null,
-): Promise<PaymentRequestPage> {
-  return Promise.resolve(slicePage(mockReceivedPaymentRequests, cursor));
-}
-
-/**
- * モックの請求履歴を1ページ分返す。状態で絞らず、決着済みも含める。
- * 実APIは GET /api/payment-requests?direction=<direction>（Issue #70）。
- */
-export function fetchMockPaymentRequestHistoryPage(
-  direction: PaymentRequestDirection,
-  cursor: string | null = null,
-): Promise<PaymentRequestPage> {
-  return Promise.resolve(slicePage(mockHistories[direction], cursor));
-}
-
 /**
  * モックの請求を1件返す。承認画面が開いた時点で最新を取り直す用途（Issue #61）。
- * 実APIは GET /api/payment-requests/:id 相当（未設計）。
+ * 実APIは GET /api/payment-requests/:id（#122でマージ済み、繋ぎ込みは未着手）。
  * 一覧から渡された情報をそのまま信じず、開いた時点の状態を確認するために使う。
  */
 export function fetchMockPaymentRequest(

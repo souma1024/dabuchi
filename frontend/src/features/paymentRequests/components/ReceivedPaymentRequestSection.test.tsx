@@ -1,23 +1,44 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import * as mockModule from '../mockPaymentRequests';
+import { installManualIntersectionObserver } from '../../../test/intersectionObserver';
+import { fetchPaymentRequests } from '../api/paymentRequestsClient';
 import type { PaymentRequest } from '../types';
 import { ReceivedPaymentRequestSection } from './ReceivedPaymentRequestSection';
-import { installManualIntersectionObserver } from '../../../test/intersectionObserver';
+
+vi.mock('../api/paymentRequestsClient', () => ({
+  fetchPaymentRequests: vi.fn(),
+}));
+
+const mockedFetch = vi.mocked(fetchPaymentRequests);
 
 // 一覧末尾の監視は手で発火させる（jsdomにIntersectionObserverが無いため）。
 const intersection = installManualIntersectionObserver();
 
+/** 表示件数の検証用に、必要な分だけ請求を作る。 */
+function makeRequests(count: number, offset = 0): PaymentRequest[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `payment-request-${String(offset + index + 1)}`,
+    counterparty: {
+      id: `5e5a4a1e-3b42-4f47-8b1f-b77ef98bf${String(offset + index + 2).padStart(3, '0')}`,
+      name: `テストユーザー${String(offset + index + 1)}`,
+      profileUrl: '/assets/profiles/human2.png',
+    },
+    amount: 3000,
+    status: 'pending',
+    createdAt: '2026-08-03T01:00:00.000Z',
+    respondedAt: null,
+  }));
+}
+
 beforeEach(() => {
   intersection.reset();
-});
-
-afterEach(() => {
-  // unstubAllGlobalsは呼ばない。setup.tsが登録したIntersectionObserverまで
-  // 消えてしまい、テスト終了後に遅れて走るeffectがundefinedを参照するため。
-  vi.restoreAllMocks();
+  mockedFetch.mockReset();
+  mockedFetch.mockResolvedValue({
+    requests: makeRequests(2),
+    nextCursor: null,
+  });
 });
 
 // 請求履歴へのLinkを含むため、Router配下で描画する。
@@ -29,36 +50,26 @@ function renderSection() {
   );
 }
 
-// ページングの挙動は件数に依存しない。実データ（25件）をそのまま描画すると
-// 並列実行時に描画待ちが伸びてタイムアウトすることがあるため、少件数で確認する。
-function stubPages(pageSizes: readonly number[]) {
-  let index = 0;
-
-  return vi
-    .spyOn(mockModule, 'fetchMockReceivedPaymentRequestPage')
-    .mockImplementation(() => {
-      const size = pageSizes[index] ?? 0;
-      const isLast = index >= pageSizes.length - 1;
-      const [seed] = mockModule.mockReceivedPaymentRequests;
-      const requests: PaymentRequest[] =
-        seed === undefined
-          ? []
-          : Array.from({ length: size }, (_, i) => ({
-              ...seed,
-              id: `stub-${String(index)}-${String(i)}`,
-            }));
-      index += 1;
-
-      return Promise.resolve({
-        requests,
-        nextCursor: isLast ? null : String(index),
-      });
-    });
-}
-
 describe('ReceivedPaymentRequestSection', () => {
-  // 実APIは20件固定で返す（Issue #70）。取得した分をそのまま並べる。
-  it('初期表示は1ページ分の20件にする', async () => {
+  // ホーム画面は未対応の請求だけを出す（Issue #44）。
+  it('受けた請求の未払いだけを取得する', async () => {
+    renderSection();
+
+    await screen.findAllByRole('listitem');
+
+    expect(mockedFetch).toHaveBeenCalledWith({
+      direction: 'received',
+      status: 'pending',
+      cursor: null,
+    });
+  });
+
+  it('取得した件数をそのまま並べる', async () => {
+    mockedFetch.mockResolvedValue({
+      requests: makeRequests(20),
+      nextCursor: null,
+    });
+
     renderSection();
 
     // 末尾の読み込み検知用の要素を除いた件数で数える。
@@ -70,70 +81,98 @@ describe('ReceivedPaymentRequestSection', () => {
 
     const firstItem = (await screen.findAllByRole('listitem'))[0];
 
-    expect(firstItem).toHaveTextContent('佐藤 花子');
+    expect(firstItem).toHaveTextContent('テストユーザー1');
     expect(firstItem).toHaveTextContent('3,000円');
-    expect(firstItem).toHaveTextContent('8/5');
+    expect(firstItem).toHaveTextContent('8/3');
   });
 
   it('下端に達したら続きを読み込んで追記する', async () => {
-    stubPages([2, 1]);
+    mockedFetch
+      .mockResolvedValueOnce({ requests: makeRequests(2), nextCursor: '2' })
+      .mockResolvedValueOnce({
+        requests: makeRequests(1, 2),
+        nextCursor: null,
+      });
     renderSection();
-
     await screen.findAllByRole('listitem');
+
     await intersection.trigger();
 
     await waitFor(() => {
       expect(screen.getAllByRole('listitem')).toHaveLength(3);
     });
+    expect(mockedFetch).toHaveBeenLastCalledWith({
+      direction: 'received',
+      status: 'pending',
+      cursor: '2',
+    });
   });
 
   // 元のアンバー色のボタンを一覧に置き換えたぶん、件数で気づけるようにする（Issue #44）。
   it('続きがあるときは件数に+を付ける', async () => {
-    stubPages([2, 1]);
+    mockedFetch.mockResolvedValue({
+      requests: makeRequests(2),
+      nextCursor: '2',
+    });
+
     renderSection();
 
     await screen.findAllByRole('listitem');
-
     expect(
       screen.getByRole('heading', { name: /請求されています/ }),
     ).toHaveTextContent('2+');
   });
 
   it('すべて読み込んだら実際の件数だけを出す', async () => {
-    stubPages([2, 1]);
+    mockedFetch
+      .mockResolvedValueOnce({ requests: makeRequests(2), nextCursor: '2' })
+      .mockResolvedValueOnce({
+        requests: makeRequests(1, 2),
+        nextCursor: null,
+      });
     renderSection();
+    await screen.findAllByRole('listitem');
 
+    await intersection.trigger();
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('listitem')).toHaveLength(3);
+    });
+    const heading = screen.getByRole('heading', { name: /請求されています/ });
+    expect(heading).toHaveTextContent('3');
+    expect(heading).not.toHaveTextContent('3+');
+  });
+
+  // nextCursorがnullなら監視要素自体を描画しないため、追加の取得は起きない。
+  it('最後まで読み込んだらそれ以上取得しない', async () => {
+    mockedFetch
+      .mockResolvedValueOnce({ requests: makeRequests(2), nextCursor: '2' })
+      .mockResolvedValueOnce({
+        requests: makeRequests(1, 2),
+        nextCursor: null,
+      });
+    renderSection();
     await screen.findAllByRole('listitem');
     await intersection.trigger();
     await waitFor(() => {
       expect(screen.getAllByRole('listitem')).toHaveLength(3);
     });
 
-    const heading = screen.getByRole('heading', { name: /請求されています/ });
-    expect(heading).toHaveTextContent('3');
-    expect(heading).not.toHaveTextContent('3+');
+    // 2ページ目でnextCursorがnullになったため、監視要素が消えて発火しない。
+    expect(mockedFetch).toHaveBeenCalledTimes(2);
   });
 
   it('請求が0件なら件数を出さない', async () => {
-    vi.spyOn(
-      mockModule,
-      'fetchMockReceivedPaymentRequestPage',
-    ).mockResolvedValue({ requests: [], nextCursor: null });
+    mockedFetch.mockResolvedValue({ requests: [], nextCursor: null });
 
     renderSection();
 
     await screen.findByText('請求はありません');
-
-    expect(
-      screen.getByRole('heading', { name: /請求されています/ }),
-    ).toHaveTextContent('請求されています');
-    expect(
-      screen.getByRole('heading', { name: /請求されています/ }),
-    ).not.toHaveTextContent('0');
+    const heading = screen.getByRole('heading', { name: /請求されています/ });
+    expect(heading).toHaveTextContent('請求されています');
+    expect(heading).not.toHaveTextContent('0');
   });
 
-  // 遷移先の請求履歴一覧（Issue #61）が未実装のため、押せないことを明示する。
-  // spanだと押せないことも押せることも伝わらないため、無効なbuttonにしている。
   it('請求履歴へのリンクを置く', async () => {
     renderSection();
 
@@ -156,43 +195,21 @@ describe('ReceivedPaymentRequestSection', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('最後まで読み込んだらそれ以上増えない', async () => {
-    stubPages([2, 1]);
-    renderSection();
-
-    await screen.findAllByRole('listitem');
-    await intersection.trigger();
-    await waitFor(() => {
-      expect(screen.getAllByRole('listitem')).toHaveLength(3);
-    });
-
-    await intersection.trigger();
-    await waitFor(() => {
-      expect(screen.getAllByRole('listitem')).toHaveLength(3);
-    });
-  });
-
   // セクションごと消すと機能の存在に気づけないため、見出しは残す（Issue #44）。
   it('請求が0件でも見出しを残し、無い旨を伝える', async () => {
-    vi.spyOn(
-      mockModule,
-      'fetchMockReceivedPaymentRequestPage',
-    ).mockResolvedValue({ requests: [], nextCursor: null });
+    mockedFetch.mockResolvedValue({ requests: [], nextCursor: null });
 
     renderSection();
 
     expect(await screen.findByText('請求はありません')).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: '請求されています' }),
+      screen.getByRole('heading', { name: /請求されています/ }),
     ).toBeInTheDocument();
     expect(screen.queryAllByRole('listitem')).toHaveLength(0);
   });
 
   it('取得に失敗したらエラーを伝える', async () => {
-    vi.spyOn(
-      mockModule,
-      'fetchMockReceivedPaymentRequestPage',
-    ).mockRejectedValue(new Error('取得に失敗しました'));
+    mockedFetch.mockRejectedValue(new Error('取得に失敗しました'));
 
     renderSection();
 
