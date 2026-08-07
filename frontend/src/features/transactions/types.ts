@@ -6,10 +6,12 @@ export type { Counterparty };
 /** お金の向き。sentは自分が送った、receivedは自分が受け取った。 */
 export type TransactionDirection = 'sent' | 'received';
 
+/** 取引履歴の並び順。 */
+export type TransactionSort = 'created-desc' | 'created-asc';
+
 /**
  * 取引履歴の1件。
- * バックエンド GET /api/users/:userId/transactions のレスポンス要素に対応する
- * （Issue #18 のResponse案）。API連携時に型を変えずに差し替えられるようにしている。
+ * バックエンド GET /api/transactions のレスポンス要素に対応する。
  */
 export interface Transaction {
   /**

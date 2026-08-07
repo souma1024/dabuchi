@@ -58,7 +58,7 @@ describe('取引履歴への導線', () => {
       await screen.findByRole('heading', { name: '取引履歴' }),
     ).toBeInTheDocument();
     // 対象ユーザーはserver側で決まるため、フロントはカーソルだけを渡す。
-    expect(mockedFetchTransactions).toHaveBeenCalledWith(null);
+    expect(mockedFetchTransactions).toHaveBeenCalledWith(null, 'created-desc');
     expect(await screen.findByText('佐藤 花子')).toBeInTheDocument();
     expect(screen.getByText('1,200円')).toBeInTheDocument();
 

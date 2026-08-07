@@ -54,6 +54,7 @@ describe('fetchTransactions', () => {
     // URLでユーザーを指定しない（server側のログインユーザーを対象にする）。
     expect(requestedUrl.pathname).toBe('/api/transactions');
     expect(requestedUrl.searchParams.get('cursor')).toBeNull();
+    expect(requestedUrl.searchParams.get('sort')).toBe('created-desc');
   });
 
   it('カーソルを指定すると次ページとしてクエリに載せる', async () => {
@@ -63,6 +64,16 @@ describe('fetchTransactions', () => {
 
     const requestedUrl = mockFetch.mock.calls[0]?.[0] as URL;
     expect(requestedUrl.searchParams.get('cursor')).toBe('eyJjcmVhdGVkQXQi');
+    expect(requestedUrl.searchParams.get('sort')).toBe('created-desc');
+  });
+
+  it('sortを指定するとクエリに載せる', async () => {
+    const mockFetch = stubFetch({ ok: true, body: pageBody([]) });
+
+    await fetchTransactions(null, 'created-asc');
+
+    const requestedUrl = mockFetch.mock.calls[0]?.[0] as URL;
+    expect(requestedUrl.searchParams.get('sort')).toBe('created-asc');
   });
 
   it('最終ページはnextCursorをnullで返す', async () => {
