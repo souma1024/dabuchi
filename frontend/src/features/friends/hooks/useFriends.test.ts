@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FriendPage } from '../api/friendsClient';
 import { fetchFriends } from '../api/friendsClient';
 import { createFriend } from '../testing/friendFactory';
+import type { FriendSort } from '../types';
 import { useFriends } from './useFriends';
 
 vi.mock('../api/friendsClient', () => ({
@@ -31,7 +32,11 @@ describe('useFriends', () => {
     expect(result.current.friends).toEqual(page1.friends);
     expect(result.current.hasMore).toBe(true);
     // clientはユーザーを指定しない（server側のログイン中ユーザーで決まる）。
-    expect(mockedFetchFriends).toHaveBeenCalledWith(null, undefined);
+    expect(mockedFetchFriends).toHaveBeenCalledWith(
+      null,
+      'created-asc',
+      undefined,
+    );
   });
 
   it('loadMoreで次ページを追記し、最終ページでhasMoreがfalseになる', async () => {
@@ -54,6 +59,7 @@ describe('useFriends', () => {
     expect(result.current.hasMore).toBe(false);
     expect(mockedFetchFriends).toHaveBeenLastCalledWith(
       'C1',
+      'created-asc',
       expect.any(AbortSignal),
     );
   });
@@ -99,7 +105,43 @@ describe('useFriends', () => {
       expect(result.current.friends).toEqual([createFriend(3)]);
     });
     // 追加済みのカーソルを引きずらず、1ページ目から取り直す。
-    expect(mockedFetchFriends).toHaveBeenLastCalledWith(null, undefined);
+    expect(mockedFetchFriends).toHaveBeenLastCalledWith(
+      null,
+      'created-asc',
+      undefined,
+    );
+  });
+
+  it('sortが変わると1ページ目から取り直す', async () => {
+    mockedFetchFriends
+      .mockResolvedValueOnce(page1)
+      .mockResolvedValueOnce({ friends: [createFriend(3)], nextCursor: null });
+
+    const { result, rerender } = renderHook(
+      ({ sort }: { sort: FriendSort }) => useFriends(sort),
+      { initialProps: { sort: 'created-asc' as FriendSort } },
+    );
+    await waitFor(() => {
+      expect(result.current.isLoadingInitial).toBe(false);
+    });
+
+    rerender({ sort: 'created-desc' as FriendSort });
+
+    await waitFor(() => {
+      expect(result.current.friends).toEqual([createFriend(3)]);
+    });
+    expect(mockedFetchFriends).toHaveBeenNthCalledWith(
+      1,
+      null,
+      'created-asc',
+      undefined,
+    );
+    expect(mockedFetchFriends).toHaveBeenNthCalledWith(
+      2,
+      null,
+      'created-desc',
+      undefined,
+    );
   });
 
   it('取得に失敗したらerrorを設定する', async () => {

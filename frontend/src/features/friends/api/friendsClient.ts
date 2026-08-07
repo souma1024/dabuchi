@@ -1,4 +1,9 @@
-import type { BlockedFriend, Friend, FriendProfile } from '../types';
+import type {
+  BlockedFriend,
+  Friend,
+  FriendProfile,
+  FriendSort,
+} from '../types';
 
 // 未設定なら同一オリジン（Vite dev serverの /api プロキシ経由）を使う。
 const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? '';
@@ -148,9 +153,16 @@ const ADD_FRIEND_MESSAGES: Record<string, string> = {
   FRIENDSHIP_ALREADY_EXISTS: 'すでに友達です',
 };
 
-function buildFriendsUrl(path: string, cursor?: string | null): URL {
+function buildFriendsUrl(
+  path: string,
+  cursor?: string | null,
+  sort?: FriendSort,
+): URL {
   const base = API_BASE_URL || window.location.origin;
   const url = new URL(path, base);
+  if (sort) {
+    url.searchParams.set('sort', sort);
+  }
   if (cursor) {
     url.searchParams.set('cursor', cursor);
   }
@@ -165,9 +177,10 @@ function buildFriendsUrl(path: string, cursor?: string | null): URL {
  */
 export async function fetchFriends(
   cursor: string | null = null,
+  sort: FriendSort = 'created-asc',
   signal?: AbortSignal,
 ): Promise<FriendPage> {
-  const response = await fetch(buildFriendsUrl('/api/friends', cursor), {
+  const response = await fetch(buildFriendsUrl('/api/friends', cursor, sort), {
     signal,
   });
   if (!response.ok) {

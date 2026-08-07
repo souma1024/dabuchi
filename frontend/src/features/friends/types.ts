@@ -27,3 +27,6 @@ export interface BlockedFriend extends Friend {
   /** ブロックした日時（ISO 8601）。 */
   blockedAt: string;
 }
+
+/** 友達一覧の並び順。 */
+export type FriendSort = 'created-asc' | 'created-desc';
